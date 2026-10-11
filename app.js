@@ -52,8 +52,8 @@
   const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
   const me = () => (pb.authStore.isValid ? pb.authStore.record : null);
   const profileUrl = (slug) => `${location.origin}/${slug}`;
-  // Same page, but Telegram (and other apps) show a preview card with the photo and highlights.
-  const shareUrl = (slug) => `${String(CFG.API_URL || "").replace(/\/+$/, "")}/p/${slug}`;
+  // Profile links show a preview card in Telegram (the Mac mini answers link-preview robots).
+  const shareUrl = profileUrl;
   const fileUrl = (rec, name, thumb) => (name ? pb.files.getURL(rec, name, thumb ? { thumb } : undefined) : "");
 
   function toast(msg, isErr) {
@@ -638,7 +638,7 @@
       try { await navigator.clipboard.writeText(text.value); toast("📋 Text copied! Paste it in Telegram."); }
       catch { text.select(); toast("Press Ctrl+C (or Cmd+C) to copy", true); }
     });
-    const copyLink = h("button", { type: "button", class: "btn" }, "🔗 Copy preview link");
+    const copyLink = h("button", { type: "button", class: "btn" }, "🔗 Copy link");
     copyLink.addEventListener("click", async () => {
       try { await navigator.clipboard.writeText(shareUrl(p.slug)); toast("🔗 Link copied! Telegram shows a preview card when you paste it."); }
       catch { prompt("Copy your link:", shareUrl(p.slug)); }
@@ -678,7 +678,7 @@
       h("p", { class: "faint share-tip" }, shareBtn
         ? "Share to Telegram, pick the chat, and your photos go as an album with the text as the caption."
         : "In Telegram: paste the photos first, then copy the text and paste it as the caption."),
-      h("p", { class: "faint share-tip" }, "Quickest: Copy preview link and paste it on its own. Telegram turns it into a card with your photo and highlights.")));
+      h("p", { class: "faint share-tip" }, "Quickest: Copy link and paste it on its own. Telegram turns it into a card with your photo and highlights.")));
     document.body.append(modal);
     regen();
 
