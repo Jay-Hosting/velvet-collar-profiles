@@ -9,6 +9,17 @@
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
   const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "_"];
+  // "Looking for" choices: [value, emoji, label]. "nothing" can't be combined with the others.
+  const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["nothing", "🌙", "Not looking right now"]];
+  function lookingBadges(values, compact) {
+    const picked = LOOKING.filter(([v]) => (values || []).includes(v));
+    if (!picked.length) return null;
+    if (picked[0][0] === "nothing") return h("div", { class: "looking" + (compact ? " compact" : "") }, h("span", { class: "lk nothing" }, h("span", { "aria-hidden": "true" }, "🌙"), " Not looking right now"));
+    return h("div", { class: "looking" + (compact ? " compact" : ""), "aria-label": "Looking for " + picked.map((x) => x[2].toLowerCase()).join(", ") },
+      compact ? null : h("span", { class: "lk-label" }, "Looking for"),
+      picked.map(([v, e, label]) => h("span", { class: "lk lk-" + v }, h("span", { "aria-hidden": "true" }, e), " " + label)));
+  }
+
   const LINK_PRESETS = [
     ["FetLife", "https://fetlife.com/users/"],
     ["Instagram", "https://instagram.com/"],
@@ -253,6 +264,7 @@
       h("div", { class: "profile-head" },
         h("div", { class: "avatar", "aria-hidden": "true" }, "R"),
         h("div", { class: "profile-name" }, "Rowan"),
+        lookingBadges(["friends", "play"]),
         h("div", { class: "mood" }, h("span", { class: "em" }, "🎀"), "feeling bratty, bring snacks"),
         h("div", { class: "chips" }, h("span", { class: "chip gold" }, "Brat"), h("span", { class: "chip" }, "she/they")),
         h("div", { class: "key-list" },
@@ -295,7 +307,7 @@
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,slug,display_name,style,theme" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,slug,display_name,style,theme,looking_for" });
     const rows = h("div", { class: "link-list" });
     const draw = (term) => {
       rows.replaceChildren();
@@ -305,7 +317,7 @@
       for (const m of items) {
         const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
           h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
-          h("span", { class: "txt" }, h("b", {}, m.display_name), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, ""))),
+          h("span", { class: "txt" }, h("b", {}, m.display_name), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
         rows.append(row);
@@ -353,6 +365,7 @@
         avatarEl(p),
         h("h1", { class: "profile-name" }, p.display_name),
         tgUser ? h("div", { class: "handle" }, "@" + tgUser) : null,
+        lookingBadges(p.looking_for),
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
           p.pronouns ? h("span", { class: "chip" }, p.pronouns) : null,
@@ -504,6 +517,23 @@
         h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
         h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
       h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
+
+    // "Looking for" picker
+    let lookingSel = (rec.looking_for || []).slice();
+    const lookingPills = h("div", { class: "pills", role: "group", "aria-label": "Looking for" });
+    function drawLooking() {
+      lookingPills.replaceChildren(...LOOKING.map(([v, e, label]) =>
+        h("button", { type: "button", class: "pill lk-pill", "aria-pressed": String(lookingSel.includes(v)), onclick: () => {
+          if (v === "nothing") lookingSel = lookingSel.includes("nothing") ? [] : ["nothing"];
+          else { lookingSel = lookingSel.filter((x) => x !== "nothing"); lookingSel = lookingSel.includes(v) ? lookingSel.filter((x) => x !== v) : lookingSel.concat(v); }
+          drawLooking();
+        } }, h("span", { "aria-hidden": "true" }, e), label)));
+    }
+    drawLooking();
+    const lookingField = h("div", { class: "field full" },
+      h("span", { class: "label" }, "What you're looking for right now"),
+      lookingPills,
+      h("span", { class: "hint" }, "Shown right under your name. Pick any that fit, and change it whenever things change."));
 
     // member list opt-in
     const listedBox = h("input", { type: "checkbox", checked: !!rec.listed });
@@ -762,6 +792,7 @@
         fd.append("tg_username", document.getElementById("f_tg_username").value.trim().replace(/^@/, ""));
         fd.append("style", JSON.stringify(look));
         fd.append("listed", listedBox.checked ? "true" : "false");
+        if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
         fd.append("play_links", JSON.stringify(readPlayLinks()));
@@ -874,6 +905,7 @@
         h("section", { class: "panel" }, h("h2", {}, "Who you are"),
           h("div", { class: "form-grid" },
             h("div", { class: "field full" }, h("span", { class: "label" }, "Profile photo"), avatarBox),
+            lookingField,
             field("Display name", nameI),
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
