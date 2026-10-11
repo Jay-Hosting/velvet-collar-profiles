@@ -589,3 +589,4 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 /* member list: profile photos instead of initials */
 .link .mono.photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; padding: 0; border: 2px solid var(--gold); background: var(--panel-solid); }
 .link-list .link .mono:not(.photo) { width: 44px; height: 44px; border-radius: 50%; }
+.lk-open { background: rgba(152, 138, 227, .16); border-color: rgba(152, 138, 227, .55); color: #d9d2ff; }

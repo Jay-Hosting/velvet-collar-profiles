@@ -9,8 +9,9 @@
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
   const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "_"];
-  // "Looking for" choices: [value, emoji, label]. "nothing" can't be combined with the others.
-  const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["nothing", "🌙", "Not looking right now"]];
+  // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
+  const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
+  const SOLO = ["open", "nothing"];
   function lookingBadges(values, compact) {
     const picked = LOOKING.filter(([v]) => (values || []).includes(v));
     if (!picked.length) return null;
@@ -526,8 +527,8 @@
     function drawLooking() {
       lookingPills.replaceChildren(...LOOKING.map(([v, e, label]) =>
         h("button", { type: "button", class: "pill lk-pill", "aria-pressed": String(lookingSel.includes(v)), onclick: () => {
-          if (v === "nothing") lookingSel = lookingSel.includes("nothing") ? [] : ["nothing"];
-          else { lookingSel = lookingSel.filter((x) => x !== "nothing"); lookingSel = lookingSel.includes(v) ? lookingSel.filter((x) => x !== v) : lookingSel.concat(v); }
+          if (SOLO.includes(v)) lookingSel = lookingSel.includes(v) ? [] : [v];
+          else { lookingSel = lookingSel.filter((x) => !SOLO.includes(x)); lookingSel = lookingSel.includes(v) ? lookingSel.filter((x) => x !== v) : lookingSel.concat(v); }
           drawLooking();
         } }, h("span", { "aria-hidden": "true" }, e), label)));
     }
@@ -535,7 +536,7 @@
     const lookingField = h("div", { class: "field full" },
       h("span", { class: "label" }, "What you're looking for right now"),
       lookingPills,
-      h("span", { class: "hint" }, "Shown right under your name. Pick any that fit, and change it whenever things change."));
+      h("span", { class: "hint" }, "Shown right under your name. Pick any that fit, or Open to anything, and change it whenever things change."));
 
     // member list opt-in
     const listedBox = h("input", { type: "checkbox", checked: !!rec.listed });
