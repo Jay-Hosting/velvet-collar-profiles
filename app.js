@@ -481,6 +481,99 @@
     catch { prompt("Copy this post:", text); }
   }
 
+  // ---------- reactions, kind notes and the compatibility peek ----------
+  const REACT = [["fire", "🔥", "Hot"], ["heart", "💜", "Love this"], ["paw", "🐾", "Cute"], ["sparkle", "✨", "Fun"]];
+  function reactionBar(p, social, onChange) {
+    if (social.reactions_off) return null;
+    const user = me();
+    const isOwner = social.isOwner;
+    return h("div", { class: "reactions", role: "group", "aria-label": "Reactions" },
+      REACT.map(([k, e, label]) => {
+        const n = social.reactions[k] || 0;
+        const pressed = social.mine.includes(k);
+        const b = h("button", { type: "button", class: "react", "aria-pressed": String(pressed), title: label, disabled: isOwner },
+          h("span", { "aria-hidden": "true" }, e), h("span", { class: "n" }, String(n)), h("span", { class: "sr" }, label));
+        if (!isOwner) b.addEventListener("click", async () => {
+          if (!user) return toast("Log in to react", true);
+          b.disabled = true;
+          try { onChange(await pb.send("/api/vc/react", { method: "POST", body: { slug: p.slug, emoji: k } })); }
+          catch (err) { toast(errMsg(err), true); b.disabled = false; }
+        });
+        return b;
+      }),
+      h("span", { class: "react-hint" }, isOwner ? "Reactions from members" : user ? "Anonymous" : "Log in to react"));
+  }
+  function notesSection(p, social, refresh) {
+    const user = me();
+    if (social.notes_off && !social.isOwner) return null;
+    const when = (d) => { try { return new Date(d.replace(" ", "T")).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
+    const noteCard = (n, actions) => h("div", { class: "note" },
+      h("p", {}, n.text),
+      h("div", { class: "note-foot" },
+        h("span", {}, n.author ? h("a", { href: "/" + n.author.slug, "data-nav": "" }, "— " + n.author.name) : "— Anonymous", " · " + when(n.created)),
+        actions));
+    const del = (n, label) => h("button", { type: "button", class: "see-all", onclick: async () => {
+      try { await pb.send("/api/vc/notes/" + n.id, { method: "DELETE" }); toast("Removed"); refresh(); } catch (err) { toast(errMsg(err), true); }
+    } }, label || "Remove");
+    const parts = [];
+    if (social.isOwner && social.pending.length) {
+      parts.push(h("div", { class: "pending" },
+        h("h3", { class: "tag-label" }, `Waiting for your OK (${social.pending.length})`),
+        social.pending.map((n) => noteCard(n, h("span", { class: "note-actions" },
+          h("button", { type: "button", class: "btn small gold", onclick: async () => {
+            try { await pb.send("/api/vc/notes/" + n.id + "/approve", { method: "POST" }); toast("Added to your page"); refresh(); } catch (err) { toast(errMsg(err), true); }
+          } }, "Show it"), del(n, "Delete"))))));
+    }
+    if (social.notes.length) parts.push(h("div", { class: "notes" }, social.notes.map((n) => noteCard(n, social.isOwner ? del(n) : null))));
+    if (!social.isOwner && !social.notes_off) {
+      if (!user) parts.push(h("p", { class: "faint" }, h("a", { href: "/login", "data-nav": "" }, "Log in"), " to leave a kind note."));
+      else {
+        const ta = h("textarea", { maxlength: 280, rows: 2, placeholder: `Say something nice to ${p.display_name}…`, "aria-label": "Your note" });
+        const signed = h("input", { type: "checkbox", checked: true });
+        const send = h("button", { type: "button", class: "btn small gold" }, "Send");
+        send.addEventListener("click", async () => {
+          if (ta.value.trim().length < 2) return ta.focus();
+          send.disabled = true;
+          try { await pb.send("/api/vc/notes", { method: "POST", body: { slug: p.slug, text: ta.value.trim(), signed: signed.checked } }); toast(`Sent! It shows up once ${p.display_name} OKs it.`); refresh(); }
+          catch (err) { toast(errMsg(err), true); send.disabled = false; }
+        });
+        parts.push(h("div", { class: "note-form" }, ta, h("div", { class: "note-foot" }, h("label", { class: "check" }, signed, "Sign with my name"), send)));
+        if (social.minePending.length) parts.push(h("p", { class: "faint" }, `You have ${social.minePending.length} note${social.minePending.length > 1 ? "s" : ""} waiting for ${p.display_name}'s OK.`));
+      }
+    }
+    if (!parts.length) return null;
+    return h("section", { class: "prose kind-words" }, h("h2", {}, "Kind words"), ...parts);
+  }
+  const isKJ = (u) => /jay-hosting\.github\.io\/kink-jars/i.test(u || "");
+  async function compatSection(p, holder) {
+    const K = window.KinkJarsImport, user = me();
+    if (!K || !user || user.id === p.id || p.matches_off) return;
+    const theirs = (p.play_links || []).find((l) => isKJ(l.url));
+    if (!theirs) return;
+    const mine = (user.play_links || []).find((l) => isKJ(l.url));
+    if (!mine) {
+      holder.replaceChildren(h("section", { class: "compat nudge" }, h("p", {}, "💞 Add your Kink Jars shelf in your ", h("a", { href: "/edit#playroom", "data-nav": "" }, "Playroom tab"), ` to see what you and ${p.display_name} have in common.`)));
+      return;
+    }
+    holder.replaceChildren(h("section", { class: "compat" }, h("p", { class: "faint" }, "Comparing shelves…")));
+    try {
+      const [a, b] = await Promise.all([K.resolve(mine.url), K.resolve(theirs.url)]);
+      const c = K.compare(a, b);
+      const total = c.love.length + c.enjoy.length + c.curious.length;
+      const rows = [];
+      if (c.love.length) rows.push(h("div", { class: "tag-group" }, h("h3", { class: "tag-label" }, "💞 You both love"), tagRow(c.love, { max: 8, rotate: true, cls: "tag-love" })));
+      if (c.enjoy.length) rows.push(h("div", { class: "tag-group" }, h("h3", { class: "tag-label" }, "😊 You both enjoy"), tagRow(c.enjoy, { max: 6, rotate: true, cls: "tag-enjoy" })));
+      if (c.curious.length) rows.push(h("div", { class: "tag-group" }, h("h3", { class: "tag-label" }, "🤔 Curious together"), tagRow(c.curious, { max: 6, rotate: true, cls: "tag-curious" })));
+      if (c.heads.length) rows.push(h("div", { class: "tag-group" }, h("h3", { class: "tag-label" }, "⚠️ You're into it, it's on their limits"), tagRow(c.heads, { max: 6, rotate: false, cls: "tag-limit" })));
+      holder.replaceChildren(h("section", { class: "compat" },
+        h("h2", {}, `You & ${p.display_name}`),
+        h("p", { class: "faint" }, total ? `${total} things in common on your Kink Jars shelves. A conversation starter, not a promise: always ask first.` : "No overlaps on your shelves yet. Plenty to talk about anyway!"),
+        ...rows));
+    } catch (err) {
+      holder.replaceChildren(h("section", { class: "compat" }, h("p", { class: "faint" }, "Couldn't compare shelves right now: " + (err.message || "try again later"))));
+    }
+  }
+
   // ---------- profile view ----------
   async function renderProfile(slug) {
     if (!slug || RESERVED.includes(slug)) return notFound();
@@ -504,6 +597,7 @@
     const gameFor = (u) => games.find((g) => { try { const a = new URL(g.url), b = new URL(u); return a.host === b.host && b.pathname.startsWith(a.pathname.replace(/\/$/, "")); } catch { return false; } });
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
+    const reactHolder = h("div", { class: "react-holder" });
     const head = h("div", { class: "profile-card" },
       h("div", { class: "banner" }),
       h("div", { class: "profile-head" },
@@ -521,7 +615,8 @@
           data.isOwner ? h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page")
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           h("button", { class: "btn", onclick: () => copyPost(p, data.isOwner), title: "Copies a fun post with your link, ready to paste in Telegram" }, "📣 Share in Telegram"),
-          h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link"))));
+          h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
+        reactHolder));
 
     const blocks = [];
     blocks.push(head);
@@ -552,6 +647,8 @@
     }
 
     const main = [];
+    const compatHolder = h("div", {});
+    main.push(compatHolder);
     if (p.bio) main.push(h("section", { class: "prose" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
     const prompts = (p.prompts || []).filter((x) => x && x.q && x.a);
     if (prompts.length) {
@@ -576,15 +673,30 @@
           care.reply ? [h("dt", {}, "I usually reply"), h("dd", {}, REPLY[care.reply])] : null)));
     }
     if (photos.length) main.push(gallerySection(photos));
+    const notesHolder = h("div", {});
+    main.push(notesHolder);
 
-    if (!side.length && !main.length) {
-      blocks.push(h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your links and photos from Edit." : "Nothing here yet."));
-    } else {
-      blocks.push(h("div", { class: "profile-body" + (side.length ? "" : " no-side") },
-        side.length ? h("aside", { class: "side" }, side) : null,
-        main.length ? h("div", { class: "main" }, main) : null));
+    if (!side.length && main.length === 2) {
+      main.splice(1, 0, h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your links and photos from Edit." : "Nothing here yet."));
     }
+    blocks.push(h("div", { class: "profile-body" + (side.length ? "" : " no-side") },
+      side.length ? h("aside", { class: "side" }, side) : null,
+      h("div", { class: "main" }, main)));
     app.replaceChildren(...blocks);
+
+    // re-render reactions with fresh counts after each tap
+    const drawReactions = (social) => reactHolder.replaceChildren(reactionBar(p, social, drawReactions) || "");
+    (async () => {
+      try {
+        const social = await pb.send("/api/vc/social/" + encodeURIComponent(p.slug), {});
+        drawReactions(social);
+        notesHolder.replaceChildren(notesSection(p, social, refreshNotes) || "");
+      } catch {}
+    })();
+    async function refreshNotes() {
+      try { const social = await pb.send("/api/vc/social/" + encodeURIComponent(p.slug), {}); drawReactions(social); notesHolder.replaceChildren(notesSection(p, social, refreshNotes) || ""); } catch {}
+    }
+    compatSection(p, compatHolder);
   }
 
   function gallerySection(photos) {
@@ -701,6 +813,9 @@
 
     // member list opt-in
     const listedBox = h("input", { type: "checkbox", checked: !!rec.listed });
+    const reactBox = h("input", { type: "checkbox", checked: !rec.reactions_off });
+    const notesBox = h("input", { type: "checkbox", checked: !rec.notes_off });
+    const matchBox = h("input", { type: "checkbox", checked: !rec.matches_off });
 
     // ---------- look settings (Settings tab) ----------
     let look = L.resolve(rec.style, rec.theme);
@@ -837,7 +952,12 @@
             h("div", { class: "field full" },
               h("p", { class: "muted", style: "margin:0" }, "Anyone you share your link with can see your page. It isn't searchable on the web."),
               h("label", { class: "check", style: "margin-top:8px" }, listedBox, "Put me on the member list"),
-              h("span", { class: "hint" }, "Logged-in members can browse the list. Leave it off and people only find you through your link.")))),
+              h("span", { class: "hint" }, "Logged-in members can browse the list. Leave it off and people only find you through your link.")),
+            h("div", { class: "field full" },
+              h("span", { class: "label" }, "On my page"),
+              h("label", { class: "check" }, reactBox, "Let members leave reactions (🔥 💜 🐾 ✨, always anonymous)"),
+              h("label", { class: "check" }, notesBox, "Let members leave kind notes (you OK each one first)"),
+              h("label", { class: "check" }, matchBox, "Show logged-in members what we have in common on Kink Jars")))),
         h("section", { class: "panel" }, h("h2", {}, "Account"),
           passwordForm(),
           h("div", { class: "actions", style: "margin:16px 0 0" },
@@ -958,6 +1078,9 @@
         fd.append("tg_username", document.getElementById("f_tg_username").value.trim().replace(/^@/, ""));
         fd.append("style", JSON.stringify(look));
         fd.append("listed", listedBox.checked ? "true" : "false");
+        fd.append("reactions_off", reactBox.checked ? "false" : "true");
+        fd.append("notes_off", notesBox.checked ? "false" : "true");
+        fd.append("matches_off", matchBox.checked ? "false" : "true");
         if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));

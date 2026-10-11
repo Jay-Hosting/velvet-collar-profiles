@@ -127,5 +127,28 @@
   }
   const limitsText = (s) => fit(([l]) => join(l, "\n"), [s.limits]);
 
-  window.KinkJarsImport = { resolve, parse, summarize, intoText, limitsText };
+  // Compare two shelves. A split jar matches when one person's doing side meets the other's receiving side.
+  function compare(mine, theirs) {
+    const love = [], enjoy = [], curious = [], heads = [];
+    const ok = (v) => v >= 1 && v <= 5;
+    const add = (list, text, score) => list.push({ text, score });
+    for (const [code, ab] of mine.r) {
+      const t = theirs.r.get(code); const jar = BY_CODE.get(code);
+      if (!t || !jar) continue;
+      const pairs = jar.sides
+        ? [[ab[0], t[1], `${jar.label} (you: ${jar.sides[0].toLowerCase()} · them: ${jar.sides[1].toLowerCase()})`],
+           [ab[1], t[0], `${jar.label} (you: ${jar.sides[1].toLowerCase()} · them: ${jar.sides[0].toLowerCase()})`]]
+        : [[ab[0] || ab[1], t[0] || t[1], jar.label]];
+      for (const [m, th, text] of pairs) {
+        if (!m || !th) continue;
+        if (ok(m) && ok(th)) add(m >= 4 && th >= 4 ? love : enjoy, text, m + th);
+        else if ((m === MAYBE && (ok(th) || th === MAYBE)) || (th === MAYBE && ok(m))) add(curious, text, (ok(m) ? m : 0) + (ok(th) ? th : 0));
+        else if (th === HARDNO && ok(m) && m >= 3) add(heads, text, m);
+      }
+    }
+    const top = (l) => l.sort((a, b) => b.score - a.score).map((x) => x.text);
+    return { love: top(love), enjoy: top(enjoy), curious: top(curious), heads: top(heads) };
+  }
+
+  window.KinkJarsImport = { resolve, parse, summarize, intoText, limitsText, compare };
 })();

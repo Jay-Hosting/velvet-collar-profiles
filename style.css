@@ -641,3 +641,32 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .prompt-top { display: flex; gap: 8px; align-items: center; }
 .prompt-top select { flex: 1; min-width: 0; }
 .prompt-row textarea { min-height: 64px; }
+
+/* reactions */
+.react-holder:empty { display: none; }
+.reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 16px; grid-column: 1 / -1; }
+.react { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.03); color: var(--text); font-weight: 700; cursor: pointer; transition: transform .1s, border-color .15s; }
+.react:not([disabled]):hover { border-color: var(--gold); }
+.react:not([disabled]):active { transform: scale(.94); }
+.react[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-soft); }
+.react[disabled] { cursor: default; opacity: 1; }
+.react .n { font-size: .85rem; color: var(--muted); }
+.react-hint { color: var(--faint); font-size: .78rem; margin-left: 4px; }
+@media (min-width: 761px) { .profile-card .profile-head > .react-holder { grid-column: 2 / span 2; grid-row: 6; } }
+
+/* kind words */
+.kind-words .notes { display: grid; gap: 10px; }
+.note { padding: 12px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.note p { margin: 0 0 6px; line-height: 1.55; overflow-wrap: anywhere; }
+.note-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; color: var(--faint); font-size: .82rem; }
+.note-foot a { color: var(--muted); }
+.note-actions { display: flex; gap: 10px; align-items: center; }
+.pending { margin-bottom: 14px; padding: 12px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--gold) 50%, transparent); display: grid; gap: 8px; }
+.note-form { display: grid; gap: 8px; margin-top: 12px; }
+.note-form textarea { min-height: 70px; }
+
+/* compatibility */
+.compat { margin: 0 0 30px; padding: 16px 18px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); background: linear-gradient(140deg, var(--gold-soft), transparent 70%); }
+.compat h2 { font-family: var(--slab); font-weight: 600; font-size: 1.2rem; margin: 0 0 4px; color: var(--name-color, var(--pink)); }
+.compat > .faint { margin: 0 0 12px; }
+.compat.nudge p { margin: 0; color: var(--muted); }
