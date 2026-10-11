@@ -585,3 +585,7 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .sample .looking { margin-top: 8px; }
 .sample .looking .lk-label { font-size: .78rem; }
 .sample .looking .lk { font-size: .78rem; padding: 3px 9px; }
+
+/* member list: profile photos instead of initials */
+.link .mono.photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; padding: 0; border: 2px solid var(--gold); background: var(--panel-solid); }
+.link-list .link .mono:not(.photo) { width: 44px; height: 44px; border-radius: 50%; }

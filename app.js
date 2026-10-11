@@ -307,7 +307,7 @@
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,slug,display_name,style,theme,looking_for" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for" });
     const rows = h("div", { class: "link-list" });
     const draw = (term) => {
       rows.replaceChildren();
@@ -316,7 +316,9 @@
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
         const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
-          h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
+          m.avatar
+            ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
+            : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
           h("span", { class: "txt" }, h("b", {}, m.display_name), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
