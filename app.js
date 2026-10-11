@@ -339,6 +339,100 @@
     );
   }
 
+  // ---------- interests & limits: long lists become tags ----------
+  const reduceMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Split on commas that aren't inside brackets, so "Rigger (rope top)" stays whole.
+  function splitItems(str) {
+    const out = []; let cur = "", depth = 0;
+    for (const ch of String(str)) {
+      if (ch === "(") depth++; else if (ch === ")") depth = Math.max(0, depth - 1);
+      if (ch === "," && !depth) { out.push(cur); cur = ""; } else cur += ch;
+    }
+    out.push(cur);
+    return out.map((x) => x.trim()).filter((x) => x && !/^and \d+ more$/i.test(x));
+  }
+  // Returns { groups: [{label, items}] } for list-like text, or { prose } for sentences.
+  function parseTags(text) {
+    const t = String(text || "").trim();
+    if (!t) return null;
+    const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+    const LABEL = /^(love|enjoy|curious about|into|like|maybe|hard limits?|soft limits?|limits?)\s*:\s*(.*)$/i;
+    if (lines.some((l) => LABEL.test(l))) {
+      const groups = [];
+      for (const l of lines) {
+        const m = l.match(LABEL);
+        if (m) groups.push({ label: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase(), items: splitItems(m[2]) });
+        else if (groups.length) groups[groups.length - 1].items.push(...splitItems(l));
+        else groups.push({ label: null, items: splitItems(l) });
+      }
+      return { groups: groups.filter((g) => g.items.length) };
+    }
+    const items = lines.length > 1 ? lines.flatMap((l) => (l.length > 60 ? [l] : splitItems(l))) : splitItems(lines[0]);
+    const listy = items.length >= 3 && items.every((x) => x.length <= 60 && !/[.!?]$/.test(x));
+    return listy ? { groups: [{ label: null, items }] } : { prose: t };
+  }
+  // A row of tags showing `max` at a time. With rotate, it cycles through the rest every few seconds.
+  function tagRow(items, { max, rotate, cls }) {
+    const tags = h("div", { class: "tags" });
+    let start = 0, expanded = false, paused = false, timer = null;
+    const visible = () => {
+      if (expanded || items.length <= max) return items;
+      const out = []; for (let i = 0; i < max; i++) out.push(items[(start + i) % items.length]); return out;
+    };
+    const draw = () => tags.replaceChildren(...visible().map((t) => h("span", { class: "tag " + (cls || "") }, t)));
+    draw();
+    const row = h("div", { class: "tag-row" }, tags);
+    if (items.length > max) {
+      const btn = h("button", { type: "button", class: "see-all" }, `See all ${items.length}`);
+      btn.addEventListener("click", () => {
+        expanded = !expanded; btn.textContent = expanded ? "Show fewer" : `See all ${items.length}`;
+        draw();
+      });
+      row.append(btn);
+      if (rotate && !reduceMotion()) {
+        row.addEventListener("mouseenter", () => (paused = true));
+        row.addEventListener("mouseleave", () => (paused = false));
+        row.addEventListener("focusin", () => (paused = true));
+        row.addEventListener("focusout", () => (paused = false));
+        timer = setInterval(() => {
+          if (!document.body.contains(tags)) return clearInterval(timer);
+          if (paused || expanded || document.hidden) return;
+          tags.classList.add("fading");
+          setTimeout(() => { start = (start + max) % items.length; draw(); tags.classList.remove("fading"); }, 260);
+        }, 4500);
+      }
+    }
+    return row;
+  }
+  function proseBlock(text, cls) {
+    const p = h("p", { class: "bio clamp " + (cls || "") }, text);
+    if (text.length < 400) { p.classList.remove("clamp"); return p; }
+    const btn = h("button", { type: "button", class: "see-all" }, "Read more");
+    btn.addEventListener("click", () => { const open = p.classList.toggle("clamp"); btn.textContent = open ? "Read more" : "Show less"; });
+    return h("div", {}, p, btn);
+  }
+  function intoSection(text) {
+    const parsed = parseTags(text);
+    if (!parsed) return null;
+    const body = parsed.prose ? [proseBlock(parsed.prose)] : parsed.groups.map((g) => {
+      const key = (g.label || "").toLowerCase();
+      const cls = key === "love" ? "tag-love" : key === "enjoy" ? "tag-enjoy" : key.startsWith("curious") || key === "maybe" ? "tag-curious" : "";
+      return h("div", { class: "tag-group" },
+        g.label ? h("h3", { class: "tag-label" }, g.label) : null,
+        tagRow(g.items, { max: key === "love" ? 8 : 6, rotate: true, cls }));
+    });
+    return h("section", { class: "prose" }, h("h2", {}, "Into & curious about"), ...body);
+  }
+  function limitsSection(text) {
+    const parsed = parseTags(text);
+    if (!parsed) return null;
+    // Limits don't rotate: none of them should drop out of view while someone is reading.
+    const body = parsed.prose ? [proseBlock(parsed.prose)] : parsed.groups.map((g) => h("div", { class: "tag-group" },
+      g.label && !/^limits?$/i.test(g.label) ? h("h3", { class: "tag-label" }, g.label) : null,
+      tagRow(g.items, { max: 8, rotate: false, cls: "tag-limit" })));
+    return h("section", { class: "limits-box" }, h("h2", {}, "Limits"), ...body);
+  }
+
   // ---------- profile view ----------
   async function renderProfile(slug) {
     if (!slug || RESERVED.includes(slug)) return notFound();
@@ -412,8 +506,8 @@
     if (p.bio) main.push(h("section", { class: "prose" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
     if (p.into || p.limits) {
       main.push(h("div", { class: "into-limits" },
-        p.into ? h("section", { class: "prose" }, h("h2", {}, "Into & curious about"), h("p", { class: "bio" }, p.into)) : null,
-        p.limits ? h("section", { class: "limits-box" }, h("h2", {}, "Limits"), h("p", { class: "bio" }, p.limits)) : null));
+        intoSection(p.into),
+        limitsSection(p.limits)));
     }
     if (photos.length) main.push(gallerySection(photos));
 
@@ -917,8 +1011,8 @@
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
           h("div", { class: "form-grid" },
-            field("Into & curious about", area("into", { maxlength: 2000 })),
-            field("Limits", area("limits", { maxlength: 2000, placeholder: "Hard and soft limits. Shown in its own box." })))),
+            field("Into & curious about", area("into", { maxlength: 6000, placeholder: "One per line, or comma-separated. Lines starting Love:, Enjoy: or Curious about: become their own rows." })),
+            field("Limits", area("limits", { maxlength: 6000, placeholder: "One per line, or comma-separated. Shown in their own box." })))),
         h("section", { class: "panel" }, h("h2", {}, "Your page"),
           h("div", { class: "form-grid" },
             slugField,

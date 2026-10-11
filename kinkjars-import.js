@@ -101,8 +101,8 @@
     };
   }
 
-  // Profile fields hold up to 2,000 characters; long shelves are shortened with "and N more".
-  const MAX = 1950;
+  // Profile fields hold up to 6,000 characters; very long shelves are shortened with "and N more".
+  const MAX = 5900;
   function fit(build, lists) {
     const cut = lists.map((l) => l.slice());
     let text = build(cut);
