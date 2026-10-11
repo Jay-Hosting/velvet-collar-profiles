@@ -224,22 +224,40 @@
           h("span", { class: "mark", "aria-hidden": "true" }),
           h("span", { class: "name", "aria-hidden": "true" }, "Velvet Collar"),
           h("span", { class: "tagline", "aria-hidden": "true" }, "Curious minds, boundless bodies")),
-        h("h1", {}, "Everything about you, ", h("em", {}, "on one link.")),
-        h("p", {}, `A profile page for ${CFG.GROUP_NAME || "the group"} members: your jars, your links, your photos. Put the link in your Telegram bio and you're done.`),
+        h("h1", {}, "One link for your jars, links and photos"),
+        h("p", {}, `Make a profile page for ${CFG.GROUP_NAME || "the group"}, put the link in your Telegram bio, and people can find everything about you in one tap.`),
         h("div", { class: "actions", style: "justify-content:center" },
           h("a", { class: "btn gold", href: "/join", "data-nav": "" }, "Make my profile"),
           h("a", { class: "btn", href: "/login", "data-nav": "" }, "Log in")),
-        h("p", { class: "faint", style: "margin-top:14px" }, "You'll need the join code from the group chat to make a profile."),
+        h("p", { class: "faint", style: "margin-top:14px" }, "You'll need the join code from the group chat."),
       ),
-      h("div", { class: "features" },
-        feature("Your jars", "Link every Kink Jar you've made so people don't have to dig for them."),
-        feature("Your links", "FetLife, wishlists, socials, photo albums. Anything you want to share."),
-        feature("Your photos", "Upload a gallery. Mark anything NSFW and it stays blurred until tapped."),
-        feature("Your call", "Your page is for anyone you share the link with. Join the member list only if you want to."),
-      ),
+      h("section", { class: "showcase" },
+        sampleTag(),
+        h("ul", { class: "points" },
+          h("li", {}, h("b", {}, "Your jars and links, together. "), "Every Kink Jar you've made, plus FetLife, wishlists and anything else, one tap away."),
+          h("li", {}, h("b", {}, "Photos with a blur switch. "), "Mark a photo NSFW and it stays blurred until someone taps it."),
+          h("li", {}, h("b", {}, "Yours to dress up. "), "Pick colours, patterns and a mood sticker, and say what you're into and where your limits are."),
+          h("li", {}, h("b", {}, "Only shown to who you choose. "), "People see your page through your link. Joining the member list is up to you."))),
     );
   }
-  const feature = (t, d) => h("div", { class: "feature" }, h("h3", {}, t), h("p", {}, d));
+
+  // A static example of a profile, shown on the landing page.
+  function sampleTag() {
+    const card = h("div", { class: "sample", "aria-label": "Example profile", role: "img" },
+      h("div", { class: "banner" }),
+      h("div", { class: "profile-head" },
+        h("div", { class: "avatar", "aria-hidden": "true" }, "R"),
+        h("div", { class: "profile-name" }, "Rowan"),
+        h("div", { class: "mood" }, h("span", { class: "em" }, "🎀"), "feeling bratty, bring snacks"),
+        h("div", { class: "chips" }, h("span", { class: "chip gold" }, "Brat"), h("span", { class: "chip" }, "she/they")),
+        h("div", { class: "key-list" },
+          ["Bratty favourites", "Rope curious"].map((t) => h("div", { class: "key" },
+            h("span", { class: "jar-icon" }, h("span", { class: "lid" }), h("span", { class: "body" })),
+            h("span", { class: "txt" }, h("b", {}, t), h("small", {}, "Kink Jar")))),
+          h("div", { class: "key" }, h("span", { class: "mono" }, "FE"), h("span", { class: "txt" }, h("b", {}, "FetLife"), h("small", {}, "fetlife.com"))))));
+    L.apply(Object.assign(L.resolve({ palette: "bubblegum-brat", pattern: "hearts", ring: "rainbow" }), { font: "slab" }), card);
+    return card;
+  }
 
   function renderLogin(after) {
     try { sessionStorage.setItem("vc_after_login", after); } catch {}
@@ -326,41 +344,43 @@
     }
     blocks.push(head);
 
-    if (p.bio) blocks.push(h("section", { class: "panel" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
-
-    if (p.into || p.limits) {
-      blocks.push(h("div", { class: "two" },
-        p.into ? h("section", { class: "panel" }, h("h2", {}, "Into & curious about"), h("p", { class: "bio" }, p.into)) : null,
-        p.limits ? h("section", { class: "panel limits" }, h("h2", {}, "Limits"), h("p", { class: "bio" }, p.limits)) : null));
-    }
-
+    // Side column: the things people open a profile for. First on phones, beside the text on desktop.
+    const side = [];
     if (jars.length) {
-      blocks.push(h("section", { class: "panel" },
-        h("h2", { class: "section-title" }, "Jars", h("span", { class: "count" }, String(jars.length))),
-        h("div", { class: "jar-grid" }, jars.map((j) =>
-          h("a", { class: "jar", href: safeUrl(j.url), target: "_blank", rel: "noopener" },
-            h("div", { class: "jar-icon", "aria-hidden": "true" }, h("div", { class: "lid" }), h("div", { class: "body" })),
-            h("b", {}, j.title || "Untitled jar"),
-            h("small", {}, hostOf(j.url)))))));
+      side.push(h("section", { class: "keyring" },
+        h("h2", {}, "Jars"),
+        h("div", { class: "key-list" }, jars.map((j) =>
+          h("a", { class: "key", href: safeUrl(j.url), target: "_blank", rel: "noopener" },
+            h("span", { class: "jar-icon", "aria-hidden": "true" }, h("span", { class: "lid" }), h("span", { class: "body" })),
+            h("span", { class: "txt" }, h("b", {}, j.title || "Untitled jar"), h("small", {}, hostOf(j.url))))))));
     }
-
     if (links.length) {
-      blocks.push(h("section", { class: "panel" },
+      side.push(h("section", { class: "keyring" },
         h("h2", {}, "Links"),
-        h("div", { class: "link-list" }, links.map((l) => {
-          const host = hostOf(l.url);
-          const label = l.title || host;
-          return h("a", { class: "link", href: safeUrl(l.url), target: "_blank", rel: "noopener nofollow" },
+        h("div", { class: "key-list" }, links.map((l) => {
+          const label = l.title || hostOf(l.url);
+          return h("a", { class: "key", href: safeUrl(l.url), target: "_blank", rel: "noopener nofollow" },
             h("span", { class: "mono", "aria-hidden": "true" }, label.slice(0, 2).toUpperCase()),
-            h("span", { class: "txt" }, h("b", {}, label), h("small", {}, l.url.replace(/^https?:\/\/(www\.)?/, ""))),
-            h("span", { class: "arrow", "aria-hidden": "true" }, "↗"));
+            h("span", { class: "txt" }, h("b", {}, label), h("small", {}, hostOf(l.url))),
+            h("span", { class: "ext", "aria-hidden": "true" }, "↗"));
         }))));
     }
 
-    if (photos.length) blocks.push(gallerySection(photos));
+    const main = [];
+    if (p.bio) main.push(h("section", { class: "prose" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
+    if (p.into || p.limits) {
+      main.push(h("div", { class: "into-limits" },
+        p.into ? h("section", { class: "prose" }, h("h2", {}, "Into & curious about"), h("p", { class: "bio" }, p.into)) : null,
+        p.limits ? h("section", { class: "limits-box" }, h("h2", {}, "Limits"), h("p", { class: "bio" }, p.limits)) : null));
+    }
+    if (photos.length) main.push(gallerySection(photos));
 
-    if (blocks.length === (data.isOwner ? 2 : 1)) {
+    if (!side.length && !main.length) {
       blocks.push(h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your jars, links and photos from Edit." : "Nothing here yet."));
+    } else {
+      blocks.push(h("div", { class: "profile-body" + (side.length ? "" : " no-side") },
+        side.length ? h("aside", { class: "side" }, side) : null,
+        main.length ? h("div", { class: "main" }, main) : null));
     }
     app.replaceChildren(...blocks);
   }
@@ -385,8 +405,8 @@
       tiles.forEach((t) => t.classList.contains("nsfw") && t.classList.toggle("revealed", shown));
       e.currentTarget.textContent = shown ? "Blur NSFW" : "Show all NSFW";
     } }, "Show all NSFW") : null;
-    return h("section", { class: "panel" },
-      h("div", { class: "toggle-row" }, h("h2", { class: "section-title", style: "margin:0" }, "Photos", h("span", { class: "count" }, String(photos.length))), toggle),
+    return h("section", { class: "prose photos" },
+      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Photos"), toggle),
       grid);
   }
 

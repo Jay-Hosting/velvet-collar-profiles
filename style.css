@@ -48,7 +48,7 @@ a { color: var(--gold); }
 button, input, textarea, select { font: inherit; color: inherit; }
 img { display: block; max-width: 100%; }
 
-.wrap { width: 100%; max-width: 860px; margin: 0 auto; padding: 0 16px; }
+.wrap { width: 100%; max-width: 980px; margin: 0 auto; padding: 0 16px; }
 
 /* ---------- top bar ---------- */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0; }
@@ -413,3 +413,88 @@ textarea { min-height: 110px; resize: vertical; }
 .pw-form .btn { justify-self: start; }
 
 .mood[hidden] { display: none; }
+
+/* ===================== profile page: tag + side column ===================== */
+.profile-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: "main side"; gap: 28px; align-items: start; margin-top: 8px; }
+.profile-body.no-side { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; }
+.profile-body .main { grid-area: main; min-width: 0; }
+.profile-body .side { grid-area: side; position: sticky; top: 16px; display: grid; gap: 18px; }
+
+.prose { margin: 0 0 30px; }
+.prose h2, .keyring h2, .limits-box h2 { font-family: var(--slab); font-weight: 600; font-size: 1.2rem; margin: 0 0 10px; color: var(--text); }
+.prose .bio { max-width: 62ch; line-height: 1.65; color: #e6dfe9; }
+
+.into-limits { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; align-items: start; }
+.into-limits .prose { margin: 0; }
+.limits-box {
+  padding: 16px 18px; border-radius: var(--radius);
+  background: rgba(255, 133, 151, 0.07); border: 1px solid rgba(255, 133, 151, 0.32);
+}
+.limits-box h2 { color: #ffb3c0; }
+.limits-box .bio { margin: 0; line-height: 1.65; }
+
+/* keyring: jars + links as compact rows */
+.keyring { padding: 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
+.keyring h2 { font-size: 1.05rem; margin-bottom: 8px; }
+.key-list { display: grid; gap: 4px; }
+.key {
+  display: flex; align-items: center; gap: 12px; padding: 8px; margin: 0 -8px; border-radius: 12px;
+  color: var(--text); text-decoration: none; min-width: 0;
+}
+a.key:hover, a.key:focus-visible { background: var(--gold-soft); }
+.key .txt { min-width: 0; flex: 1; }
+.key .txt b { display: block; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.key .txt small { display: block; color: var(--faint); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.key .mono {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: .8rem;
+  background: linear-gradient(135deg, var(--v2), var(--v3)); color: var(--on-glow, #fff);
+}
+.key .ext { color: var(--faint); font-size: .9rem; }
+.key .jar-icon { flex: none; width: 34px; height: 38px; display: block; position: relative; }
+.key .jar-icon .lid { position: absolute; left: 7px; right: 7px; top: 0; height: 7px; border-radius: 3px; background: var(--gold); }
+.key .jar-icon .body {
+  position: absolute; left: 3px; right: 3px; top: 6px; bottom: 0; border-radius: 8px 8px 11px 11px;
+  border: 2px solid color-mix(in srgb, var(--gold) 70%, transparent);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--v3) 75%, transparent) 0 55%, transparent 55%);
+}
+
+.photos .toggle-row { margin-bottom: 12px; }
+
+/* profile header: name block beside the avatar on wider screens */
+@media (min-width: 761px) {
+  .profile-card .profile-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 22px; row-gap: 0; align-items: start; }
+  .profile-card .profile-head > .avatar { grid-column: 1; grid-row: 1 / span 4; }
+  .profile-card .profile-head > .profile-name { grid-column: 2; grid-row: 1; margin: 76px 0 2px; }
+  .profile-card .profile-head > .handle { grid-column: 2; grid-row: 2; }
+  .profile-card .profile-head > .mood { grid-column: 2; grid-row: 3; justify-self: start; }
+  .profile-card .profile-head > .chips { grid-column: 2; grid-row: 4; }
+  .profile-card .profile-head > .actions { grid-column: 3; grid-row: 1 / span 2; margin: 80px 0 0; align-self: start; }
+}
+
+@media (max-width: 760px) {
+  .profile-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "side" "main"; gap: 22px; }
+  .profile-body .side { position: static; }
+  .into-limits { grid-template-columns: 1fr; }
+}
+
+/* ===================== landing: sample tag + points ===================== */
+.hero h1 { max-width: 20ch; margin-left: auto; margin-right: auto; }
+.showcase { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 40px; align-items: center; max-width: 820px; margin: 18px auto 10px; }
+.sample { position: relative; border-radius: calc(var(--radius) + 6px); overflow: hidden; border: 1px solid var(--line); background: var(--bg-2); transform: rotate(-2deg); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+.sample .banner { height: 86px; }
+.sample .profile-head { margin-top: -42px; padding: 0 18px 18px; position: relative; }
+.sample .avatar { width: 80px; height: 80px; font-size: 2rem; font-family: var(--slab); }
+.sample .profile-name { font-size: 1.7rem; margin: 10px 0 0; color: var(--name-color); font-family: var(--slab); }
+.sample .mood { font-size: .82rem; }
+.sample .chips { margin-top: 10px; }
+.sample .key-list { margin-top: 12px; }
+.sample .key { margin: 0; padding: 6px 0; }
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.points li { padding-left: 22px; position: relative; color: var(--muted); line-height: 1.6; max-width: 46ch; }
+.points li::before { content: ""; position: absolute; left: 0; top: .45em; width: 10px; height: 10px; border-radius: 50% 50% 0 50%; transform: rotate(45deg); background: var(--lavender); }
+.points li b { color: var(--text); }
+@media (max-width: 760px) {
+  .showcase { grid-template-columns: 1fr; gap: 30px; }
+  .sample { max-width: 320px; margin: 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .sample { transform: none; } }
