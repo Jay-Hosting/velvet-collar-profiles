@@ -93,6 +93,14 @@
     return h("div", { class: "avatar " + (cls || ""), "aria-hidden": "true" }, initial);
   }
 
+  // Avatar with an optional charm hanging off the ring.
+  function avatarWithCharm(rec, charmId, cls) {
+    const charm = (L.CHARMS.find((c) => c.id === charmId) || {}).e;
+    const av = avatarEl(rec, cls);
+    if (!charm) return av;
+    return h("div", { class: "avatar-wrap" }, av, h("span", { class: "charm", "aria-hidden": "true" }, h("span", { class: "charm-loop" }), h("span", { class: "charm-tag" }, charm)));
+  }
+
   // ---------- accounts: log in / make a profile ----------
   function afterAuth(record, isNew) {
     toast((isNew ? "Welcome, " : "Welcome back, ") + record.display_name);
@@ -433,6 +441,46 @@
     return h("section", { class: "limits-box" }, h("h2", {}, "Limits"), ...body);
   }
 
+  // ---------- a fun, ready-to-paste Telegram post ----------
+  function telegramPost(p, isOwner) {
+    const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const url = profileUrl(p.slug);
+    const look = L.resolve(p.style, p.theme);
+    const lines = [];
+    if (isOwner) {
+      lines.push(pickOne([
+        "🐾 Come sniff around my Velvet Collar page!",
+        "💜 New collar, who dis? My profile's up:",
+        "✨ Curious about me? It's all on my tag:",
+        "🔔 *jingle jingle* That's me. Come say hi:",
+        "🎀 Fresh off the shelf: my Velvet Collar profile",
+      ]));
+    } else {
+      lines.push(pickOne([
+        `👀 Psst, go say hi to ${p.display_name}:`,
+        `💜 Spotted on the Velvet Collar shelf: ${p.display_name}`,
+        `🐾 ${p.display_name} has a cute collar tag, take a look:`,
+      ]));
+    }
+    lines.push("");
+    if (look.mood_emoji || look.mood_text) lines.push(`${look.mood_emoji || "💬"} ${look.mood_text || ""}`.trim());
+    const lf = LOOKING.filter(([v]) => (p.looking_for || []).includes(v));
+    if (lf.length) lines.push((lf[0][0] === "nothing" ? "" : "Looking for: ") + lf.map(([, e, l]) => `${e} ${l}`).join(" · "));
+    const into = parseTags(p.into);
+    const love = into && into.groups ? (into.groups.find((g) => /love/i.test(g.label || "")) || into.groups[0]) : null;
+    if (love && love.items.length) lines.push("Into: " + love.items.slice(0, 3).join(", ") + (love.items.length > 3 ? " & more" : ""));
+    const ask = (p.prompts || []).find((x) => x && x.a);
+    if (ask) lines.push(`${ask.q.replace(/…$/, "")}: ${ask.a}`);
+    lines.push("");
+    lines.push(`👉 ${url}`);
+    return lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
+  }
+  async function copyPost(p, isOwner) {
+    const text = telegramPost(p, isOwner);
+    try { await navigator.clipboard.writeText(text); toast("📣 Post copied! Paste it in Telegram."); }
+    catch { prompt("Copy this post:", text); }
+  }
+
   // ---------- profile view ----------
   async function renderProfile(slug) {
     if (!slug || RESERVED.includes(slug)) return notFound();
@@ -459,7 +507,7 @@
     const head = h("div", { class: "profile-card" },
       h("div", { class: "banner" }),
       h("div", { class: "profile-head" },
-        avatarEl(p),
+        avatarWithCharm(p, look.charm),
         h("h1", { class: "profile-name" }, p.display_name),
         tgUser ? h("div", { class: "handle" }, "@" + tgUser) : null,
         lookingBadges(p.looking_for),
@@ -472,7 +520,8 @@
         h("div", { class: "actions" },
           data.isOwner ? h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page")
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
-          h("button", { class: "btn", onclick: () => copy(profileUrl(p.slug)) }, "Copy link"))));
+          h("button", { class: "btn", onclick: () => copyPost(p, data.isOwner), title: "Copies a fun post with your link, ready to paste in Telegram" }, "📣 Share in Telegram"),
+          h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link"))));
 
     const blocks = [];
     blocks.push(head);
@@ -504,10 +553,27 @@
 
     const main = [];
     if (p.bio) main.push(h("section", { class: "prose" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
+    const prompts = (p.prompts || []).filter((x) => x && x.q && x.a);
+    if (prompts.length) {
+      main.push(h("section", { class: "prose" }, h("h2", {}, "Ask me about"),
+        h("div", { class: "prompt-cards" }, prompts.map((x, i) =>
+          h("div", { class: "prompt-card", style: `--tilt:${[-1.2, 0.9, -0.6, 1.1][i % 4]}deg` }, h("span", { class: "pq" }, x.q), h("p", { class: "pa" }, x.a))))));
+    }
     if (p.into || p.limits) {
       main.push(h("div", { class: "into-limits" },
         intoSection(p.into),
         limitsSection(p.limits)));
+    }
+    const care = p.care || {};
+    const REPLY = { minutes: "within minutes", hours: "within a few hours", day: "within a day", days: "in a few days" };
+    if (care.approach || care.checkins || care.aftercare || care.reply) {
+      main.push(h("section", { class: "care-card" },
+        h("h2", {}, "Care & communication"),
+        h("dl", {},
+          care.approach ? [h("dt", {}, "How to approach me"), h("dd", {}, care.approach)] : null,
+          care.checkins ? [h("dt", {}, "How I like to check in"), h("dd", {}, care.checkins)] : null,
+          care.aftercare ? [h("dt", {}, "Aftercare I need"), h("dd", {}, care.aftercare)] : null,
+          care.reply ? [h("dt", {}, "I usually reply"), h("dd", {}, REPLY[care.reply])] : null)));
     }
     if (photos.length) main.push(gallerySection(photos));
 
@@ -612,6 +678,7 @@
       h("span", { class: "hint" }, "This is also your login name. If you change it, log in with the new one."),
       h("div", { class: "actions", style: "margin-top:6px" },
         h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
+        h("button", { class: "btn small", type: "button", onclick: () => copyPost(rec, true) }, "📣 Copy a Telegram post"),
         h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
       h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
 
@@ -658,7 +725,8 @@
       pvName.textContent = (nameI.value || "").trim() || "Your name";
       const av = avatarFile ? h("img", { class: "avatar", src: URL.createObjectURL(avatarFile), alt: "" })
         : avatarEl(removeAvatar ? { display_name: nameI.value } : Object.assign({}, rec, { display_name: nameI.value }));
-      pvAvatar.replaceChildren(av);
+      const charmE = (L.CHARMS.find((c) => c.id === look.charm) || {}).e;
+      pvAvatar.replaceChildren(charmE ? h("div", { class: "avatar-wrap" }, av, h("span", { class: "charm", "aria-hidden": "true" }, h("span", { class: "charm-loop" }), h("span", { class: "charm-tag" }, charmE))) : av);
       pvMood.hidden = !(look.mood_emoji || look.mood_text);
       pvMood.replaceChildren(look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : "", look.mood_text || "");
       pvChips.replaceChildren(
@@ -758,6 +826,7 @@
           h("div", { class: "subhead" }, "Avatar ring"), pills("ring", L.RINGS),
           h("div", { class: "subhead" }, "Name font"), pills("font", L.FONTS, fontPreview),
           h("div", { class: "subhead" }, "Floaty things", h("small", {}, "drift across your page")), pills("particles", L.PARTICLES),
+          h("div", { class: "subhead" }, "Collar charm", h("small", {}, "hangs off your photo")), pills("charm", L.CHARMS, (c) => c.e ? h("span", { "aria-hidden": "true" }, c.e) : null),
           h("div", { class: "subhead" }, "Corners"), pills("corners", L.CORNERS)),
         h("section", { class: "panel" },
           h("h2", {}, "Mood sticker"),
@@ -893,6 +962,8 @@
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
         fd.append("play_links", JSON.stringify(readPlayLinks()));
+        fd.append("prompts", JSON.stringify(readPrompts()));
+        fd.append("care", JSON.stringify(readCare()));
         if (avatarFile) fd.append("avatar", avatarFile);
         else if (removeAvatar) fd.append("avatar", "");
         const updated = await pb.collection("members").update(rec.id, fd);
@@ -906,6 +977,42 @@
       } finally {
         saveBtn.disabled = false; saveBtn.textContent = "Save profile";
       }
+    });
+
+    // ---------- ask-me-about cards ----------
+    const PROMPTS = ["Ask me about…", "My green flags", "My ideal aftercare", "A perfect first meet", "Currently obsessed with",
+      "You'll win me over with", "My love language", "Don't be surprised if I…", "Favourite toy or tool", "A scene I'd love to try",
+      "Best way to start a chat with me", "My hot take"];
+    const promptRows = h("div", { class: "prompt-rows" });
+    function addPrompt(q, a) {
+      if (promptRows.children.length >= 4) return toast("Up to 4 cards", true);
+      const sel = h("select", { "aria-label": "Question" }, PROMPTS.map((x) => h("option", { value: x, selected: x === q }, x)));
+      const ans = h("textarea", { maxlength: 220, rows: 2, placeholder: "Your answer (a sentence or two)", "aria-label": "Answer" }); ans.value = a || "";
+      const row = h("div", { class: "prompt-row" }, h("div", { class: "prompt-top" }, sel,
+        h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Remove card", onclick: () => { row.remove(); addPromptBtn.hidden = false; } }, "✕")), ans);
+      promptRows.append(row);
+      addPromptBtn.hidden = promptRows.children.length >= 4;
+      return { sel, ans };
+    }
+    const addPromptBtn = h("button", { type: "button", class: "btn small" }, "+ Add a card");
+    addPromptBtn.addEventListener("click", () => {
+      const used = [...promptRows.querySelectorAll("select")].map((x) => x.value);
+      const r = addPrompt(PROMPTS.find((x) => !used.includes(x)) || PROMPTS[0], ""); if (r) r.ans.focus();
+    });
+    (rec.prompts || []).forEach((x) => addPrompt(x.q, x.a));
+    const readPrompts = () => [...promptRows.children].map((r) => ({ q: r.querySelector("select").value, a: r.querySelector("textarea").value.trim() })).filter((x) => x.a);
+
+    // ---------- care & communication ----------
+    const care = rec.care || {};
+    const careArea = (k, label, ph) => { const t = h("textarea", { id: "care_" + k, maxlength: 220, rows: 2, placeholder: ph }); t.value = care[k] || ""; return field(label, t); };
+    const replySel = h("select", { id: "care_reply" },
+      [["", "Rather not say"], ["minutes", "Within minutes"], ["hours", "Within a few hours"], ["day", "Within a day"], ["days", "In a few days"]]
+        .map(([v, l]) => h("option", { value: v, selected: (care.reply || "") === v }, l)));
+    const readCare = () => ({
+      approach: document.getElementById("care_approach").value.trim(),
+      checkins: document.getElementById("care_checkins").value.trim(),
+      aftercare: document.getElementById("care_aftercare").value.trim(),
+      reply: replySel.value,
     });
 
     // Reads the Kink Jars link in `inp` and offers to fill in interests, limits and dynamic.
@@ -1013,6 +1120,16 @@
           h("div", { class: "form-grid" },
             field("Into & curious about", area("into", { maxlength: 6000, placeholder: "One per line, or comma-separated. Lines starting Love:, Enjoy: or Curious about: become their own rows." })),
             field("Limits", area("limits", { maxlength: 6000, placeholder: "One per line, or comma-separated. Shown in their own box." })))),
+        h("section", { class: "panel" }, h("h2", {}, "Ask me about"),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Pick up to 4 questions and answer them. They show as little cards on your page and make great conversation starters."),
+          promptRows, addPromptBtn),
+        h("section", { class: "panel" }, h("h2", {}, "Care & communication"),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Optional. Help people approach you the way you like. Anything left blank stays off your page."),
+          h("div", { class: "form-grid" },
+            careArea("approach", "How to approach me", "e.g. Say hi in the group first, then DM me"),
+            careArea("checkins", "How I like to check in", "e.g. Traffic lights, and a check-in every so often"),
+            careArea("aftercare", "Aftercare I need", "e.g. Blankets, water, and a text the next day"),
+            field("I usually reply", replySel))),
         h("section", { class: "panel" }, h("h2", {}, "Your page"),
           h("div", { class: "form-grid" },
             slugField,

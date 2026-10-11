@@ -41,6 +41,12 @@
     { id: "none", name: "Nothing floaty" }, { id: "sparkles", name: "Sparkles" }, { id: "hearts", name: "Hearts" },
     { id: "bubbles", name: "Bubbles" }, { id: "stars", name: "Stars" },
   ];
+  // Little charms that hang off the avatar ring, like a tag on a collar.
+  const CHARMS = [
+    { id: "none", name: "No charm", e: "" }, { id: "bell", name: "Bell", e: "🔔" }, { id: "bow", name: "Bow", e: "🎀" },
+    { id: "heart", name: "Heart tag", e: "💜" }, { id: "paw", name: "Paw", e: "🐾" }, { id: "lock", name: "Lock", e: "🔒" },
+    { id: "star", name: "Star", e: "⭐" }, { id: "cherry", name: "Cherry", e: "🍒" }, { id: "bone", name: "Bone", e: "🦴" },
+  ];
   const CORNERS = [{ id: "soft", name: "Soft" }, { id: "round", name: "Extra round" }, { id: "sharp", name: "Crisp" }];
   const MOODS = ["😈", "🥺", "✨", "🎀", "🔥", "🫠", "🐾", "💋", "🌙", "🍓", "⛓️", "🧸"];
 
@@ -79,6 +85,7 @@
       font: style.font || "slab",
       particles: style.particles || "none",
       corners: style.corners || "soft",
+      charm: style.charm || "none",
       mood_emoji: style.mood_emoji || "",
       mood_text: style.mood_text || "",
     };
@@ -168,5 +175,5 @@
     host.prepend(layer);
   }
 
-  window.VCLook = { PALETTES, PATTERNS, RINGS, FONTS, PARTICLES, CORNERS, MOODS, resolve, apply, particles, patternCss, isHex };
+  window.VCLook = { CHARMS, PALETTES, PATTERNS, RINGS, FONTS, PARTICLES, CORNERS, MOODS, resolve, apply, particles, patternCss, isHex };
 })();

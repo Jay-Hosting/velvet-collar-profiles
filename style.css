@@ -463,7 +463,8 @@ a.key:hover, a.key:focus-visible { background: var(--gold-soft); }
 /* profile header: name block beside the avatar on wider screens */
 @media (min-width: 761px) {
   .profile-card .profile-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 22px; row-gap: 0; align-items: start; }
-  .profile-card .profile-head > .avatar { grid-column: 1; grid-row: 1 / span 5; }
+  .profile-card .profile-head > .avatar,
+  .profile-card .profile-head > .avatar-wrap { grid-column: 1; grid-row: 1 / span 5; align-self: start; }
   .profile-card .profile-head > .profile-name { grid-column: 2; grid-row: 1; margin: 76px 0 2px; }
   .profile-card .profile-head > .handle { grid-column: 2; grid-row: 2; }
   .profile-card .profile-head > .looking { grid-column: 2 / span 2; grid-row: 3; }
@@ -608,3 +609,35 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .bio.clamp { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .tags { transition: none; } }
 @media (max-width: 760px) { .into-limits { grid-template-columns: 1fr; } }
+
+/* collar charm hanging off the avatar */
+.avatar-wrap { position: relative; display: inline-block; width: max-content; }
+.charm { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; animation: charmSwing 3.2s ease-in-out infinite; transform-origin: 50% 0; }
+.charm-loop { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--gold); margin-bottom: -3px; background: var(--bg-2); }
+.charm-tag { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 1.05rem; background: var(--bg-2); border: 2px solid var(--gold); box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+.preview .charm { bottom: -22px; } .preview .charm-tag { width: 28px; height: 28px; font-size: .9rem; }
+@keyframes charmSwing { 0%, 100% { transform: translateX(-50%) rotate(-6deg); } 50% { transform: translateX(-50%) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .charm { animation: none; } }
+.profile-card .profile-head > .avatar-wrap { margin-bottom: 26px; }
+
+/* ask-me-about cards */
+.prompt-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.prompt-card { padding: 14px 16px; border-radius: 16px; background: linear-gradient(160deg, var(--gold-soft), rgba(255,255,255,.03)); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); transform: rotate(var(--tilt, 0deg)); }
+.prompt-card .pq { display: block; font-family: var(--slab); font-weight: 600; font-size: .95rem; color: var(--name-color, var(--pink)); margin-bottom: 6px; }
+.prompt-card .pa { margin: 0; line-height: 1.55; color: #e6dfe9; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .prompt-card { transform: none; } }
+
+/* care & communication card */
+.care-card { margin: 0 0 30px; padding: 16px 18px; border-radius: var(--radius); border: 1px solid rgba(120, 214, 196, .35); background: rgba(120, 214, 196, .06); }
+.care-card h2 { font-family: var(--slab); font-weight: 600; font-size: 1.2rem; margin: 0 0 10px; color: #b9efe4; }
+.care-card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; }
+.care-card dt { color: var(--muted); font-weight: 700; font-size: .88rem; }
+.care-card dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .care-card dl { grid-template-columns: 1fr; gap: 2px; } .care-card dd { margin-bottom: 8px; } }
+
+/* editor: prompt rows */
+.prompt-rows { display: grid; gap: 10px; margin-bottom: 10px; }
+.prompt-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(0,0,0,.15); }
+.prompt-top { display: flex; gap: 8px; align-items: center; }
+.prompt-top select { flex: 1; min-width: 0; }
+.prompt-row textarea { min-height: 64px; }
