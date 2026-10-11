@@ -53,7 +53,12 @@
   const me = () => (pb.authStore.isValid ? pb.authStore.record : null);
   const profileUrl = (slug) => `${location.origin}/${slug}`;
   // Profile links show a preview card in Telegram (the Mac mini answers link-preview robots).
-  const shareUrl = profileUrl;
+  // Telegram remembers a card per exact link, so shared links carry a short tag that changes
+  // whenever the profile is saved; that way Telegram always fetches a fresh card.
+  const shareUrl = (p) => {
+    let n = 0; for (const c of String(p.updated || "")) n = (n * 31 + c.charCodeAt(0)) >>> 0;
+    return profileUrl(p.slug) + (p.updated ? "?c=" + n.toString(36).slice(0, 5) : "");
+  };
   const fileUrl = (rec, name, thumb) => (name ? pb.files.getURL(rec, name, thumb ? { thumb } : undefined) : "");
 
   function toast(msg, isErr) {
@@ -454,7 +459,7 @@
   // ---------- a fun, ready-to-paste Telegram post ----------
   function telegramPost(p, isOwner) {
     const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const url = shareUrl(p.slug);
+    const url = shareUrl(p);
     const look = L.resolve(p.style, p.theme);
     const lines = [];
     if (isOwner) {
@@ -540,7 +545,7 @@
     if (on.care && care.approach) extra.push("🫶 How to approach me: " + short(care.approach, 140));
     if (on.care && care.aftercare) extra.push("🧸 Aftercare: " + short(care.aftercare, 140));
     if (extra.length) out.push("", ...extra);
-    out.push("", "👉 Full profile: " + shareUrl(p.slug));
+    out.push("", "👉 Full profile: " + shareUrl(p));
     return out.join("\n");
   }
 
@@ -640,8 +645,8 @@
     });
     const copyLink = h("button", { type: "button", class: "btn" }, "🔗 Copy link");
     copyLink.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(shareUrl(p.slug)); toast("🔗 Link copied! Telegram shows a preview card when you paste it."); }
-      catch { prompt("Copy your link:", shareUrl(p.slug)); }
+      try { await navigator.clipboard.writeText(shareUrl(p)); toast("🔗 Link copied! Telegram shows a preview card when you paste it."); }
+      catch { prompt("Copy your link:", shareUrl(p)); }
     });
     const copyPics = h("button", { type: "button", class: "btn" }, "🖼️ Copy photos");
     copyPics.addEventListener("click", () => {
