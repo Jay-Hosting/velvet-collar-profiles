@@ -316,34 +316,42 @@
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created" });
     const rows = h("div", { class: "link-list" });
-    const draw = (term) => {
+    let term = "", filter = "all";
+    const FILTERS = [["all", "Everyone"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
+    const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
+    const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
+      h("button", { type: "button", class: "pill", "aria-pressed": String(filter === v), onclick: () => { filter = v; drawFilters(); draw(); } }, label)));
+    const matchesFilter = (m) => filter === "all" ? true : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
+    const draw = () => {
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
-      const items = list.filter((m) => !t || (m.display_name + " " + m.slug).toLowerCase().includes(t));
+      const items = list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m));
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
         const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
           m.avatar
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
             : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
-          h("span", { class: "txt" }, h("b", {}, m.display_name), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
+          h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
         rows.append(row);
       }
     };
-    const search = h("input", { class: "search", type: "search", placeholder: `Search ${list.length} ${list.length === 1 ? "member" : "members"}`, "aria-label": "Search members", oninput: (e) => draw(e.target.value) });
-    draw("");
+    const search = h("input", { class: "search", type: "search", placeholder: `Search ${list.length} ${list.length === 1 ? "member" : "members"}`, "aria-label": "Search members", oninput: (e) => { term = e.target.value; draw(); } });
+    const others = list.filter((m) => m.id !== user.id);
+    const surprise = others.length ? h("button", { type: "button", class: "btn small gold", onclick: () => go("/" + others[Math.floor(Math.random() * others.length)].slug) }, "🎲 Surprise me") : null;
+    drawFilters(); draw();
     app.replaceChildren(
       user.listed ? "" : h("p", { class: "faint", style: "margin:0 0 12px" },
         "You're not on the list, so people only find you through your link. ",
         h("a", { href: "/edit#settings", "data-nav": "" }, "Join it in Settings.")),
       h("section", { class: "panel" },
-        h("h2", {}, "Member list"),
-        h("p", { class: "faint", style: "margin-top:-6px" }, "Only logged-in members can see this list, and only people who opted in are on it."),
-        search, rows),
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), surprise),
+        h("p", { class: "faint", style: "margin-top:4px" }, "Only logged-in members can see this list, and only people who opted in are on it. Open-to-anything members show up under every filter."),
+        search, filterBar, rows),
     );
   }
 
@@ -481,6 +489,28 @@
     catch { prompt("Copy this post:", text); }
   }
 
+  // ---------- badges ----------
+  // Admin-given badges come from the dashboard; the rest are worked out from the profile.
+  const ADMIN_BADGES = { mod: ["🛡️", "Mod", "Keeps the group running"], host: ["🎪", "Event host", "Hosts group events"], welcomer: ["🤗", "Welcomer", "Says hi to new members"], helper: ["🛠️", "Helper", "Helps behind the scenes"], vip: ["👑", "VIP", "Someone special to the group"] };
+  const parseDate = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? null : t; };
+  const isNew = (m) => { const t = parseDate(m.created); return t && Date.now() - t < 7 * 864e5; };
+  function badgesFor(p, photoCount) {
+    const out = [];
+    for (const b of p.badges || []) if (ADMIN_BADGES[b]) out.push(ADMIN_BADGES[b]);
+    const created = parseDate(p.created);
+    if (created && created < Date.parse("2026-11-01T00:00:00Z")) out.push(["🏛️", "Founding member", "Joined in the first month"]);
+    else if (created && isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
+    const plays = (p.play_links || []).map((l) => l.url || "");
+    if (plays.some((u) => /kink-jars/i.test(u))) out.push(["🫙", "Jar collector", "Has a Kink Jars shelf"]);
+    if (plays.some((u) => /romance\.jay-hosting/i.test(u))) out.push(["💞", "Sweetheart", "Has a Romantic Jars shelf"]);
+    if (plays.length >= 2) out.push(["🎲", "Playroom regular", "Plays more than one game"]);
+    if (photoCount >= 5) out.push(["📸", "Shutterbug", "Shares lots of photos"]);
+    if ((p.prompts || []).length >= 3) out.push(["💬", "Open book", "Answered 3+ Ask me about cards"]);
+    return out;
+  }
+  const badgeRow = (list) => list.length ? h("div", { class: "badges", "aria-label": "Badges" },
+    list.map(([e, label, why]) => h("span", { class: "badge", title: why }, h("span", { "aria-hidden": "true" }, e), " " + label))) : null;
+
   // ---------- reactions, kind notes and the compatibility peek ----------
   const REACT = [["fire", "🔥", "Hot"], ["heart", "💜", "Love this"], ["paw", "🐾", "Cute"], ["sparkle", "✨", "Fun"]];
   function reactionBar(p, social, onChange) {
@@ -574,6 +604,48 @@
     }
   }
 
+  // ---------- shareable profile card (image) ----------
+  async function openCard(p) {
+    if (!window.VCCard) return;
+    const look = L.resolve(p.style, p.theme);
+    const into = parseTags(p.into);
+    const loveGroup = into && into.groups ? (into.groups.find((g) => /love/i.test(g.label || "")) || into.groups[0]) : null;
+    const ask = (p.prompts || []).find((x) => x && x.a);
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": "Profile card" });
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const box = h("div", { class: "modal-box" }, h("p", { class: "faint" }, "Drawing your card…"));
+    modal.append(box); document.body.append(modal);
+    const cv = await window.VCCard.draw({
+      name: p.display_name,
+      mood: [look.mood_emoji, look.mood_text].filter(Boolean).join(" "),
+      looking: LOOKING.filter(([v]) => (p.looking_for || []).includes(v)).map(([, e, l]) => [e, l]),
+      loves: loveGroup ? loveGroup.items : [],
+      ask: ask ? { q: ask.q, a: ask.a } : null,
+      url: profileUrl(p.slug),
+      avatarUrl: p.avatar ? fileUrl(p, p.avatar, "600x600") : "",
+      charm: (L.CHARMS.find((c) => c.id === look.charm) || {}).e || "",
+      look,
+    });
+    let dataUrl = "";
+    try { dataUrl = cv.toDataURL("image/png"); } catch { box.replaceChildren(h("p", {}, "Couldn't draw the card. Try again in a moment."), h("button", { class: "btn", onclick: close }, "Close")); return; }
+    const copyImg = h("button", { type: "button", class: "btn gold" }, "Copy image");
+    copyImg.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": new Promise((res) => cv.toBlob(res, "image/png")) })]);
+        toast("🖼️ Card copied! Paste it in Telegram.");
+      } catch { toast("Your browser can't copy images. Use Download instead.", true); }
+    });
+    box.replaceChildren(
+      h("img", { class: "card-preview", src: dataUrl, alt: "Your profile card" }),
+      h("div", { class: "actions", style: "justify-content:center" },
+        copyImg,
+        h("a", { class: "btn", href: dataUrl, download: `velvet-collar-${p.slug}.png` }, "Download"),
+        h("button", { type: "button", class: "btn", onclick: () => copyPost(p, !!me() && me().id === p.id) }, "📣 Copy post text"),
+        h("button", { type: "button", class: "btn ghost", onclick: close }, "Close")),
+      h("p", { class: "faint", style: "text-align:center;margin:0" }, "Tip: paste the image in Telegram, then paste the post text as its caption."));
+  }
+
   // ---------- profile view ----------
   async function renderProfile(slug) {
     if (!slug || RESERVED.includes(slug)) return notFound();
@@ -611,8 +683,9 @@
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
           p.location ? h("span", { class: "chip" }, p.location) : null,
           null),
+        badgeRow(badgesFor(p, photos.length)),
         h("div", { class: "actions" },
-          data.isOwner ? h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page")
+          data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           h("button", { class: "btn", onclick: () => copyPost(p, data.isOwner), title: "Copies a fun post with your link, ready to paste in Telegram" }, "📣 Share in Telegram"),
           h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
@@ -791,6 +864,7 @@
       h("div", { class: "actions", style: "margin-top:6px" },
         h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
         h("button", { class: "btn small", type: "button", onclick: () => copyPost(rec, true) }, "📣 Copy a Telegram post"),
+        h("button", { class: "btn small", type: "button", onclick: () => openCard(rec) }, "🖼️ Profile card"),
         h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
       h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
 
