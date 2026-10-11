@@ -16,7 +16,17 @@
     { id: "golden-hour",       name: "Golden Hour",        deep: "#2a1406", mid: "#8a4a12", glow: "#e39b3b", accent: "#fff0b8" },
     { id: "cotton-candy",      name: "Cotton Candy Cloud", deep: "#251636", mid: "#7a5bb0", glow: "#ff9fd6", accent: "#a8f0ff" },
     { id: "leather-lace",      name: "Leather & Lace",     deep: "#0e0c0c", mid: "#3a3030", glow: "#8c7a74", accent: "#f4e6e1" },
+    // Halloween pack (October only)
+    { id: "pumpkin-spice",     name: "Pumpkin Spice",      deep: "#1a0d05", mid: "#7a3410", glow: "#ff7a1a", accent: "#ffb347", season: "halloween" },
+    { id: "witchy",            name: "Witchy Hour",        deep: "#120a1f", mid: "#3b1a5c", glow: "#7d3cc4", accent: "#9be15d", season: "halloween" },
+    { id: "blood-moon",        name: "Blood Moon",         deep: "#120405", mid: "#4a0a0e", glow: "#c41a24", accent: "#ff9a8a", season: "halloween" },
   ];
+  // Seasonal packs show up (and stay on people's pages) only while their season is on.
+  const SEASONS = {
+    halloween: { label: "🎃 Halloween", until: "Nov 1", on: (d) => d.getMonth() === 9 },
+  };
+  const seasonOn = (item) => !item || !item.season || (SEASONS[item.season] && SEASONS[item.season].on(new Date()));
+  const available = (list) => list.filter(seasonOn);
   // Old single-choice themes from the first version map onto palettes.
   const LEGACY = { velvet: "velvet-collar", wine: "cherry-cola", midnight: "midnight-mischief", emerald: "emerald-envy", rose: "strawberry-leash" };
 
@@ -24,6 +34,7 @@
     { id: "none", name: "Plain velvet" }, { id: "sparkles", name: "Sparkles" }, { id: "hearts", name: "Hearts" },
     { id: "stars", name: "Stars" }, { id: "paws", name: "Paw prints" }, { id: "dots", name: "Polka dots" },
     { id: "moons", name: "Moons" }, { id: "stripes", name: "Candy stripes" }, { id: "waves", name: "Waves" },
+    { id: "webs", name: "Spider webs", season: "halloween" }, { id: "pumpkins", name: "Pumpkins", season: "halloween" },
   ];
   const RINGS = [
     { id: "classic", name: "Classic O-ring" }, { id: "double", name: "Double ring" }, { id: "stitched", name: "Stitched" },
@@ -40,12 +51,15 @@
   const PARTICLES = [
     { id: "none", name: "Nothing floaty" }, { id: "sparkles", name: "Sparkles" }, { id: "hearts", name: "Hearts" },
     { id: "bubbles", name: "Bubbles" }, { id: "stars", name: "Stars" },
+    { id: "bats", name: "Bats", season: "halloween" }, { id: "leaves", name: "Autumn leaves", season: "halloween" },
   ];
   // Little charms that hang off the avatar ring, like a tag on a collar.
   const CHARMS = [
     { id: "none", name: "No charm", e: "" }, { id: "bell", name: "Bell", e: "🔔" }, { id: "bow", name: "Bow", e: "🎀" },
     { id: "heart", name: "Heart tag", e: "💜" }, { id: "paw", name: "Paw", e: "🐾" }, { id: "lock", name: "Lock", e: "🔒" },
     { id: "star", name: "Star", e: "⭐" }, { id: "cherry", name: "Cherry", e: "🍒" }, { id: "bone", name: "Bone", e: "🦴" },
+    { id: "bat", name: "Bat", e: "🦇", season: "halloween" }, { id: "ghost", name: "Ghost", e: "👻", season: "halloween" },
+    { id: "pumpkin", name: "Pumpkin", e: "🎃", season: "halloween" }, { id: "spider", name: "Spider", e: "🕷️", season: "halloween" },
   ];
   const CORNERS = [{ id: "soft", name: "Soft" }, { id: "round", name: "Extra round" }, { id: "sharp", name: "Crisp" }];
   const MOODS = ["😈", "🥺", "✨", "🎀", "🔥", "🫠", "🐾", "💋", "🌙", "🍓", "⛓️", "🧸"];
@@ -69,9 +83,14 @@
 
   // ---------- resolve a member's saved style into concrete values ----------
   function resolve(style, legacyTheme) {
-    style = style || {};
-    const pal = PALETTES.find((p) => p.id === style.palette) ||
-      PALETTES.find((p) => p.id === LEGACY[legacyTheme]) || PALETTES[0];
+    style = Object.assign({}, style || {});
+    // Out-of-season choices quietly fall back to the everyday ones.
+    let pal = PALETTES.find((p) => p.id === style.palette);
+    if (pal && !seasonOn(pal)) { pal = null; for (const k of ["palette", "deep", "mid", "glow", "accent"]) delete style[k]; }
+    pal = pal || PALETTES.find((p) => p.id === LEGACY[legacyTheme]) || PALETTES[0];
+    if (!seasonOn(PATTERNS.find((x) => x.id === style.pattern))) delete style.pattern;
+    if (!seasonOn(PARTICLES.find((x) => x.id === style.particles))) delete style.particles;
+    if (!seasonOn(CHARMS.find((x) => x.id === style.charm))) delete style.charm;
     return {
       palette: style.palette || pal.id,
       deep: isHex(style.deep) ? style.deep : pal.deep,
@@ -107,6 +126,8 @@
       case "dots": return { img: svgTile(36, 36, `<circle cx='9' cy='9' r='5' fill='${c}' opacity='.4'/><circle cx='27' cy='27' r='5' fill='${c}' opacity='.4'/>`), size: "36px 36px" };
       case "moons": return { img: svgTile(70, 70, `<path d='M22 8a12 12 0 1 0 12 16 9.5 9.5 0 1 1 -12 -16z' fill='${c}' opacity='.5'/>` + sparkle(46, 42, .55, .45)), size: "70px 70px" };
       case "stripes": return { img: `repeating-linear-gradient(135deg, ${rgba(c, .28)} 0 10px, transparent 10px 24px)`, size: "auto" };
+      case "webs": return { img: svgTile(90, 90, `<g fill='none' stroke='${c}' stroke-width='1.1' opacity='.42'><path d='M0 0L90 0M0 0L90 34M0 0L90 90M0 0L34 90M0 0L0 90'/><path d='M22 0Q20 9 21 8Q12 14 9 21Q4 21 0 22'/><path d='M46 0Q44 17 43 17Q33 27 18 41Q8 43 0 46'/><path d='M72 0Q70 26 66 27Q52 44 28 64Q14 68 0 72'/></g><g fill='${c}' opacity='.5'><circle cx='66' cy='27' r='2.2'/><path d='M66 29v10' stroke='${c}' stroke-width='.8'/></g>`), size: "90px 90px" };
+      case "pumpkins": return { img: svgTile(78, 78, `<g opacity='.48'><ellipse cx='20' cy='24' rx='13' ry='10' fill='${c}'/><path d='M20 15v-6' stroke='${c}' stroke-width='3' stroke-linecap='round'/><path d='M14 16Q11 24 14 32M26 16Q29 24 26 32' stroke='#000' stroke-opacity='.25' fill='none'/></g><g opacity='.32' transform='translate(44 44) scale(.7)'><ellipse cx='20' cy='24' rx='13' ry='10' fill='${c}'/><path d='M20 15v-6' stroke='${c}' stroke-width='3' stroke-linecap='round'/></g>`), size: "78px 78px" };
       case "waves": return { img: svgTile(60, 24, `<path d='M0 12 Q15 2 30 12 T60 12' fill='none' stroke='${c}' stroke-width='2.2' opacity='.45'/>`), size: "60px 24px" };
       default: return { img: "none", size: "auto" };
     }
@@ -156,7 +177,7 @@
     const layer = document.createElement("div");
     layer.className = "particles" + (fixed ? " fixed" : "");
     layer.setAttribute("aria-hidden", "true");
-    const glyph = { sparkles: "✦", hearts: "♥", stars: "★", bubbles: "" }[kind];
+    const glyph = { sparkles: "✦", hearts: "♥", stars: "★", bubbles: "", bats: "🦇", leaves: "🍂" }[kind];
     const n = fixed ? 18 : 9;
     for (let i = 0; i < n; i++) {
       const sp = document.createElement("span");
@@ -175,5 +196,5 @@
     host.prepend(layer);
   }
 
-  window.VCLook = { CHARMS, PALETTES, PATTERNS, RINGS, FONTS, PARTICLES, CORNERS, MOODS, resolve, apply, particles, patternCss, isHex };
+  window.VCLook = { CHARMS, PALETTES, PATTERNS, RINGS, FONTS, PARTICLES, CORNERS, MOODS, SEASONS, available, seasonOn, resolve, apply, particles, patternCss, isHex };
 })();

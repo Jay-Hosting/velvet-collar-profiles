@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
@@ -204,6 +204,8 @@
     if (path === "edit") return { name: "edit" };
     if (path === "login" || path === "join") return { name: path };
     if (path === "playroom") return { name: "playroom" };
+    if (path === "events") return { name: "events" };
+    if (path === "question") return { name: "question" };
     return { name: "profile", slug: path.split("/")[0] };
   }
   function go(path) { history.pushState(null, "", path); render(); window.scrollTo(0, 0); }
@@ -223,7 +225,8 @@
     } else {
       nav.append(
         playroom,
-        h("a", { class: "btn small ghost", href: "/", "data-nav": "" }, "Member list"),
+        h("a", { class: "btn small ghost" + (here === "events" ? " current" : ""), href: "/events", "data-nav": "" }, "Events"),
+        h("a", { class: "btn small ghost" + (here === "home" ? " current" : ""), href: "/", "data-nav": "" }, "Members"),
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
@@ -241,6 +244,8 @@
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
       if (r.name === "playroom") return await renderPlayroom();
+      if (r.name === "events") return me() ? await renderEvents() : renderLogin("/events");
+      if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
     } catch (err) {
       app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Hmm."), h("p", { class: "muted" }, errMsg(err))));
@@ -319,28 +324,100 @@
       grid);
   }
 
+  // ---------- events (added by admins in the dashboard) ----------
+  async function renderEvents() {
+    document.title = "Events · Velvet Collar";
+    const data = await pb.send("/api/vc/events", {});
+    const list = h("div", { class: "events" });
+    const eventCard = (ev, past) => {
+      const card = h("article", { class: "event" + (past ? " past" : "") });
+      const draw = (ev) => {
+        const ends = ev.ends ? parseDate(ev.ends) : null;
+        card.replaceChildren(
+          h("div", { class: "event-emoji", "aria-hidden": "true" }, ev.emoji || "📅"),
+          h("div", { class: "event-body" },
+            h("h2", {}, ev.title),
+            h("p", { class: "event-when" }, fmtWhen(ev.starts), ends ? " – " + timeShort(ends) : "", ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
+            ev.description ? h("p", { class: "event-desc" }, ev.description) : null,
+            h("div", { class: "event-people" },
+              ev.people.slice(0, 12).map(personChip),
+              ev.others ? h("span", { class: "faint" }, `+${ev.others} more`) : null,
+              !ev.going ? h("span", { class: "faint" }, past ? "Nobody signed up." : "Be the first to say you're going!") : null),
+            h("div", { class: "actions", style: "margin:10px 0 0" },
+              past ? h("span", { class: "faint" }, `${ev.going} went`) : (() => {
+                const b = h("button", { type: "button", class: "btn small " + (ev.mine ? "gold" : ""), "aria-pressed": String(ev.mine) }, ev.mine ? "✓ I'm going" : "I'm going");
+                b.addEventListener("click", async () => {
+                  b.disabled = true;
+                  try { const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id } }); draw(upd); toast(upd.mine ? "🎉 See you there!" : "Taken off the list"); }
+                  catch (err) { toast(errMsg(err), true); b.disabled = false; }
+                });
+                return b;
+              })(),
+              ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
+              !past ? h("span", { class: "faint" }, `${ev.going} going`) : null)));
+      };
+      draw(ev);
+      return card;
+    };
+    if (!data.upcoming.length) list.append(h("p", { class: "muted" }, "Nothing planned right now. Keep an eye on the group chat!"));
+    data.upcoming.forEach((ev) => list.append(eventCard(ev, false)));
+    app.replaceChildren(
+      h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
+        h("p", { class: "muted" }, "Munches, game nights and get-togethers. Tap I'm going so people know who to look for. Only members on the member list are shown by name.")),
+      list,
+      data.past.length ? h("details", { class: "past-events" }, h("summary", {}, "Past events"), h("div", { class: "events" }, data.past.map((ev) => eventCard(ev, true)))) : "");
+  }
+
+  // ---------- question of the week (set by admins in the dashboard) ----------
+  async function renderQuestion() {
+    document.title = "Question of the week · Velvet Collar";
+    const data = await pb.send("/api/vc/question", {});
+    if (!data.question) {
+      app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "No question this week"), h("p", { class: "muted" }, "Check back soon!")));
+      return;
+    }
+    const ta = h("textarea", { maxlength: 280, rows: 3, placeholder: "Your answer…", "aria-label": "Your answer" });
+    ta.value = data.mine || "";
+    const save = h("button", { type: "button", class: "btn gold small" }, data.mine ? "Update my answer" : "Share my answer");
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try { await pb.send("/api/vc/answer", { method: "POST", body: { text: ta.value.trim() } }); toast(ta.value.trim() ? "Answer shared! It's on your profile too." : "Answer removed"); renderQuestion(); }
+      catch (err) { toast(errMsg(err), true); save.disabled = false; }
+    });
+    const answers = data.answers.filter((a) => a.text);
+    app.replaceChildren(
+      h("section", { class: "qotw-hero" }, h("span", { class: "pq" }, "❓ Question of the week"), h("h1", {}, data.question.text)),
+      h("section", { class: "panel" }, h("h2", {}, "Your answer"), ta, h("div", { class: "actions", style: "margin:10px 0 0" }, save,
+        h("span", { class: "faint" }, "Shows on your profile and below. Clear it and save to remove it."))),
+      h("section", { class: "panel" }, h("h2", {}, `Answers (${answers.length + (data.unlisted || 0)})`),
+        answers.length ? h("div", { class: "answers" }, answers.map((a) => h("div", { class: "answer" + (a.mine ? " mine" : "") }, personChip(a.member), h("p", {}, a.text))))
+          : h("p", { class: "muted" }, "No answers yet. Go first!"),
+        data.unlisted ? h("p", { class: "faint" }, `${data.unlisted} more from members who aren't on the member list.`) : null));
+  }
+
   // ---------- member list (logged-in only, opt-in) ----------
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,chat_until,play_links,matches_off" });
     const rows = h("div", { class: "link-list" });
     let term = "", filter = "all";
-    const FILTERS = [["all", "Everyone"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
+    const FILTERS = [["all", "Everyone"], ["chat", "🟢 Up for a chat"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
     const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
     const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
       h("button", { type: "button", class: "pill", "aria-pressed": String(filter === v), onclick: () => { filter = v; drawFilters(); draw(); } }, label)));
-    const matchesFilter = (m) => filter === "all" ? true : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
+    const matchesFilter = (m) => filter === "all" ? true : filter === "chat" ? chatOn(m) : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
     const draw = () => {
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
       const items = list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m));
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
-        const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
-          m.avatar
+        const row = h("a", { class: "link" + (chatOn(m) ? " chatting" : ""), href: "/" + m.slug, "data-nav": "" },
+          h("span", { class: "mono-wrap" }, m.avatar
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
             : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
+            chatOn(m) ? h("span", { class: "dot", title: "Up for a chat" }) : null),
           h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
@@ -351,15 +428,90 @@
     const others = list.filter((m) => m.id !== user.id);
     const surprise = others.length ? h("button", { type: "button", class: "btn small gold", onclick: () => go("/" + others[Math.floor(Math.random() * others.length)].slug) }, "🎲 Surprise me") : null;
     drawFilters(); draw();
+    const twinsBtn = h("button", { type: "button", class: "btn small" }, "💞 Kink twins");
+    const twinsHolder = h("div", {});
+    twinsBtn.addEventListener("click", () => kinkTwins(list, twinsBtn, twinsHolder));
+    const weekHolder = h("div", { class: "this-week" });
+    const crushHolder = h("div", {});
     app.replaceChildren(
       user.listed ? "" : h("p", { class: "faint", style: "margin:0 0 12px" },
         "You're not on the list, so people only find you through your link. ",
         h("a", { href: "/edit#settings", "data-nav": "" }, "Join it in Settings.")),
+      weekHolder,
+      crushHolder,
+      h("section", { class: "panel chat-panel" }, chatControl(user, () => { const self = list.find((m) => m.id === user.id); if (self) self.chat_until = user.chat_until; draw(); })),
+      twinsHolder,
       h("section", { class: "panel" },
-        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), surprise),
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), h("span", { class: "actions", style: "margin:0" }, twinsBtn, surprise)),
         h("p", { class: "faint", style: "margin-top:4px" }, "Only logged-in members can see this list, and only people who opted in are on it. Open-to-anything members show up under every filter."),
         search, filterBar, rows),
     );
+    drawThisWeek(weekHolder);
+    drawCrushes(crushHolder);
+  }
+
+  async function drawThisWeek(holder) {
+    const [ev, q] = await Promise.all([
+      pb.send("/api/vc/events", {}).catch(() => null),
+      pb.send("/api/vc/question", {}).catch(() => null),
+    ]);
+    const cards = [];
+    const next = ev && ev.upcoming[0];
+    cards.push(h("a", { class: "week-card", href: "/events", "data-nav": "" },
+      h("span", { class: "pq" }, "📅 Next event"),
+      next ? [h("b", {}, `${next.emoji || ""} ${next.title}`.trim()), h("small", {}, fmtWhen(next.starts) + (next.going ? ` · ${next.going} going` : ""))]
+        : [h("b", {}, "Nothing planned yet"), h("small", {}, "See past events")]));
+    if (q && q.question) {
+      const n = q.answers.filter((a) => a.text).length + (q.unlisted || 0);
+      cards.push(h("a", { class: "week-card", href: "/question", "data-nav": "" },
+        h("span", { class: "pq" }, "❓ Question of the week"), h("b", {}, q.question.text),
+        h("small", {}, q.mine ? `You answered · ${n} answer${n === 1 ? "" : "s"}` : `${n} answer${n === 1 ? "" : "s"} · add yours`)));
+    }
+    holder.replaceChildren(...cards);
+  }
+
+  async function drawCrushes(holder) {
+    let c; try { c = await pb.send("/api/vc/crushes", {}); } catch { return; }
+    if (!c.matches.length && !c.admirers && !c.sent.length) return;
+    holder.replaceChildren(h("section", { class: "panel crush-panel" },
+      h("h2", {}, "💘 Crushes"),
+      c.matches.length ? [h("p", { class: "match-banner" }, `💞 It's mutual with ${c.matches.length === 1 ? c.matches[0].display_name : c.matches.length + " people"}!`), h("div", { class: "people" }, c.matches.map(personChip))] : null,
+      c.admirers ? h("p", { class: "admirers" }, `🤫 ${c.admirers} secret admirer${c.admirers === 1 ? " has" : "s have"} a crush on you. If you crush them back, you'll both find out.`) : null,
+      c.sent.filter((m) => !c.matches.some((x) => x.id === m.id)).length
+        ? h("details", {}, h("summary", { class: "faint" }, "Your secret crushes"), h("div", { class: "people" }, c.sent.filter((m) => !c.matches.some((x) => x.id === m.id)).map(personChip))) : null));
+  }
+
+  // Ranks members by how much their Kink Jars shelf overlaps with yours.
+  async function kinkTwins(list, btn, holder) {
+    const K = window.KinkJarsImport, user = me();
+    const mine = (user.play_links || []).find((l) => isKJ(l.url));
+    if (!mine) { holder.replaceChildren(h("section", { class: "panel compat nudge" }, h("p", {}, "💞 Add your Kink Jars shelf in your ", h("a", { href: "/edit#playroom", "data-nav": "" }, "Playroom tab"), " to find your kink twins."))); return; }
+    const others = list.filter((m) => m.id !== user.id && !m.matches_off && (m.play_links || []).some((l) => isKJ(l.url)));
+    if (!others.length) { holder.replaceChildren(h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, "Nobody else on the list has added a Kink Jars shelf yet."))); return; }
+    btn.disabled = true; btn.textContent = "Comparing…";
+    try {
+      const a = await K.resolve(mine.url);
+      const scored = [];
+      for (const m of others) {
+        try {
+          const b = await K.resolve(m.play_links.find((l) => isKJ(l.url)).url);
+          const c = K.compare(a, b);
+          const score = c.love.length * 3 + c.enjoy.length * 2 + c.curious.length;
+          if (score) scored.push({ m, c, score });
+        } catch {}
+      }
+      scored.sort((x, y) => y.score - x.score);
+      holder.replaceChildren(h("section", { class: "panel twins" },
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "💞 Your kink twins"), h("button", { type: "button", class: "btn small ghost", onclick: () => holder.replaceChildren() }, "Close")),
+        h("p", { class: "faint" }, "Members whose Kink Jars shelves overlap most with yours. A conversation starter, not a promise: always ask first."),
+        scored.length ? h("ol", { class: "twin-list" }, scored.slice(0, 10).map(({ m, c }) => h("li", {},
+          personChip(m),
+          h("span", { class: "twin-stats" }, [c.love.length ? `💞 ${c.love.length} both love` : "", c.enjoy.length ? `😊 ${c.enjoy.length} both enjoy` : "", c.curious.length ? `🤔 ${c.curious.length} curious` : ""].filter(Boolean).join(" · ")),
+          c.love.length ? h("small", { class: "faint" }, c.love.slice(0, 3).join(", ")) : null)))
+          : h("p", { class: "muted" }, "No overlaps yet. Plenty to talk about anyway!")));
+    } catch (err) {
+      holder.replaceChildren(h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, "Couldn't read your shelf: " + (err.message || "try again later"))));
+    } finally { btn.disabled = false; btn.textContent = "💞 Kink twins"; }
   }
 
   // ---------- interests & limits: long lists become tags ----------
@@ -715,10 +867,109 @@
     if (plays.length >= 2) out.push(["🎲", "Playroom regular", "Plays more than one game"]);
     if (photoCount >= 5) out.push(["📸", "Shutterbug", "Shares lots of photos"]);
     if ((p.prompts || []).length >= 3) out.push(["💬", "Open book", "Answered 3+ Ask me about cards"]);
+    if (glowUp(p, photoCount).score >= 100) out.push(["✨", "Glowed up", "Filled in every part of their profile"]);
+    { const lk = L.resolve(p.style, p.theme);
+      const spooky = [[L.PALETTES, lk.palette], [L.PATTERNS, lk.pattern], [L.PARTICLES, lk.particles], [L.CHARMS, lk.charm]].some(([list, id]) => (list.find((x) => x.id === id) || {}).season === "halloween");
+      if (spooky) out.push(["🎃", "Spooky season", "Dressed their page up for Halloween"]); }
     return out;
   }
   const badgeRow = (list) => list.length ? h("div", { class: "badges", "aria-label": "Badges" },
     list.map(([e, label, why]) => h("span", { class: "badge", title: why }, h("span", { "aria-hidden": "true" }, e), " " + label))) : null;
+
+  // ---------- "up for a chat" status ----------
+  const chatOn = (m) => { const t = parseDate(m && m.chat_until); return !!t && t > Date.now(); };
+  const timeShort = (t) => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const chatLine = (m) => chatOn(m) ? h("div", { class: "chat-status" }, h("span", { class: "dot", "aria-hidden": "true" }), `Up for a chat until ${timeShort(parseDate(m.chat_until))}`) : null;
+  // A small control for your own status: off, or on for a few hours.
+  function chatControl(rec, onChange) {
+    const wrap = h("div", { class: "chat-control" });
+    const draw = () => {
+      const on = chatOn(rec);
+      const set = async (hours) => {
+        const until = hours ? new Date(Date.now() + hours * 3600e3).toISOString().replace("T", " ") : "";
+        try {
+          const upd = await pb.collection("members").update(rec.id, { chat_until: until });
+          rec.chat_until = upd.chat_until; pb.authStore.save(pb.authStore.token, upd);
+          toast(hours ? `🟢 You're up for a chat for ${hours} hours` : "Status off");
+          draw(); if (onChange) onChange();
+        } catch (err) { toast(errMsg(err), true); }
+      };
+      wrap.replaceChildren(on
+        ? h("div", { class: "chat-on" }, h("span", { class: "dot", "aria-hidden": "true" }), h("span", {}, `Up for a chat until ${timeShort(parseDate(rec.chat_until))}`),
+            h("button", { type: "button", class: "btn small ghost", onclick: () => set(0) }, "Turn off"))
+        : h("div", { class: "chat-off" }, h("span", { class: "muted" }, "🟢 Up for a chat?"),
+            [2, 4, 8].map((n) => h("button", { type: "button", class: "btn small", onclick: () => set(n) }, `${n} hours`))));
+    };
+    draw();
+    return wrap;
+  }
+
+  // ---------- profile glow-up meter ----------
+  function glowUp(p, photoCount) {
+    const look = L.resolve(p.style, p.theme);
+    const care = p.care || {};
+    const items = [
+      [12, !!p.avatar, "Add a profile photo", "profile"],
+      [8, (p.looking_for || []).length > 0, "Say what you're looking for", "profile"],
+      [6, !!(p.pronouns || p.dynamic), "Add pronouns or your dynamic", "profile"],
+      [10, !!p.bio, "Write a little About you", "profile"],
+      [8, !!p.hobbies, "List a few hobbies", "profile"],
+      [10, !!p.into, "Add what you're into", "profile"],
+      [8, !!p.limits, "Add your limits", "profile"],
+      [8, (p.prompts || []).length > 0, "Answer an Ask me about card", "profile"],
+      [6, !!(care.approach || care.checkins || care.aftercare || care.reply), "Fill in Care & communication", "profile"],
+      [6, (p.links || []).length + (p.jars || []).length > 0, "Add a link", "links"],
+      [8, photoCount > 0, "Upload a photo", "photos"],
+      [5, (p.play_links || []).length > 0, "Add a game link in the Playroom", "playroom"],
+      [5, !!(look.mood_emoji || look.mood_text), "Set a mood sticker", "settings"],
+    ];
+    const score = items.reduce((n, [w, done]) => n + (done ? w : 0), 0);
+    const todo = items.filter(([, done]) => !done).sort((a, b) => b[0] - a[0]);
+    return { score, todo };
+  }
+
+  // ---------- profile song ----------
+  function songEmbed(url) {
+    url = safeUrl(url); if (!url) return null;
+    let u; try { u = new URL(url); } catch { return null; }
+    const host = u.hostname.replace(/^www\./, "");
+    let src = null, height = 152;
+    if (host === "open.spotify.com") {
+      const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(track|album|playlist|episode)\/([A-Za-z0-9]+)/);
+      if (m) { src = `https://open.spotify.com/embed/${m[1]}/${m[2]}`; height = m[1] === "track" ? 152 : 232; }
+    } else if (host === "music.apple.com") {
+      src = "https://embed.music.apple.com" + u.pathname + u.search; height = u.searchParams.has("i") ? 175 : 300;
+    } else if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com" || host === "youtu.be") {
+      const id = host === "youtu.be" ? u.pathname.slice(1) : u.searchParams.get("v");
+      if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) { src = `https://www.youtube-nocookie.com/embed/${id}`; height = 200; }
+    } else if (host === "soundcloud.com") {
+      src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&color=%23988ae3&visual=false&show_comments=false"; height = 120;
+    }
+    if (!src) return h("a", { class: "key", href: url, target: "_blank", rel: "noopener nofollow" },
+      h("span", { class: "mono emoji", "aria-hidden": "true" }, "🎵"), h("span", { class: "txt" }, h("b", {}, "My vibe song"), h("small", {}, hostOf(url))), h("span", { class: "ext", "aria-hidden": "true" }, "↗"));
+    return h("iframe", { class: "song-frame", src, height: String(height), loading: "lazy", title: "Profile song",
+      allow: "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture", referrerpolicy: "strict-origin-when-cross-origin" });
+  }
+
+  // ---------- little avatar helpers for lists of people ----------
+  const miniAvatar = (m) => m.avatar
+    ? h("img", { class: "mini-av", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
+    : h("span", { class: "mini-av", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 1).toUpperCase());
+  const personChip = (m) => h("a", { class: "person", href: "/" + m.slug, "data-nav": "" }, miniAvatar(m), h("span", {}, m.display_name));
+  const fmtWhen = (d) => { const t = parseDate(d); return t ? new Date(t).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
+  function hearts(n) {
+    if (reduceMotion()) return;
+    const layer = h("div", { class: "heart-burst", "aria-hidden": "true" });
+    for (let i = 0; i < (n || 24); i++) {
+      const sp = h("span", {}, ["💘", "💞", "💜", "✨"][i % 4]);
+      sp.style.left = Math.random() * 100 + "%";
+      sp.style.animationDelay = Math.random() * 0.6 + "s";
+      sp.style.fontSize = 16 + Math.random() * 22 + "px";
+      layer.append(sp);
+    }
+    document.body.append(layer);
+    setTimeout(() => layer.remove(), 3200);
+  }
 
   // ---------- reactions, kind notes and the compatibility peek ----------
   const REACT = [["fire", "🔥", "Hot"], ["heart", "💜", "Love this"], ["paw", "🐾", "Cute"], ["sparkle", "✨", "Fun"]];
@@ -879,12 +1130,17 @@
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
     const reactHolder = h("div", { class: "react-holder" });
+    const badgeHolder = h("div", { class: "hold" }, badgeRow(badgesFor(p, photos.length)));
+    const crushHolder = h("span", { class: "crush-holder" });
+    const matchHolder = h("div", { class: "hold" });
+    const chatHolder = h("div", { class: "hold" }, data.isOwner ? null : chatLine(p));
     const head = h("div", { class: "profile-card" },
       h("div", { class: "banner" }),
       h("div", { class: "profile-head" },
         avatarWithCharm(p, look.charm),
         h("h1", { class: "profile-name" }, p.display_name),
         tgUser ? h("div", { class: "handle" }, "@" + tgUser) : null,
+        chatHolder,
         lookingBadges(p.looking_for),
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
@@ -892,12 +1148,15 @@
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
           p.location ? h("span", { class: "chip" }, p.location) : null,
           null),
-        badgeRow(badgesFor(p, photos.length)),
+        badgeHolder,
+        matchHolder,
         h("div", { class: "actions" },
           data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
+          data.isOwner ? null : crushHolder,
           h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
           h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
+        data.isOwner ? chatControl(p) : null,
         reactHolder));
 
     const blocks = [];
@@ -905,6 +1164,8 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
+    const song = p.song ? songEmbed(p.song) : null;
+    if (song) side.push(h("section", { class: "keyring song" }, h("h2", {}, "🎵 My vibe"), song));
     if (plays.length) {
       side.push(h("section", { class: "keyring playroom" },
         h("h2", {}, "Playroom"),
@@ -940,6 +1201,8 @@
         h("div", { class: "prompt-cards" }, prompts.map((x, i) =>
           h("div", { class: "prompt-card", style: `--tilt:${[-1.2, 0.9, -0.6, 1.1][i % 4]}deg` }, h("span", { class: "pq" }, x.q), h("p", { class: "pa" }, x.a))))));
     }
+    const qotwHolder = h("div", {});
+    main.push(qotwHolder);
     if (p.into || p.limits) {
       main.push(h("div", { class: "into-limits" },
         intoSection(p.into),
@@ -956,11 +1219,13 @@
           care.aftercare ? [h("dt", {}, "Aftercare I need"), h("dd", {}, care.aftercare)] : null,
           care.reply ? [h("dt", {}, "I usually reply"), h("dd", {}, REPLY[care.reply])] : null)));
     }
+    const vouchHolder = h("div", {});
+    main.push(vouchHolder);
     if (photos.length) main.push(gallerySection(photos));
     const notesHolder = h("div", {});
     main.push(notesHolder);
 
-    if (!side.length && main.length === 2) {
+    if (!side.length && main.length === 4) {
       main.splice(1, 0, h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your links and photos from Edit." : "Nothing here yet."));
     }
     blocks.push(h("div", { class: "profile-body" + (side.length ? "" : " no-side") },
@@ -981,6 +1246,83 @@
       try { const social = await pb.send("/api/vc/social/" + encodeURIComponent(p.slug), {}); drawReactions(social); notesHolder.replaceChildren(notesSection(p, social, refreshNotes) || ""); } catch {}
     }
     compatSection(p, compatHolder);
+
+    // Crushes, vouches, this week's answer and event badges.
+    async function loadExtras() {
+      let x;
+      try { x = await pb.send("/api/vc/extras/" + encodeURIComponent(p.slug), {}); } catch { return; }
+      const extra = [];
+      if (x.eventsAttended >= 3) extra.push(["🎟️", "Regular", "Has been to 3+ group events"]);
+      else if (x.eventsAttended >= 1) extra.push(["🎟️", "Event-goer", "Has been to a group event"]);
+      if (x.vouchCount >= 3) extra.push(["🤝", "Trusted", "Vouched for by 3+ members"]);
+      if (extra.length) badgeHolder.replaceChildren(badgeRow([...badgesFor(p, photos.length), ...extra]));
+      if (x.crush) drawCrush(x.crush, false);
+      qotwHolder.replaceChildren(qotwCard(p, x, data.isOwner) || "");
+      vouchHolder.replaceChildren(vouchSection(p, x, data.isOwner, loadExtras) || "");
+    }
+    function drawCrush(c, justChanged) {
+      const btn = h("button", { type: "button", class: "btn crush" + (c.mine ? " on" : ""), "aria-pressed": String(c.mine),
+        title: c.mutual ? "You both have a crush!" : c.mine ? "Only you can see this. Tap to take it back." : "Secret! They're only told if they have a crush on you too." },
+        c.mutual ? "💞 It's a match!" : c.mine ? "💘 Crush sent" : "💘 Secret crush");
+      btn.addEventListener("click", async () => {
+        if (!me()) return toast("Log in to send a crush", true);
+        btn.disabled = true;
+        try {
+          const r = await pb.send("/api/vc/crush", { method: "POST", body: { slug: p.slug } });
+          drawCrush(r, true);
+          if (r.mutual) { hearts(30); toast(`💞 It's a match! ${p.display_name} has a crush on you too.`); }
+          else toast(r.mine ? "💘 Sent. It stays secret unless they feel the same." : "Crush taken back");
+        } catch (err) { toast(errMsg(err), true); btn.disabled = false; }
+      });
+      crushHolder.replaceChildren(btn);
+      matchHolder.replaceChildren(c.mutual ? h("div", { class: "match-banner" }, `💞 You and ${p.display_name} have a crush on each other!`) : "");
+    }
+    loadExtras();
+  }
+
+  function qotwCard(p, x, isOwner) {
+    if (!x.answer) return null;
+    if (!x.answer.a) return isOwner ? h("section", { class: "qotw-card empty" }, h("span", { class: "pq" }, "❓ Question of the week"),
+      h("p", { class: "pa" }, x.answer.q), h("a", { class: "btn small gold", href: "/question", "data-nav": "" }, "Answer it")) : null;
+    return h("section", { class: "qotw-card" }, h("span", { class: "pq" }, "❓ Question of the week"),
+      h("p", { class: "qq" }, x.answer.q), h("p", { class: "pa" }, x.answer.a),
+      h("a", { class: "see-all", href: "/question", "data-nav": "" }, "See everyone's answers →"));
+  }
+
+  function vouchSection(p, x, isOwner, refresh) {
+    const user = me();
+    if (x.vouches_off && !isOwner) return null;
+    const parts = [];
+    const n = x.vouchCount;
+    parts.push(h("p", { class: "vouch-count" }, n ? `🤝 Vouched for by ${n} member${n === 1 ? "" : "s"} who've met ${isOwner ? "you" : p.display_name}` : isOwner ? "No vouches yet. Members who've met you in person can vouch for you from your page." : `No vouches yet.`));
+    if (x.vouches_off && isOwner) parts.push(h("p", { class: "faint" }, "Vouches are switched off in your Settings, so others can't see or add them."));
+    if (!user && n) parts.push(h("p", { class: "faint" }, h("a", { href: "/login", "data-nav": "" }, "Log in"), " to see who."));
+    if (x.vouches.length) parts.push(h("div", { class: "vouches" }, x.vouches.map((v) => h("div", { class: "vouch" },
+      personChip(v.from),
+      v.text ? h("p", {}, "“" + v.text + "”") : null,
+      (isOwner || (user && v.from.id === user.id)) ? h("button", { type: "button", class: "see-all", onclick: async () => {
+        try { await pb.send("/api/vc/vouches/" + v.id, { method: "DELETE" }); toast("Vouch removed"); refresh(); } catch (err) { toast(errMsg(err), true); }
+      } }, "Remove") : null))));
+    if (user && !isOwner && !x.vouches_off) {
+      const box = h("div", { class: "vouch-form" });
+      const open = () => {
+        const ta = h("textarea", { maxlength: 140, rows: 2, placeholder: `Optional: a few words about ${p.display_name}`, "aria-label": "Vouch note" });
+        ta.value = x.myVouch ? x.myVouch.text : "";
+        const ok = h("input", { type: "checkbox", checked: !!x.myVouch });
+        const save = h("button", { type: "button", class: "btn small gold" }, x.myVouch ? "Update" : "Vouch");
+        save.addEventListener("click", async () => {
+          if (!ok.checked) return toast(`Tick the box to say you've met ${p.display_name}`, true);
+          save.disabled = true;
+          try { await pb.send("/api/vc/vouch", { method: "POST", body: { slug: p.slug, text: ta.value.trim() } }); toast("🤝 Vouched!"); refresh(); }
+          catch (err) { toast(errMsg(err), true); save.disabled = false; }
+        });
+        box.replaceChildren(ta, h("div", { class: "note-foot" }, h("label", { class: "check" }, ok, `I've met ${p.display_name} in person and they were lovely`), save));
+      };
+      if (x.myVouch) box.append(h("p", { class: "faint" }, "You've vouched for them. ", h("button", { type: "button", class: "see-all", onclick: open }, "Edit")));
+      else box.append(h("button", { type: "button", class: "btn small", onclick: open }, "🤝 I've met them: vouch"));
+      parts.push(box);
+    }
+    return h("section", { class: "prose vouch-box" }, h("h2", {}, "Vouches"), ...parts);
   }
 
   function gallerySection(photos) {
@@ -1101,6 +1443,8 @@
     const reactBox = h("input", { type: "checkbox", checked: !rec.reactions_off });
     const notesBox = h("input", { type: "checkbox", checked: !rec.notes_off });
     const matchBox = h("input", { type: "checkbox", checked: !rec.matches_off });
+    const crushBox = h("input", { type: "checkbox", checked: !rec.crushes_off });
+    const vouchBox = h("input", { type: "checkbox", checked: !rec.vouches_off });
 
     // ---------- look settings (Settings tab) ----------
     let look = L.resolve(rec.style, rec.theme);
@@ -1141,15 +1485,16 @@
       for (const k in colorInputs) colorInputs[k].value = look[k];
     }
 
-    const pills = (key, list, decorate) => h("div", { class: "pills", role: "group" }, list.map((o) =>
-      h("button", { type: "button", class: "pill", "data-look": key, "data-val": o.id, "aria-pressed": "false",
-        onclick: () => { look[key] = o.id; refreshLook(); } }, decorate ? decorate(o) : null, o.name)));
+    const seasonTag = (o) => o.season && L.SEASONS[o.season] ? h("small", { class: "season-tag", title: "Until " + L.SEASONS[o.season].until }, L.SEASONS[o.season].label.split(" ")[0]) : null;
+    const pills = (key, list, decorate) => h("div", { class: "pills", role: "group" }, L.available(list).map((o) =>
+      h("button", { type: "button", class: "pill" + (o.season ? " seasonal" : ""), "data-look": key, "data-val": o.id, "aria-pressed": "false",
+        onclick: () => { look[key] = o.id; refreshLook(); } }, decorate ? decorate(o) : null, o.name, seasonTag(o))));
 
-    const paletteGrid = h("div", { class: "pal-grid" }, L.PALETTES.map((pal) =>
-      h("button", { type: "button", class: "pal", "data-look": "palette", "data-val": pal.id, "aria-pressed": "false",
+    const paletteGrid = h("div", { class: "pal-grid" }, L.available(L.PALETTES).map((pal) =>
+      h("button", { type: "button", class: "pal" + (pal.season ? " seasonal" : ""), "data-look": "palette", "data-val": pal.id, "aria-pressed": "false",
         onclick: () => { Object.assign(look, { palette: pal.id, deep: pal.deep, mid: pal.mid, glow: pal.glow, accent: pal.accent }); refreshLook(); } },
         h("span", { class: "sw", style: `background:linear-gradient(120deg, ${pal.deep}, ${pal.mid} 45%, ${pal.glow})` }, h("i", { style: `background:${pal.accent}` })),
-        h("b", {}, pal.name))));
+        h("b", {}, pal.name, seasonTag(pal)))));
 
     const COLOR_FIELDS = [
       ["deep", "Deep velvet", "the background"], ["mid", "Plush middle", "the banner"],
@@ -1165,10 +1510,10 @@
     const QUIPS = ["Ooh, fancy.", "Very you.", "Chaos, but make it cute.", "The velvet has spoken.", "Bold choice. Love it.", "Someone's feeling frisky.", "Serving looks."];
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const surprise = () => {
-      const pal = rand(L.PALETTES);
+      const pal = rand(L.available(L.PALETTES));
       Object.assign(look, { palette: pal.id, deep: pal.deep, mid: pal.mid, glow: pal.glow, accent: pal.accent,
-        pattern: rand(L.PATTERNS.slice(1)).id, ring: rand(L.RINGS).id, font: rand(L.FONTS).id,
-        particles: rand(L.PARTICLES).id, corners: rand(L.CORNERS).id });
+        pattern: rand(L.available(L.PATTERNS).slice(1)).id, ring: rand(L.RINGS).id, font: rand(L.FONTS).id,
+        particles: rand(L.available(L.PARTICLES)).id, corners: rand(L.CORNERS).id });
       refreshLook();
       toast("🎲 " + rand(QUIPS));
     };
@@ -1213,6 +1558,7 @@
       h("div", {},
         h("section", { class: "panel" },
           h("h2", {}, "Colours"),
+          L.available(L.PALETTES).some((x) => x.season) ? h("p", { class: "season-note" }, "🎃 The Halloween pack is here until November 1: spooky palettes, spider webs, bats and new charms. Look for the 🎃.") : null,
           h("div", { class: "subhead" }, "Pick a palette", h("small", {}, "or let fate decide")),
           h("div", { class: "actions", style: "margin:0 0 12px" },
             h("button", { type: "button", class: "btn small gold surprise", onclick: surprise }, "🎲 Surprise me"),
@@ -1242,7 +1588,9 @@
               h("span", { class: "label" }, "On my page"),
               h("label", { class: "check" }, reactBox, "Let members leave reactions (🔥 💜 🐾 ✨, always anonymous)"),
               h("label", { class: "check" }, notesBox, "Let members leave kind notes (you OK each one first)"),
-              h("label", { class: "check" }, matchBox, "Show logged-in members what we have in common on Kink Jars")))),
+              h("label", { class: "check" }, matchBox, "Show logged-in members what we have in common on Kink Jars (and include me in Kink twins)"),
+              h("label", { class: "check" }, crushBox, "Let members send me secret crushes (you only find out if it's mutual)"),
+              h("label", { class: "check" }, vouchBox, "Let members who've met me vouch for me")))),
         h("section", { class: "panel" }, h("h2", {}, "Account"),
           passwordForm(),
           h("div", { class: "actions", style: "margin:16px 0 0" },
@@ -1315,6 +1663,7 @@
       toast("Photos saved");
     });
     function drawPhotos() {
+      try { drawGlow(); } catch {}   // not set up yet on the first draw
       photoGrid.replaceChildren(
         ...photos.map((ph, i) => {
           const cap = h("input", { type: "text", placeholder: "Caption (optional)", value: ph.caption || "", maxlength: 200, "aria-label": "Caption" });
@@ -1366,6 +1715,9 @@
         fd.append("reactions_off", reactBox.checked ? "false" : "true");
         fd.append("notes_off", notesBox.checked ? "false" : "true");
         fd.append("matches_off", matchBox.checked ? "false" : "true");
+        fd.append("crushes_off", crushBox.checked ? "false" : "true");
+        fd.append("vouches_off", vouchBox.checked ? "false" : "true");
+        fd.append("song", document.getElementById("f_song").value.trim());
         if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
@@ -1523,7 +1875,8 @@
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
             field("General area", input("location", { maxlength: 80, placeholder: "Optional. Keep it general." }), "Never put your exact address here."),
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
-            field("Hobbies", input("hobbies", { maxlength: 1000, placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Comma-separated; they show as tags.", true))),
+            field("Hobbies", input("hobbies", { maxlength: 1000, placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Comma-separated; they show as tags.", true),
+            field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
           h("div", { class: "form-grid" },
@@ -1577,7 +1930,24 @@
       if (id === "settings") refreshLook();
     }
 
+    // Glow-up meter: how complete the saved profile is, and the next thing to add.
+    const glowHolder = h("div", {});
+    const drawGlow = () => {
+      const g = glowUp(rec, photos.length);
+      const next = g.todo[0];
+      const tabLabel = (id) => (TABS.find((t) => t.id === id) || {}).label || "";
+      glowHolder.replaceChildren(h("section", { class: "glow-meter" + (g.score >= 100 ? " full" : "") },
+        h("div", { class: "glow-ring", style: `--pct:${g.score}`, role: "img", "aria-label": `Profile ${g.score}% complete` }, h("span", {}, g.score + "%")),
+        h("div", { class: "glow-txt" },
+          h("b", {}, g.score >= 100 ? "✨ Fully glowed up!" : g.score >= 70 ? "Looking good!" : g.score >= 40 ? "Getting there" : "Let's dress up your page"),
+          next ? h("span", {}, "Next: ", h("button", { type: "button", class: "see-all", onclick: () => showTab(next[3]) }, next[2]), h("small", { class: "faint" }, ` (+${next[0]}% · ${tabLabel(next[3])})`))
+            : h("span", { class: "faint" }, "You've earned the ✨ Glowed up badge."))));
+    };
+    drawGlow();
+    saveBtn.addEventListener("click", () => setTimeout(drawGlow, 800));
+
     app.replaceChildren(
+      glowHolder,
       tabBar,
       ...TABS.map((t) => panes[t.id]),
       h("div", { class: "savebar" }, h("a", { class: "btn ghost", href: "/" + rec.slug, "data-nav": "" }, "Cancel"), saveBtn),
