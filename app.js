@@ -224,7 +224,7 @@
           h("span", { class: "mark", "aria-hidden": "true" }),
           h("span", { class: "name", "aria-hidden": "true" }, "Velvet Collar"),
           h("span", { class: "tagline", "aria-hidden": "true" }, "Curious minds, boundless bodies")),
-        h("h1", {}, "One link for your jars, links and photos"),
+        h("h1", {}, "One link for everything about you"),
         h("p", {}, `Make a profile page for ${CFG.GROUP_NAME || "the group"}, put the link in your Telegram bio, and people can find everything about you in one tap.`),
         h("div", { class: "actions", style: "justify-content:center" },
           h("a", { class: "btn gold", href: "/join", "data-nav": "" }, "Make my profile"),
@@ -234,7 +234,7 @@
       h("section", { class: "showcase" },
         sampleTag(),
         h("ul", { class: "points" },
-          h("li", {}, h("b", {}, "Your jars and links, together. "), "Every Kink Jar you've made, plus FetLife, wishlists and anything else, one tap away."),
+          h("li", {}, h("b", {}, "All your links in one place. "), "FetLife, wishlists, socials, albums and anything else you want people to find, one tap away."),
           h("li", {}, h("b", {}, "Photos with a blur switch. "), "Mark a photo NSFW and it stays blurred until someone taps it."),
           h("li", {}, h("b", {}, "Yours to dress up. "), "Pick colours, patterns and a mood sticker, and say what you're into and where your limits are."),
           h("li", {}, h("b", {}, "Only shown to who you choose. "), "People see your page through your link. Joining the member list is up to you."))),
@@ -251,10 +251,9 @@
         h("div", { class: "mood" }, h("span", { class: "em" }, "🎀"), "feeling bratty, bring snacks"),
         h("div", { class: "chips" }, h("span", { class: "chip gold" }, "Brat"), h("span", { class: "chip" }, "she/they")),
         h("div", { class: "key-list" },
-          ["Bratty favourites", "Rope curious"].map((t) => h("div", { class: "key" },
-            h("span", { class: "jar-icon" }, h("span", { class: "lid" }), h("span", { class: "body" })),
-            h("span", { class: "txt" }, h("b", {}, t), h("small", {}, "Kink Jar")))),
-          h("div", { class: "key" }, h("span", { class: "mono" }, "FE"), h("span", { class: "txt" }, h("b", {}, "FetLife"), h("small", {}, "fetlife.com"))))));
+          [["FetLife", "fetlife.com"], ["Wishlist", "throne.com"], ["Photo album", "flickr.com"]].map(([t, host]) => h("div", { class: "key" },
+            h("span", { class: "mono" }, t.slice(0, 2).toUpperCase()),
+            h("span", { class: "txt" }, h("b", {}, t), h("small", {}, host)))))));
     L.apply(Object.assign(L.resolve({ palette: "bubblegum-brat", pattern: "hearts", ring: "rainbow" }), { font: "slab" }), card);
     return card;
   }
@@ -316,8 +315,8 @@
     const photos = data.photos || [];
     const look = setLook(p.style, p.theme, true);
     document.title = `${p.display_name} · Velvet Collar`;
-    const jars = (p.jars || []).filter((j) => safeUrl(j.url));
-    const links = (p.links || []).filter((l) => safeUrl(l.url));
+    // Older profiles kept jars separately; show them as ordinary links.
+    const links = [...(p.jars || []), ...(p.links || [])].filter((l) => safeUrl(l.url));
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
     const head = h("div", { class: "profile-card" },
@@ -346,14 +345,6 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
-    if (jars.length) {
-      side.push(h("section", { class: "keyring" },
-        h("h2", {}, "Jars"),
-        h("div", { class: "key-list" }, jars.map((j) =>
-          h("a", { class: "key", href: safeUrl(j.url), target: "_blank", rel: "noopener" },
-            h("span", { class: "jar-icon", "aria-hidden": "true" }, h("span", { class: "lid" }), h("span", { class: "body" })),
-            h("span", { class: "txt" }, h("b", {}, j.title || "Untitled jar"), h("small", {}, hostOf(j.url))))))));
-    }
     if (links.length) {
       side.push(h("section", { class: "keyring" },
         h("h2", {}, "Links"),
@@ -376,7 +367,7 @@
     if (photos.length) main.push(gallerySection(photos));
 
     if (!side.length && !main.length) {
-      blocks.push(h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your jars, links and photos from Edit." : "Nothing here yet."));
+      blocks.push(h("p", { class: "center-msg muted" }, data.isOwner ? "Your page is empty so far. Add your links and photos from Edit." : "Nothing here yet."));
     } else {
       blocks.push(h("div", { class: "profile-body" + (side.length ? "" : " no-side") },
         side.length ? h("aside", { class: "side" }, side) : null,
@@ -488,9 +479,9 @@
     const preview = h("div", { class: "preview" },
       h("div", { class: "banner" }),
       h("div", { class: "profile-head" }, pvAvatar, pvName, pvMood, pvChips,
-        h("div", { class: "jar" },
-          h("div", { class: "jar-icon", "aria-hidden": "true" }, h("div", { class: "lid" }), h("div", { class: "body" })),
-          h("b", {}, (rec.jars && rec.jars[0] && rec.jars[0].title) || "One of your jars")),
+        h("div", { class: "key-list", style: "margin-top:12px" },
+          h("div", { class: "key" }, h("span", { class: "mono", "aria-hidden": "true" }, "FE"),
+            h("span", { class: "txt" }, h("b", {}, "One of your links"), h("small", {}, "fetlife.com")))),
         h("div", { class: "actions" }, h("span", { class: "btn gold small" }, "Message on Telegram"))));
 
     const colorInputs = {};
@@ -646,8 +637,7 @@
       }).filter((x) => x.url);
       return wrap;
     }
-    const jarsEd = listEditor(rec.jars, "Jar name", "https://… link to the jar", 40);
-    const linksEd = listEditor(rec.links, "Label (FetLife, Instagram…)", "https://…", 20, LINK_PRESETS);
+    const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "https://…", 40, LINK_PRESETS);
 
     // photos
     const photoGrid = h("div", { class: "ph-edit" });
@@ -706,7 +696,7 @@
     saveBtn.addEventListener("click", async () => {
       if (!nameI.value.trim()) return toast("Add a display name", true);
       if (!slugOk) return toast("Pick a different link name", true);
-      const bad = [...jarsEd.read(), ...linksEd.read()].find((x) => !safeUrl(x.url));
+      const bad = linksEd.read().find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
       try {
@@ -717,7 +707,7 @@
         fd.append("tg_username", document.getElementById("f_tg_username").value.trim().replace(/^@/, ""));
         fd.append("style", JSON.stringify(look));
         fd.append("listed", listedBox.checked ? "true" : "false");
-        fd.append("jars", JSON.stringify(jarsEd.read()));
+        fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
         if (avatarFile) fd.append("avatar", avatarFile);
         else if (removeAvatar) fd.append("avatar", "");
@@ -751,12 +741,9 @@
             field("Into & curious about", area("into", { maxlength: 2000 })),
             field("Limits", area("limits", { maxlength: 2000, placeholder: "Hard and soft limits. Shown in its own box." })))),
       ] },
-      { id: "links", label: "🫙 Jars & links", body: [
-        h("section", { class: "panel" }, h("h2", {}, "Your jars"),
-          h("p", { class: "faint", style: "margin-top:-6px" }, "Paste the link to each Kink Jar you've made."),
-          jarsEd),
+      { id: "links", label: "🔗 Links", body: [
         h("section", { class: "panel" }, h("h2", {}, "Links"),
-          h("p", { class: "faint", style: "margin-top:-6px" }, "FetLife, socials, wishlists, photo albums — anything you want people to find."),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Anything you want people to find: FetLife, socials, wishlists, photo albums. Give each one a name and paste its address."),
           linksEd),
       ] },
       { id: "photos", label: "📸 Photos", body: [
