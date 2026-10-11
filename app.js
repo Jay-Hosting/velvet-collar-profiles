@@ -678,7 +678,21 @@
       return wrap;
     }
     const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "https://…", 40, LINK_PRESETS);
-    const playEd = listEditor(rec.play_links || [], "Name (My Kink Jar shelf…)", "https://… your share link", 20);
+    // ---------- Playroom: each hosted game gets a box for the member's own share link ----------
+    const playOriginal = (rec.play_links || []).filter((l) => l && l.url);
+    let gameRows = null;     // [{ title, input }] once the games have loaded
+    let otherEd = null;      // links for games we don't host
+    const otherHolder = h("div", {});
+    const matchesGame = (gameUrl, u) => {
+      try { const a = new URL(gameUrl), b = new URL(u); return a.host === b.host && b.pathname.toLowerCase().startsWith(a.pathname.replace(/\/$/, "").toLowerCase()); }
+      catch { return false; }
+    };
+    function readPlayLinks() {
+      if (!gameRows) return playOriginal;
+      const out = [];
+      for (const r of gameRows) { const v = r.input.value.trim(); if (v) out.push({ title: r.title, url: v }); }
+      return out.concat(otherEd ? otherEd.read() : []);
+    }
 
     // photos
     const photoGrid = h("div", { class: "ph-edit" });
@@ -737,7 +751,7 @@
     saveBtn.addEventListener("click", async () => {
       if (!nameI.value.trim()) return toast("Add a display name", true);
       if (!slugOk) return toast("Pick a different link name", true);
-      const bad = [...linksEd.read(), ...playEd.read()].find((x) => !safeUrl(x.url));
+      const bad = [...linksEd.read(), ...readPlayLinks()].find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
       try {
@@ -750,7 +764,7 @@
         fd.append("listed", listedBox.checked ? "true" : "false");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
-        fd.append("play_links", JSON.stringify(playEd.read()));
+        fd.append("play_links", JSON.stringify(readPlayLinks()));
         if (avatarFile) fd.append("avatar", avatarFile);
         else if (removeAvatar) fd.append("avatar", "");
         const updated = await pb.collection("members").update(rec.id, fd);
@@ -766,83 +780,93 @@
       }
     });
 
-    // ---------- fill in from Kink Jars ----------
-    function kinkJarsPanel() {
+    // Reads the Kink Jars link in `inp` and offers to fill in interests, limits and dynamic.
+    async function kinkJarsFill(inp, btn, out) {
       const K = window.KinkJarsImport;
-      const linkIn = h("input", { type: "url", inputmode: "url", placeholder: "https://jay-hosting.github.io/Kink-jars/#s=…", "aria-label": "Kink Jars share link" });
-      const readBtn = h("button", { class: "btn small gold", type: "button" }, "Read my shelf");
-      const out = h("div", { class: "kj-out" });
+      const url = inp.value.trim();
+      out.replaceChildren();
+      if (!url) { inp.focus(); out.append(h("p", { class: "status bad" }, "Paste your Kink Jars share link first. On Kink Jars: Share & compare, then Get my share link.")); return; }
       const box = (label, on) => { const c = h("input", { type: "checkbox", checked: on }); return [c, h("label", { class: "check" }, c, label)]; };
-      readBtn.addEventListener("click", async () => {
-        const url = linkIn.value.trim();
-        if (!url) return linkIn.focus();
-        readBtn.disabled = true; readBtn.textContent = "Reading…"; out.replaceChildren();
-        try {
-          const shelf = await K.resolve(url);
-          const sum = K.summarize(shelf);
-          const intoT = K.intoText(sum), limitsT = K.limitsText(sum);
-          const total = sum.love.length + sum.enjoy.length + sum.curious.length + sum.limits.length + sum.roles.length;
-          if (!total) { out.append(h("p", { class: "status bad" }, "That shelf doesn't have any filled jars yet.")); return; }
-          const [cInto, lInto] = box("Interests (" + (sum.love.length + sum.enjoy.length + sum.curious.length) + ")", !!intoT);
-          const [cLim, lLim] = box("Limits (" + sum.limits.length + ")", !!limitsT);
-          const [cDyn, lDyn] = box("Dynamic / role: " + (sum.roles.slice(0, 3).join(", ") || "none rated"), sum.roles.length > 0);
-          const [cLink, lLink] = box("Add my shelf to my Playroom", true);
-          const willReplace = (document.getElementById("f_into").value.trim() || document.getElementById("f_limits").value.trim());
-          const apply = h("button", { class: "btn small gold", type: "button" }, "Fill in my profile");
-          apply.addEventListener("click", () => {
-            if (cInto.checked && intoT) document.getElementById("f_into").value = intoT;
-            if (cLim.checked && limitsT) document.getElementById("f_limits").value = limitsT;
-            if (cDyn.checked && sum.roles.length) document.getElementById("f_dynamic").value = sum.roles.slice(0, 3).join(", ").slice(0, 80);
-            if (!nameI.value.trim() && sum.name) nameI.value = sum.name;
-            if (cLink.checked && !playEd.read().some((l) => l.url === url)) playEd.add({ title: "My Kink Jar shelf", url });
-            refreshLook();
-            toast("Filled in. Check it over, then press Save profile.");
-            toast("Filled in. Your interests and limits are on the Profile tab; press Save profile when you're happy.");
-          });
-          out.append(
-            h("p", { class: "status ok" }, `Found ${total} filled jars${sum.name ? " on " + sum.name + "'s shelf" : ""}.`),
-            intoT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview interests"), h("p", { class: "bio" }, intoT)) : "",
-            limitsT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview limits"), h("p", { class: "bio" }, limitsT)) : "",
-            h("div", { class: "kj-boxes" }, lInto, lLim, lDyn, lLink),
-            willReplace ? h("p", { class: "hint" }, "This replaces what's in Into & curious about and Limits right now.") : "",
-            apply);
-        } catch (err) {
-          out.append(h("p", { class: "status bad" }, err.message || "Couldn't read that link."));
-        } finally {
-          readBtn.disabled = false; readBtn.textContent = "Read my shelf";
-        }
-      });
-      return h("section", { class: "panel kj" },
-        h("h2", {}, "Fill in from Kink Jars"),
-        h("p", { class: "faint", style: "margin-top:-6px" },
-          "Already filled your jar shelf? On Kink Jars, open Share & compare, tap Get my share link, and paste it here. Your loves, maybes and hard limits fill in for you. Nothing is saved until you press Save profile."),
-        h("div", { class: "kj-row" }, linkIn, readBtn),
-        out);
+      btn.disabled = true; const label = btn.textContent; btn.textContent = "Reading your shelf…";
+      try {
+        const sum = K.summarize(await K.resolve(url));
+        const intoT = K.intoText(sum), limitsT = K.limitsText(sum);
+        const total = sum.love.length + sum.enjoy.length + sum.curious.length + sum.limits.length + sum.roles.length;
+        if (!total) { out.append(h("p", { class: "status bad" }, "That shelf doesn't have any filled jars yet.")); return; }
+        const [cInto, lInto] = box("Interests (" + (sum.love.length + sum.enjoy.length + sum.curious.length) + ")", !!intoT);
+        const [cLim, lLim] = box("Limits (" + sum.limits.length + ")", !!limitsT);
+        const [cDyn, lDyn] = box("Dynamic / role: " + (sum.roles.slice(0, 3).join(", ") || "none rated"), sum.roles.length > 0);
+        const willReplace = document.getElementById("f_into").value.trim() || document.getElementById("f_limits").value.trim();
+        const apply = h("button", { class: "btn small gold", type: "button" }, "Fill in my profile");
+        apply.addEventListener("click", () => {
+          if (cInto.checked && intoT) document.getElementById("f_into").value = intoT;
+          if (cLim.checked && limitsT) document.getElementById("f_limits").value = limitsT;
+          if (cDyn.checked && sum.roles.length) document.getElementById("f_dynamic").value = sum.roles.slice(0, 3).join(", ").slice(0, 80);
+          if (!nameI.value.trim() && sum.name) nameI.value = sum.name;
+          refreshLook();
+          out.replaceChildren(h("p", { class: "status ok" }, "Filled in. Your interests and limits are on the Profile tab. Press Save profile when you're happy."));
+        });
+        out.append(
+          h("p", { class: "status ok" }, `Found ${total} filled jars${sum.name ? " on " + sum.name + "'s shelf" : ""}.`),
+          intoT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview interests"), h("p", { class: "bio" }, intoT)) : "",
+          limitsT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview limits"), h("p", { class: "bio" }, limitsT)) : "",
+          h("div", { class: "kj-boxes" }, lInto, lLim, lDyn),
+          willReplace ? h("p", { class: "hint" }, "This replaces what's in Into & curious about and Limits right now.") : "",
+          apply);
+      } catch (err) {
+        out.append(h("p", { class: "status bad" }, err.message || "Couldn't read that link."));
+      } finally {
+        btn.disabled = false; btn.textContent = label;
+      }
     }
 
-    // Games we host, with Play and "Add my link" buttons (loaded from the games list).
-    function hostedGamesPanel() {
-      const grid = h("div", { class: "games compact" }, h("p", { class: "faint" }, "Loading games…"));
+    function playroomPanel() {
+      const grid = h("div", { class: "play-games" }, h("p", { class: "faint" }, "Loading games…"));
       pb.collection("games").getFullList({ sort: "sort,title" }).then((games) => {
+        const used = new Set();
+        const rows = [];
         grid.replaceChildren();
         if (!games.length) grid.append(h("p", { class: "faint" }, "No games yet."));
         for (const g of games) {
           const url = safeUrl(g.url); if (!url) continue;
-          grid.append(h("div", { class: "game" },
-            h("span", { class: "game-emoji", "aria-hidden": "true" }, g.emoji || "🎲"),
-            h("span", { class: "game-txt" }, h("b", {}, g.title), g.description ? h("span", {}, g.description) : null),
-            h("span", { class: "game-actions" },
-              h("a", { class: "game-go", href: url, target: "_blank", rel: "noopener" }, "Play"),
-              h("button", { type: "button", class: "btn small", onclick: () => {
-                const r = playEd.add({ title: "My " + g.title, url: url });
-                if (r) { r.u.focus(); r.u.select(); toast("Paste your " + g.title + " share link over the address, then Save profile."); }
-              } }, "Add my link"))));
+          const idx = playOriginal.findIndex((l, i) => !used.has(i) && matchesGame(url, l.url));
+          if (!g.has_link && idx < 0) {
+            // Games without personal links (like the Confession Box) just get a Play button.
+            grid.append(h("div", { class: "play-game" },
+              h("div", { class: "pg-head" },
+                h("span", { class: "game-emoji", "aria-hidden": "true" }, g.emoji || "🎲"),
+                h("span", { class: "game-txt" }, h("b", {}, g.title), g.description ? h("span", {}, g.description) : null),
+                h("a", { class: "game-go", href: url, target: "_blank", rel: "noopener" }, "Play"))));
+            continue;
+          }
+          if (idx >= 0) used.add(idx);
+          const existing = idx >= 0 ? playOriginal[idx] : null;
+          const inp = h("input", { type: "url", inputmode: "url", value: existing ? existing.url : "", placeholder: "Paste your " + g.title + " share link", "aria-label": "Your " + g.title + " share link" });
+          rows.push({ title: (existing && existing.title) || "My " + g.title, input: inp });
+          const out = h("div", { class: "kj-out" });
+          let fill = null;
+          if (/kink-jars/i.test(url) && window.KinkJarsImport) {
+            fill = h("button", { type: "button", class: "btn small" }, "Fill in my profile from it");
+            fill.addEventListener("click", () => kinkJarsFill(inp, fill, out));
+          }
+          grid.append(h("div", { class: "play-game" },
+            h("div", { class: "pg-head" },
+              h("span", { class: "game-emoji", "aria-hidden": "true" }, g.emoji || "🎲"),
+              h("span", { class: "game-txt" }, h("b", {}, g.title), g.description ? h("span", {}, g.description) : null),
+              h("a", { class: "game-go", href: url, target: "_blank", rel: "noopener" }, "Play")),
+            h("div", { class: "pg-link" }, inp, fill),
+            out));
         }
-      }).catch(() => grid.replaceChildren(h("p", { class: "faint" }, "Couldn't load the games right now.")));
+        gameRows = rows;
+        const others = playOriginal.filter((_, i) => !used.has(i));
+        otherEd = listEditor(others, "Game name", "https://…", 10);
+        otherHolder.replaceChildren(h("details", { class: "pg-other", open: others.length > 0 },
+          h("summary", {}, "Links for other games"), otherEd));
+      }).catch(() => grid.replaceChildren(h("p", { class: "faint" }, "Couldn't load the games right now. Your saved game links are kept.")));
       return h("section", { class: "panel" },
-        h("h2", {}, "Games we host"),
-        h("p", { class: "faint", style: "margin-top:-6px" }, "Play them, then add your share links below so your results show on your page."),
-        grid);
+        h("h2", {}, "Your games"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Play a game, then paste your share link under it. Your links show in the Playroom box on your page."),
+        grid, otherHolder);
     }
 
     const TABS = [
@@ -856,7 +880,7 @@
             field("General area", input("location", { maxlength: 80, placeholder: "Optional. Keep it general." }), "Never put your exact address here."),
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true))),
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
-          h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? The Playroom tab can fill these in for you."),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
           h("div", { class: "form-grid" },
             field("Into & curious about", area("into", { maxlength: 2000 })),
             field("Limits", area("limits", { maxlength: 2000, placeholder: "Hard and soft limits. Shown in its own box." })))),
@@ -873,11 +897,7 @@
           phInput, photoGrid),
       ] },
       { id: "playroom", label: "🎲 Playroom", body: [
-        hostedGamesPanel(),
-        h("section", { class: "panel" }, h("h2", {}, "My game links"),
-          h("p", { class: "faint", style: "margin-top:-6px" }, "Your shelves and results from the games. They show in a Playroom section on your page."),
-          playEd),
-        window.KinkJarsImport ? kinkJarsPanel() : "",
+        playroomPanel(),
       ] },
       { id: "links", label: "🔗 Links", body: [
         h("section", { class: "panel" }, h("h2", {}, "Links"),

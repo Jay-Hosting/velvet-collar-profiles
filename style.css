@@ -554,3 +554,18 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
   .topnav::-webkit-scrollbar { display: none; }
   .topnav .btn.small { flex: none; }
 }
+
+/* Playroom tab: one box per game */
+.play-games { display: grid; gap: 12px; }
+.play-game { display: grid; gap: 10px; padding: 14px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(0,0,0,.18); }
+.pg-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.pg-head .game-emoji { width: 46px; height: 46px; font-size: 1.5rem; border-radius: 13px; grid-row: auto; }
+.pg-head .game-txt b { font-size: 1.05rem; margin-bottom: 2px; }
+.pg-head .game-txt span { font-size: .86rem; }
+.pg-link { display: flex; gap: 8px; flex-wrap: wrap; }
+.pg-link input { flex: 1 1 260px; min-width: 0; }
+.play-game .kj-out { margin-top: 0; }
+.play-game .kj-out:empty { display: none; }
+.pg-other { margin-top: 14px; }
+.pg-other summary { cursor: pointer; font-weight: 700; font-size: .9rem; color: var(--muted); margin-bottom: 10px; }
+@media (max-width: 520px) { .pg-head { grid-template-columns: auto minmax(0, 1fr); } .pg-head .game-go { grid-column: 2; justify-self: start; } }
