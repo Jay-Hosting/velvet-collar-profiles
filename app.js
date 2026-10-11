@@ -337,7 +337,7 @@
           h("div", { class: "event-emoji", "aria-hidden": "true" }, ev.emoji || "📅"),
           h("div", { class: "event-body" },
             h("h2", {}, ev.title),
-            h("p", { class: "event-when" }, fmtWhen(ev.starts), ends ? " – " + timeShort(ends) : "", ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
+            h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
             ev.description ? h("p", { class: "event-desc" }, ev.description) : null,
             h("div", { class: "event-people" },
               ev.people.slice(0, 12).map(personChip),
@@ -878,7 +878,9 @@
 
   // ---------- "up for a chat" status ----------
   const chatOn = (m) => { const t = parseDate(m && m.chat_until); return !!t && t > Date.now(); };
-  const timeShort = (t) => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  // All times show in the group's time zone (Pacific), whoever is looking.
+  const TZ = CFG.TIME_ZONE || "America/Los_Angeles", TZ_LABEL = CFG.TIME_ZONE_LABEL || "PT";
+  const timeShort = (t) => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: TZ }) + " " + TZ_LABEL;
   const chatLine = (m) => chatOn(m) ? h("div", { class: "chat-status" }, h("span", { class: "dot", "aria-hidden": "true" }), `Up for a chat until ${timeShort(parseDate(m.chat_until))}`) : null;
   // A small control for your own status: off, or on for a few hours.
   function chatControl(rec, onChange) {
@@ -956,7 +958,7 @@
     ? h("img", { class: "mini-av", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
     : h("span", { class: "mini-av", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 1).toUpperCase());
   const personChip = (m) => h("a", { class: "person", href: "/" + m.slug, "data-nav": "" }, miniAvatar(m), h("span", {}, m.display_name));
-  const fmtWhen = (d) => { const t = parseDate(d); return t ? new Date(t).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
+  const fmtWhen = (d) => { const t = parseDate(d); return t ? new Date(t).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: TZ }) + " " + TZ_LABEL : ""; };
   function hearts(n) {
     if (reduceMotion()) return;
     const layer = h("div", { class: "heart-burst", "aria-hidden": "true" });
@@ -996,7 +998,7 @@
   function notesSection(p, social, refresh) {
     const user = me();
     if (social.notes_off && !social.isOwner) return null;
-    const when = (d) => { try { return new Date(d.replace(" ", "T")).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
+    const when = (d) => { try { return new Date(d.replace(" ", "T")).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: TZ }); } catch { return ""; } };
     const noteCard = (n, actions) => h("div", { class: "note" },
       h("p", {}, n.text),
       h("div", { class: "note-foot" },
