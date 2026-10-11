@@ -498,3 +498,27 @@ a.key:hover, a.key:focus-visible { background: var(--gold-soft); }
   .sample { max-width: 320px; margin: 0 auto; }
 }
 @media (prefers-reduced-motion: reduce) { .sample { transform: none; } }
+
+/* ===================== playroom ===================== */
+.btn.current { border-color: var(--gold); color: var(--text); }
+.playroom-head { padding: 20px 0 18px; }
+.playroom-head h1 { font-family: var(--slab); font-weight: 800; font-size: clamp(2rem, 7vw, 2.8rem); color: var(--pink); margin: 0 0 6px; }
+.playroom-head p { margin: 0; max-width: 52ch; }
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.game {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; column-gap: 16px; row-gap: 14px;
+  padding: 18px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line);
+  color: var(--text); text-decoration: none; transition: border-color .15s, background .15s;
+}
+.game:hover, .game:focus-visible { border-color: var(--gold); background: var(--gold-soft); }
+.game-emoji {
+  grid-row: 1 / span 2; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 1.8rem;
+  background: linear-gradient(135deg, var(--v2), var(--v3));
+}
+.game-txt b { display: block; font-family: var(--slab); font-weight: 600; font-size: 1.15rem; margin-bottom: 4px; }
+.game-txt span { color: var(--muted); font-size: .92rem; line-height: 1.5; }
+.game-go {
+  justify-self: start; display: inline-flex; align-items: center; min-height: 34px; padding: 0 16px; border-radius: 999px;
+  background: var(--gold); color: var(--on-gold); font-weight: 700; font-size: .85rem;
+}
+@media (max-width: 520px) { .topnav .btn.small { padding: 0 10px; font-size: .8rem; } }

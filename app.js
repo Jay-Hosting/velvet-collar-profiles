@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "index", "directory", "members", "assets", "vendor", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "_"];
   const LINK_PRESETS = [
     ["FetLife", "https://fetlife.com/users/"],
     ["Instagram", "https://instagram.com/"],
@@ -176,6 +176,7 @@
     if (!path || path === "index.html" || path === "404.html") return { name: "home" };
     if (path === "edit") return { name: "edit" };
     if (path === "login" || path === "join") return { name: path };
+    if (path === "playroom") return { name: "playroom" };
     return { name: "profile", slug: path.split("/")[0] };
   }
   function go(path) { history.pushState(null, "", path); render(); window.scrollTo(0, 0); }
@@ -188,10 +189,13 @@
   function renderNav() {
     nav.replaceChildren();
     const user = me();
+    const here = route().name;
+    const playroom = h("a", { class: "btn small ghost" + (here === "playroom" ? " current" : ""), href: "/playroom", "data-nav": "" }, "Playroom");
     if (!user) {
-      nav.append(h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"));
+      nav.append(playroom, h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"));
     } else {
       nav.append(
+        playroom,
         h("a", { class: "btn small ghost", href: "/", "data-nav": "" }, "Member list"),
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
@@ -209,6 +213,7 @@
       if (r.name === "home") return me() ? await renderDirectory() : renderLanding();
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
+      if (r.name === "playroom") return await renderPlayroom();
       return await renderProfile(r.slug);
     } catch (err) {
       app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Hmm."), h("p", { class: "muted" }, errMsg(err))));
@@ -261,6 +266,29 @@
   function renderLogin(after) {
     try { sessionStorage.setItem("vc_after_login", after); } catch {}
     renderAuth("login");
+  }
+
+  // ---------- playroom: the group's games (managed in the dashboard) ----------
+  async function renderPlayroom() {
+    document.title = "Playroom · Velvet Collar";
+    const games = await pb.collection("games").getFullList({ sort: "sort,title" });
+    const grid = h("div", { class: "games" });
+    if (!games.length) grid.append(h("p", { class: "muted" }, "No games here yet. Check back soon."));
+    for (const g of games) {
+      const url = safeUrl(g.url);
+      if (!url) continue;
+      grid.append(h("a", { class: "game", href: url, target: "_blank", rel: "noopener" },
+        h("span", { class: "game-emoji", "aria-hidden": "true" }, g.emoji || "🎲"),
+        h("span", { class: "game-txt" },
+          h("b", {}, g.title),
+          g.description ? h("span", {}, g.description) : null),
+        h("span", { class: "game-go" }, "Play")));
+    }
+    app.replaceChildren(
+      h("section", { class: "playroom-head" },
+        h("h1", {}, "Playroom"),
+        h("p", { class: "muted" }, `Games made for ${CFG.GROUP_NAME || "the group"}. Each one opens in a new tab.`)),
+      grid);
   }
 
   // ---------- member list (logged-in only, opt-in) ----------
