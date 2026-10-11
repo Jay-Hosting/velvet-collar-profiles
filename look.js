@@ -3,7 +3,8 @@
   "use strict";
 
   const PALETTES = [
-    { id: "velvet-original",   name: "Velvet Original",    deep: "#2a0b2c", mid: "#6e1b55", glow: "#b0407e", accent: "#d9b56f" },
+    { id: "velvet-collar",     name: "Velvet Collar",      deep: "#1f1f22", mid: "#4a4272", glow: "#988ae3", accent: "#988ae3", name_color: "#ecc5ed" },
+    { id: "velvet-original",   name: "Plum & Gold",        deep: "#2a0b2c", mid: "#6e1b55", glow: "#b0407e", accent: "#d9b56f" },
     { id: "strawberry-leash",  name: "Strawberry Leash",   deep: "#3a0714", mid: "#a3123a", glow: "#ff5c8a", accent: "#ffd1dc" },
     { id: "bubblegum-brat",    name: "Bubblegum Brat",     deep: "#3b0a33", mid: "#c2338f", glow: "#ff8fd0", accent: "#9ff3ff" },
     { id: "midnight-mischief", name: "Midnight Mischief",  deep: "#0a0c24", mid: "#262a6b", glow: "#5d63c4", accent: "#c9b6ff" },
@@ -17,7 +18,7 @@
     { id: "leather-lace",      name: "Leather & Lace",     deep: "#0e0c0c", mid: "#3a3030", glow: "#8c7a74", accent: "#f4e6e1" },
   ];
   // Old single-choice themes from the first version map onto palettes.
-  const LEGACY = { velvet: "velvet-original", wine: "cherry-cola", midnight: "midnight-mischief", emerald: "emerald-envy", rose: "strawberry-leash" };
+  const LEGACY = { velvet: "velvet-collar", wine: "cherry-cola", midnight: "midnight-mischief", emerald: "emerald-envy", rose: "strawberry-leash" };
 
   const PATTERNS = [
     { id: "none", name: "Plain velvet" }, { id: "sparkles", name: "Sparkles" }, { id: "hearts", name: "Hearts" },
@@ -29,6 +30,7 @@
     { id: "glow", name: "Glow-up" }, { id: "rainbow", name: "Rainbow" },
   ];
   const FONTS = [
+    { id: "slab", name: "Collar slab", family: '"Roboto Slab", Rockwell, serif', g: null },
     { id: "elegant", name: "Elegant", family: '"Cormorant Garamond", Georgia, serif', g: null },
     { id: "playful", name: "Playful", family: '"Fredoka", system-ui, sans-serif', g: "Fredoka:wght@600" },
     { id: "handwritten", name: "Handwritten", family: '"Caveat", cursive', g: "Caveat:wght@700" },
@@ -70,9 +72,11 @@
       mid: isHex(style.mid) ? style.mid : pal.mid,
       glow: isHex(style.glow) ? style.glow : pal.glow,
       accent: isHex(style.accent) ? style.accent : pal.accent,
+      // Name colour: the palette's own (pink for Velvet Collar) unless colours were mixed by hand.
+      name_color: style.palette === "custom" || !pal.name_color ? null : pal.name_color,
       pattern: style.pattern || "none",
       ring: style.ring || "classic",
-      font: style.font || "elegant",
+      font: style.font || "slab",
       particles: style.particles || "none",
       corners: style.corners || "soft",
       mood_emoji: style.mood_emoji || "",
@@ -122,9 +126,10 @@
     s.setProperty("--on-gold", textOn(look.accent));
     s.setProperty("--on-glow", textOn(mix(look.mid, look.glow, 0.5)));
     s.setProperty("--gold-soft", rgba(look.accent, 0.16));
-    s.setProperty("--bg", darkTint(look.deep, "#0a0508", 0.012));
-    s.setProperty("--bg-2", darkTint(look.deep, "#150b13", 0.02));
-    s.setProperty("--panel-solid", darkTint(look.mid, "#1e101c", 0.03));
+    s.setProperty("--name-color", look.name_color || mix(look.accent, "#ffffff", 0.45));
+    s.setProperty("--bg", darkTint(look.deep, "#141415", 0.012));
+    s.setProperty("--bg-2", darkTint(look.deep, "#1d1d1f", 0.02));
+    s.setProperty("--panel-solid", darkTint(look.mid, "#232226", 0.03));
     const p = patternCss(look.pattern, look.accent);
     s.setProperty("--pattern", p.img);
     s.setProperty("--pattern-size", p.size);
