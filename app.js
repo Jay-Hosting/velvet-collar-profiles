@@ -340,6 +340,11 @@
     document.title = `${p.display_name} · Velvet Collar`;
     // Older profiles kept jars separately; show them as ordinary links.
     const links = [...(p.jars || []), ...(p.links || [])].filter((l) => safeUrl(l.url));
+    const plays = (p.play_links || []).filter((l) => safeUrl(l.url));
+    // Match each game link to a hosted game so it gets that game's emoji.
+    let games = [];
+    if (plays.length) { try { games = await pb.collection("games").getFullList({ fields: "url,emoji,title" }); } catch {} }
+    const gameFor = (u) => games.find((g) => { try { const a = new URL(g.url), b = new URL(u); return a.host === b.host && b.pathname.startsWith(a.pathname.replace(/\/$/, "")); } catch { return false; } });
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
     const head = h("div", { class: "profile-card" },
@@ -364,6 +369,17 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
+    if (plays.length) {
+      side.push(h("section", { class: "keyring playroom" },
+        h("h2", {}, "Playroom"),
+        h("div", { class: "key-list" }, plays.map((l) => {
+          const g = gameFor(l.url);
+          return h("a", { class: "key", href: safeUrl(l.url), target: "_blank", rel: "noopener nofollow" },
+            h("span", { class: "mono emoji", "aria-hidden": "true" }, (g && g.emoji) || "🎲"),
+            h("span", { class: "txt" }, h("b", {}, l.title || (g && g.title) || hostOf(l.url)), h("small", {}, g ? g.title : hostOf(l.url))),
+            h("span", { class: "ext", "aria-hidden": "true" }, "↗"));
+        }))));
+    }
     if (links.length) {
       side.push(h("section", { class: "keyring" },
         h("h2", {}, "Links"),
@@ -662,6 +678,7 @@
       return wrap;
     }
     const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "https://…", 40, LINK_PRESETS);
+    const playEd = listEditor(rec.play_links || [], "Name (My Kink Jar shelf…)", "https://… your share link", 20);
 
     // photos
     const photoGrid = h("div", { class: "ph-edit" });
@@ -720,7 +737,7 @@
     saveBtn.addEventListener("click", async () => {
       if (!nameI.value.trim()) return toast("Add a display name", true);
       if (!slugOk) return toast("Pick a different link name", true);
-      const bad = linksEd.read().find((x) => !safeUrl(x.url));
+      const bad = [...linksEd.read(), ...playEd.read()].find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
       try {
@@ -733,6 +750,7 @@
         fd.append("listed", listedBox.checked ? "true" : "false");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
+        fd.append("play_links", JSON.stringify(playEd.read()));
         if (avatarFile) fd.append("avatar", avatarFile);
         else if (removeAvatar) fd.append("avatar", "");
         const updated = await pb.collection("members").update(rec.id, fd);
@@ -768,7 +786,7 @@
           const [cInto, lInto] = box("Interests (" + (sum.love.length + sum.enjoy.length + sum.curious.length) + ")", !!intoT);
           const [cLim, lLim] = box("Limits (" + sum.limits.length + ")", !!limitsT);
           const [cDyn, lDyn] = box("Dynamic / role: " + (sum.roles.slice(0, 3).join(", ") || "none rated"), sum.roles.length > 0);
-          const [cLink, lLink] = box("Add my shelf to my links", true);
+          const [cLink, lLink] = box("Add my shelf to my Playroom", true);
           const willReplace = (document.getElementById("f_into").value.trim() || document.getElementById("f_limits").value.trim());
           const apply = h("button", { class: "btn small gold", type: "button" }, "Fill in my profile");
           apply.addEventListener("click", () => {
@@ -776,10 +794,10 @@
             if (cLim.checked && limitsT) document.getElementById("f_limits").value = limitsT;
             if (cDyn.checked && sum.roles.length) document.getElementById("f_dynamic").value = sum.roles.slice(0, 3).join(", ").slice(0, 80);
             if (!nameI.value.trim() && sum.name) nameI.value = sum.name;
-            if (cLink.checked && !linksEd.read().some((l) => l.url === url)) linksEd.add({ title: "My Kink Jar shelf", url });
+            if (cLink.checked && !playEd.read().some((l) => l.url === url)) playEd.add({ title: "My Kink Jar shelf", url });
             refreshLook();
             toast("Filled in. Check it over, then press Save profile.");
-            document.getElementById("f_into").scrollIntoView({ behavior: "smooth", block: "center" });
+            toast("Filled in. Your interests and limits are on the Profile tab; press Save profile when you're happy.");
           });
           out.append(
             h("p", { class: "status ok" }, `Found ${total} filled jars${sum.name ? " on " + sum.name + "'s shelf" : ""}.`),
@@ -802,28 +820,50 @@
         out);
     }
 
+    // Games we host, with Play and "Add my link" buttons (loaded from the games list).
+    function hostedGamesPanel() {
+      const grid = h("div", { class: "games compact" }, h("p", { class: "faint" }, "Loading games…"));
+      pb.collection("games").getFullList({ sort: "sort,title" }).then((games) => {
+        grid.replaceChildren();
+        if (!games.length) grid.append(h("p", { class: "faint" }, "No games yet."));
+        for (const g of games) {
+          const url = safeUrl(g.url); if (!url) continue;
+          grid.append(h("div", { class: "game" },
+            h("span", { class: "game-emoji", "aria-hidden": "true" }, g.emoji || "🎲"),
+            h("span", { class: "game-txt" }, h("b", {}, g.title), g.description ? h("span", {}, g.description) : null),
+            h("span", { class: "game-actions" },
+              h("a", { class: "game-go", href: url, target: "_blank", rel: "noopener" }, "Play"),
+              h("button", { type: "button", class: "btn small", onclick: () => {
+                const r = playEd.add({ title: "My " + g.title, url: url });
+                if (r) { r.u.focus(); r.u.select(); toast("Paste your " + g.title + " share link over the address, then Save profile."); }
+              } }, "Add my link"))));
+        }
+      }).catch(() => grid.replaceChildren(h("p", { class: "faint" }, "Couldn't load the games right now.")));
+      return h("section", { class: "panel" },
+        h("h2", {}, "Games we host"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Play them, then add your share links below so your results show on your page."),
+        grid);
+    }
+
     const TABS = [
       { id: "profile", label: "✎ Profile", body: [
-        window.KinkJarsImport ? kinkJarsPanel() : "",
-        h("section", { class: "panel" }, h("h2", {}, "The basics"),
+        h("section", { class: "panel" }, h("h2", {}, "Who you are"),
           h("div", { class: "form-grid" },
             h("div", { class: "field full" }, h("span", { class: "label" }, "Profile photo"), avatarBox),
             field("Display name", nameI),
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
             field("General area", input("location", { maxlength: 80, placeholder: "Optional. Keep it general." }), "Never put your exact address here."),
-            field("Telegram username", input("tg_username", { maxlength: 33, placeholder: "@yourname", autocapitalize: "off", spellcheck: "false" }), "Optional. Adds a \"Message on Telegram\" button to your page."),
-            slugField,
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true))),
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? The Playroom tab can fill these in for you."),
           h("div", { class: "form-grid" },
             field("Into & curious about", area("into", { maxlength: 2000 })),
             field("Limits", area("limits", { maxlength: 2000, placeholder: "Hard and soft limits. Shown in its own box." })))),
-      ] },
-      { id: "links", label: "🔗 Links", body: [
-        h("section", { class: "panel" }, h("h2", {}, "Links"),
-          h("p", { class: "faint", style: "margin-top:-6px" }, "Anything you want people to find: FetLife, socials, wishlists, photo albums. Give each one a name and paste its address."),
-          linksEd),
+        h("section", { class: "panel" }, h("h2", {}, "Your page"),
+          h("div", { class: "form-grid" },
+            slugField,
+            field("Telegram username", input("tg_username", { maxlength: 33, placeholder: "@yourname", autocapitalize: "off", spellcheck: "false" }), "Optional. Adds a \"Message on Telegram\" button to your page."))),
       ] },
       { id: "photos", label: "📸 Photos", body: [
         h("section", { class: "panel" }, h("h2", {}, "Photos"),
@@ -831,6 +871,18 @@
             h("p", { class: "faint", style: "margin:0" }, "Photos save as soon as you add them. NSFW ones stay blurred until a viewer taps."),
             h("label", { class: "check" }, newNsfw, "Mark new uploads NSFW")),
           phInput, photoGrid),
+      ] },
+      { id: "playroom", label: "🎲 Playroom", body: [
+        hostedGamesPanel(),
+        h("section", { class: "panel" }, h("h2", {}, "My game links"),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Your shelves and results from the games. They show in a Playroom section on your page."),
+          playEd),
+        window.KinkJarsImport ? kinkJarsPanel() : "",
+      ] },
+      { id: "links", label: "🔗 Links", body: [
+        h("section", { class: "panel" }, h("h2", {}, "Links"),
+          h("p", { class: "faint", style: "margin-top:-6px" }, "Anything else you want people to find: FetLife, socials, wishlists, photo albums. Give each one a name and paste its address."),
+          linksEd),
       ] },
       { id: "settings", label: "🎨 Settings", body: [settingsTab] },
     ];
