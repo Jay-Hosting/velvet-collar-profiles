@@ -574,7 +574,7 @@
           if (paused || expanded || document.hidden) return;
           tags.classList.add("fading");
           setTimeout(() => { start = (start + max) % items.length; draw(); tags.classList.remove("fading"); }, 260);
-        }, 4500);
+        }, 15000);
       }
     }
     return row;
