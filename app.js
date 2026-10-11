@@ -654,6 +654,7 @@
         h("button", { type: "button", class: "btn small", onclick: () => { const r = add(); r && r.t.focus(); } }, "+ Add"),
         presets ? h("div", { class: "presets" }, presets.map(([label, url]) =>
           h("button", { type: "button", class: "btn small ghost", onclick: () => { const r = add({ title: label, url }); if (r) { r.u.focus(); r.u.setSelectionRange(url.length, url.length); } } }, "+ " + label))) : null);
+      wrap.add = add;
       wrap.read = () => [...rows.children].map((r) => {
         const [t, u] = r.querySelectorAll("input");
         return { title: t.value.trim(), url: u.value.trim() };
@@ -747,8 +748,63 @@
       }
     });
 
+    // ---------- fill in from Kink Jars ----------
+    function kinkJarsPanel() {
+      const K = window.KinkJarsImport;
+      const linkIn = h("input", { type: "url", inputmode: "url", placeholder: "https://jay-hosting.github.io/Kink-jars/#s=…", "aria-label": "Kink Jars share link" });
+      const readBtn = h("button", { class: "btn small gold", type: "button" }, "Read my shelf");
+      const out = h("div", { class: "kj-out" });
+      const box = (label, on) => { const c = h("input", { type: "checkbox", checked: on }); return [c, h("label", { class: "check" }, c, label)]; };
+      readBtn.addEventListener("click", async () => {
+        const url = linkIn.value.trim();
+        if (!url) return linkIn.focus();
+        readBtn.disabled = true; readBtn.textContent = "Reading…"; out.replaceChildren();
+        try {
+          const shelf = await K.resolve(url);
+          const sum = K.summarize(shelf);
+          const intoT = K.intoText(sum), limitsT = K.limitsText(sum);
+          const total = sum.love.length + sum.enjoy.length + sum.curious.length + sum.limits.length + sum.roles.length;
+          if (!total) { out.append(h("p", { class: "status bad" }, "That shelf doesn't have any filled jars yet.")); return; }
+          const [cInto, lInto] = box("Interests (" + (sum.love.length + sum.enjoy.length + sum.curious.length) + ")", !!intoT);
+          const [cLim, lLim] = box("Limits (" + sum.limits.length + ")", !!limitsT);
+          const [cDyn, lDyn] = box("Dynamic / role: " + (sum.roles.slice(0, 3).join(", ") || "none rated"), sum.roles.length > 0);
+          const [cLink, lLink] = box("Add my shelf to my links", true);
+          const willReplace = (document.getElementById("f_into").value.trim() || document.getElementById("f_limits").value.trim());
+          const apply = h("button", { class: "btn small gold", type: "button" }, "Fill in my profile");
+          apply.addEventListener("click", () => {
+            if (cInto.checked && intoT) document.getElementById("f_into").value = intoT;
+            if (cLim.checked && limitsT) document.getElementById("f_limits").value = limitsT;
+            if (cDyn.checked && sum.roles.length) document.getElementById("f_dynamic").value = sum.roles.slice(0, 3).join(", ").slice(0, 80);
+            if (!nameI.value.trim() && sum.name) nameI.value = sum.name;
+            if (cLink.checked && !linksEd.read().some((l) => l.url === url)) linksEd.add({ title: "My Kink Jar shelf", url });
+            refreshLook();
+            toast("Filled in. Check it over, then press Save profile.");
+            document.getElementById("f_into").scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+          out.append(
+            h("p", { class: "status ok" }, `Found ${total} filled jars${sum.name ? " on " + sum.name + "'s shelf" : ""}.`),
+            intoT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview interests"), h("p", { class: "bio" }, intoT)) : "",
+            limitsT ? h("details", { class: "kj-preview" }, h("summary", {}, "Preview limits"), h("p", { class: "bio" }, limitsT)) : "",
+            h("div", { class: "kj-boxes" }, lInto, lLim, lDyn, lLink),
+            willReplace ? h("p", { class: "hint" }, "This replaces what's in Into & curious about and Limits right now.") : "",
+            apply);
+        } catch (err) {
+          out.append(h("p", { class: "status bad" }, err.message || "Couldn't read that link."));
+        } finally {
+          readBtn.disabled = false; readBtn.textContent = "Read my shelf";
+        }
+      });
+      return h("section", { class: "panel kj" },
+        h("h2", {}, "Fill in from Kink Jars"),
+        h("p", { class: "faint", style: "margin-top:-6px" },
+          "Already filled your jar shelf? On Kink Jars, open Share & compare, tap Get my share link, and paste it here. Your loves, maybes and hard limits fill in for you. Nothing is saved until you press Save profile."),
+        h("div", { class: "kj-row" }, linkIn, readBtn),
+        out);
+    }
+
     const TABS = [
       { id: "profile", label: "✎ Profile", body: [
+        window.KinkJarsImport ? kinkJarsPanel() : "",
         h("section", { class: "panel" }, h("h2", {}, "The basics"),
           h("div", { class: "form-grid" },
             h("div", { class: "field full" }, h("span", { class: "label" }, "Profile photo"), avatarBox),
