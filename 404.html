@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Velvet Collar Profiles</title>
+  <meta name="description" content="Member profiles for the Velvet Collar community: jars, links and photos in one place.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#120810">
+  <meta property="og:title" content="Velvet Collar Profiles">
+  <meta property="og:description" content="Jars, links and photos in one place.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='28' r='18' fill='none' stroke='%23d9b56f' stroke-width='7'/%3E%3Ccircle cx='32' cy='54' r='6' fill='none' stroke='%23d9b56f' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Velvet Collar Profiles home">
+        <div class="ring" aria-hidden="true"></div>
+        <div><b>Velvet Collar</b> <span>profiles</span></div>
+      </a>
+      <nav class="topnav" id="nav"></nav>
+    </header>
+    <main id="app"><p class="center-msg muted">Loading…</p></main>
+    <footer class="footer">21+ members only · Be kind, ask first, respect limits.</footer>
+  </div>
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo">
+    <button class="btn iconbtn close" id="lbClose" aria-label="Close">✕</button>
+    <img id="lbImg" alt="">
+    <div class="cap" id="lbCap"></div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/config.js"></script>
+  <script src="/vendor/pocketbase.umd.js"></script>
+  <script src="/look.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
