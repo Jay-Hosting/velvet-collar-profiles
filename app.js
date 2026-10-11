@@ -52,6 +52,8 @@
   const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
   const me = () => (pb.authStore.isValid ? pb.authStore.record : null);
   const profileUrl = (slug) => `${location.origin}/${slug}`;
+  // Same page, but Telegram (and other apps) show a preview card with the photo and highlights.
+  const shareUrl = (slug) => `${String(CFG.API_URL || "").replace(/\/+$/, "")}/p/${slug}`;
   const fileUrl = (rec, name, thumb) => (name ? pb.files.getURL(rec, name, thumb ? { thumb } : undefined) : "");
 
   function toast(msg, isErr) {
@@ -452,7 +454,7 @@
   // ---------- a fun, ready-to-paste Telegram post ----------
   function telegramPost(p, isOwner) {
     const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const url = profileUrl(p.slug);
+    const url = shareUrl(p.slug);
     const look = L.resolve(p.style, p.theme);
     const lines = [];
     if (isOwner) {
@@ -538,7 +540,7 @@
     if (on.care && care.approach) extra.push("🫶 How to approach me: " + short(care.approach, 140));
     if (on.care && care.aftercare) extra.push("🧸 Aftercare: " + short(care.aftercare, 140));
     if (extra.length) out.push("", ...extra);
-    out.push("", "👉 Full profile: " + profileUrl(p.slug));
+    out.push("", "👉 Full profile: " + shareUrl(p.slug));
     return out.join("\n");
   }
 
@@ -636,6 +638,11 @@
       try { await navigator.clipboard.writeText(text.value); toast("📋 Text copied! Paste it in Telegram."); }
       catch { text.select(); toast("Press Ctrl+C (or Cmd+C) to copy", true); }
     });
+    const copyLink = h("button", { type: "button", class: "btn" }, "🔗 Copy preview link");
+    copyLink.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(shareUrl(p.slug)); toast("🔗 Link copied! Telegram shows a preview card when you paste it."); }
+      catch { prompt("Copy your link:", shareUrl(p.slug)); }
+    });
     const copyPics = h("button", { type: "button", class: "btn" }, "🖼️ Copy photos");
     copyPics.addEventListener("click", () => {
       if (!picked.size) return toast("Pick a photo first", true);
@@ -667,10 +674,11 @@
       h("div", {}, h("h3", { class: "tag-label" }, "What to include"), opts),
       pics.length ? h("div", {}, h("h3", { class: "tag-label" }, `Photos (pick up to ${MAX_SHARE_PHOTOS})`), grid, nsfwNote) : null,
       h("div", {}, h("h3", { class: "tag-label" }, "Your post (you can edit it)"), text, count),
-      h("div", { class: "actions share-actions" }, shareBtn, copyText, pics.length ? [copyPics, savePics] : null),
+      h("div", { class: "actions share-actions" }, shareBtn, copyText, copyLink, pics.length ? [copyPics, savePics] : null),
       h("p", { class: "faint share-tip" }, shareBtn
         ? "Share to Telegram, pick the chat, and your photos go as an album with the text as the caption."
-        : "In Telegram: paste the photos first, then copy the text and paste it as the caption.")));
+        : "In Telegram: paste the photos first, then copy the text and paste it as the caption."),
+      h("p", { class: "faint share-tip" }, "Quickest: Copy preview link and paste it on its own. Telegram turns it into a card with your photo and highlights.")));
     document.body.append(modal);
     regen();
 
