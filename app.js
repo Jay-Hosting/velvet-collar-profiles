@@ -286,11 +286,6 @@
     const search = h("input", { class: "search", type: "search", placeholder: `Search ${list.length} ${list.length === 1 ? "member" : "members"}`, "aria-label": "Search members", oninput: (e) => draw(e.target.value) });
     draw("");
     app.replaceChildren(
-      h("div", { class: "owner-bar" },
-        h("span", {}, "Your link: ", h("b", {}, profileUrl(user.slug))),
-        h("span", { class: "actions", style: "margin:0" },
-          h("button", { class: "btn small", onclick: () => copy(profileUrl(user.slug)) }, "Copy link"),
-          h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit profile"))),
       user.listed ? "" : h("p", { class: "faint", style: "margin:0 0 12px" },
         "You're not on the list, so people only find you through your link. ",
         h("a", { href: "/edit#settings", "data-nav": "" }, "Join it in Settings.")),
@@ -332,15 +327,11 @@
           p.location ? h("span", { class: "chip" }, p.location) : null,
           null),
         h("div", { class: "actions" },
-          tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
+          data.isOwner ? h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page")
+            : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           h("button", { class: "btn", onclick: () => copy(profileUrl(p.slug)) }, "Copy link"))));
 
     const blocks = [];
-    if (data.isOwner) {
-      blocks.push(h("div", { class: "owner-bar" },
-        h("span", {}, "This is your page. Paste ", h("b", {}, profileUrl(p.slug)), " into your Telegram bio."),
-        h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit")));
-    }
     blocks.push(head);
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
@@ -464,7 +455,11 @@
       h("label", { for: "f_slug" }, "Your link"),
       h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugI),
       slugStatus,
-      h("span", { class: "hint" }, "This is also your login name. If you change it, log in with the new one."));
+      h("span", { class: "hint" }, "This is also your login name. If you change it, log in with the new one."),
+      h("div", { class: "actions", style: "margin-top:6px" },
+        h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
+        h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
+      h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
 
     // member list opt-in
     const listedBox = h("input", { type: "checkbox", checked: !!rec.listed });
@@ -772,11 +767,6 @@
     }
 
     app.replaceChildren(
-      h("div", { class: "owner-bar" },
-        h("span", {}, "Put ", h("b", {}, profileUrl(rec.slug)), " in your Telegram bio (Settings → Edit profile → Bio)."),
-        h("span", { class: "actions", style: "margin:0" },
-          h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy link"),
-          h("a", { class: "btn small", href: "/" + rec.slug, "data-nav": "" }, "View page"))),
       tabBar,
       ...TABS.map((t) => panes[t.id]),
       h("div", { class: "savebar" }, h("a", { class: "btn ghost", href: "/" + rec.slug, "data-nav": "" }, "Cancel"), saveBtn),
