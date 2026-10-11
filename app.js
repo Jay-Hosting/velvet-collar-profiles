@@ -483,6 +483,204 @@
     lines.push(`👉 ${url}`);
     return lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   }
+  const hobbyList = (t) => [...new Set(String(t || "").split(/[,\n;•·]+/).map((s) => s.trim()).filter(Boolean))].slice(0, 40);
+
+  // ---------- the full "share my profile" post, with photos ----------
+  const SHARE_PARTS = [
+    ["looking", "Looking for", true], ["location", "Area", true], ["mood", "Mood", true], ["about", "About", false],
+    ["hobbies", "Hobbies", true], ["into", "Into", true], ["limits", "Limits", true], ["ask", "Ask me about", true], ["care", "Care", false],
+  ];
+  const MAX_SHARE_PHOTOS = 6;
+  const CAPTION_MAX = 1024;   // Telegram's limit for a photo caption
+  function fullPost(p, on, kj) {
+    const more = (items, n) => items.slice(0, n).join(", ") + (items.length > n ? ` +${items.length - n} more` : "");
+    const short = (t, n) => { t = String(t).replace(/\s+/g, " ").trim(); if (t.length <= n) return t; const cut = t.slice(0, n); const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? ")); return end > n * 0.5 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…"; };
+    const look = L.resolve(p.style, p.theme);
+    const out = [];
+    out.push(["💜 " + p.display_name, p.pronouns, p.dynamic].filter(Boolean).join(" · "));
+    if (on.location && p.location) out.push("📍 " + p.location);
+    if (on.looking) {
+      const lf = LOOKING.filter(([v]) => (p.looking_for || []).includes(v));
+      if (lf.length) out.push(lf[0][0] === "nothing" ? `${lf[0][1]} ${lf[0][2]}` : "🔎 Looking for: " + lf.map(([, e, l]) => `${e} ${l}`).join(" · "));
+    }
+    if (on.mood && (look.mood_emoji || look.mood_text)) out.push(`${look.mood_emoji || "💬"} ${look.mood_text || ""}`.trim());
+    if (on.about && p.bio) out.push("", short(p.bio, 220));
+    const block = [];
+    const hobbies = hobbyList(p.hobbies);
+    if (on.hobbies && hobbies.length) block.push("🎨 Hobbies: " + more(hobbies, 8));
+    if (on.into) {
+      const parsed = parseTags(p.into);
+      if (parsed && parsed.prose) block.push("💫 Into: " + short(parsed.prose, 200));
+      else if (parsed) {
+        for (const g of parsed.groups) {
+          const k = (g.label || "").toLowerCase();
+          if (k === "love") block.push("🔥 Love: " + more(g.items, 8));
+          else if (k === "enjoy") block.push("😊 Enjoy: " + more(g.items, 6));
+          else if (k.startsWith("curious") || k === "maybe") block.push("🤔 Curious about: " + more(g.items, 5));
+          else block.push("💫 " + (g.label ? g.label + ": " : "Into: ") + more(g.items, 8));
+        }
+      } else if (kj) {
+        if (kj.love.length) block.push("🔥 Love: " + more(kj.love, 8));
+        if (kj.enjoy.length) block.push("😊 Enjoy: " + more(kj.enjoy, 6));
+        if (kj.curious.length) block.push("🤔 Curious about: " + more(kj.curious, 5));
+      }
+    }
+    if (on.limits) {
+      const parsed = parseTags(p.limits);
+      const items = parsed ? (parsed.prose ? null : parsed.groups.flatMap((g) => g.items)) : kj && !p.into ? kj.limits : [];
+      if (parsed && parsed.prose) block.push("🚫 Limits: " + short(parsed.prose, 160));
+      else if (items && items.length) block.push("🚫 Limits: " + more(items, 8));
+    }
+    if (block.length) out.push("", ...block);
+    const extra = [];
+    if (on.ask) (p.prompts || []).filter((x) => x && x.q && x.a).slice(0, 2).forEach((x) => extra.push(`💬 ${x.q.replace(/…$/, "")}: ${short(x.a, 140)}`));
+    const care = p.care || {};
+    if (on.care && care.approach) extra.push("🫶 How to approach me: " + short(care.approach, 140));
+    if (on.care && care.aftercare) extra.push("🧸 Aftercare: " + short(care.aftercare, 140));
+    if (extra.length) out.push("", ...extra);
+    out.push("", "👉 Full profile: " + profileUrl(p.slug));
+    return out.join("\n");
+  }
+
+  // One picture made from several photos, for pasting on a computer (the clipboard holds one image).
+  async function collage(urls) {
+    const imgs = await Promise.all(urls.map((u) => new Promise((res, rej) => {
+      const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = u;
+    })));
+    const n = imgs.length, cols = { 1: 1, 2: 2, 3: 3, 4: 2 }[n] || 3, rows = Math.ceil(n / cols);
+    const cell = n === 1 ? 1200 : 640, gap = 10;
+    const cv = document.createElement("canvas");
+    cv.width = cols * cell + (cols - 1) * gap; cv.height = rows * cell + (rows - 1) * gap;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#1f1f1f"; ctx.fillRect(0, 0, cv.width, cv.height);
+    imgs.forEach((im, i) => {
+      const r = Math.floor(i / cols), inRow = r === rows - 1 ? n - r * cols : cols;
+      const x0 = (cv.width - (inRow * cell + (inRow - 1) * gap)) / 2;
+      const x = x0 + (i - r * cols) * (cell + gap), y = r * (cell + gap);
+      const s = Math.max(cell / im.naturalWidth, cell / im.naturalHeight);
+      const w = im.naturalWidth * s, hh = im.naturalHeight * s;
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cell, cell); ctx.clip();
+      ctx.drawImage(im, x + (cell - w) / 2, y + (cell - hh) / 2, w, hh); ctx.restore();
+    });
+    return cv;
+  }
+
+  async function openShare(p, photos) {
+    const pics = [];
+    if (p.avatar) pics.push({ key: "avatar", thumb: fileUrl(p, p.avatar, "200x200"), full: fileUrl(p, p.avatar), nsfw: false, label: "Profile photo" });
+    (photos || []).forEach((ph, i) => pics.push({ key: ph.id, thumb: fileUrl(ph, ph.image, "400x400"), full: fileUrl(ph, ph.image, "1200x0"), nsfw: !!ph.nsfw, label: ph.caption || "Photo " + (i + 1) }));
+    const picked = new Set(pics.filter((x) => !x.nsfw).slice(0, 3).map((x) => x.key));
+    const on = Object.fromEntries(SHARE_PARTS.map(([k, , d]) => [k, d]));
+    let kj = null;
+
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": "Share in Telegram" });
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const text = h("textarea", { class: "share-text", rows: 12, "aria-label": "Post text" });
+    const count = h("p", { class: "hint share-count" });
+    const nsfwNote = h("p", { class: "status bad", hidden: true }, "Telegram won't blur NSFW photos. Only post them where the group allows it.");
+    const refreshCount = () => {
+      const n = text.value.length;
+      count.textContent = `${n.toLocaleString()} characters` + (picked.size && n > CAPTION_MAX
+        ? `. Telegram captions fit ${CAPTION_MAX.toLocaleString()}, so the text will go as its own message after the photos. Untick a section to make it fit.` : "");
+      count.classList.toggle("warn", !!picked.size && n > CAPTION_MAX);
+      nsfwNote.hidden = !pics.some((x) => x.nsfw && picked.has(x.key));
+    };
+    const regen = () => { text.value = fullPost(p, on, kj); refreshCount(); };
+    text.addEventListener("input", refreshCount);
+
+    const opts = h("div", { class: "share-opts" }, SHARE_PARTS.map(([k, label]) => {
+      const c = h("input", { type: "checkbox", checked: on[k] });
+      c.addEventListener("change", () => { on[k] = c.checked; regen(); });
+      return h("label", { class: "share-opt" }, c, label);
+    }));
+
+    const grid = h("div", { class: "share-photos" });
+    const drawGrid = () => grid.replaceChildren(...pics.map((x) => {
+      const sel = picked.has(x.key);
+      const b = h("button", { type: "button", class: "share-ph" + (sel ? " on" : "") + (x.nsfw ? " nsfw" : ""), "aria-pressed": String(sel), "aria-label": x.label + (x.nsfw ? " (NSFW)" : "") },
+        h("img", { src: x.thumb, alt: "", loading: "lazy" }),
+        x.nsfw ? h("span", { class: "share-tag" }, "NSFW") : null,
+        sel ? h("span", { class: "share-num" }, String([...picked].indexOf(x.key) + 1)) : null);
+      b.addEventListener("click", () => {
+        if (picked.has(x.key)) picked.delete(x.key);
+        else if (picked.size >= MAX_SHARE_PHOTOS) return toast(`Up to ${MAX_SHARE_PHOTOS} photos`, true);
+        else picked.add(x.key);
+        drawGrid(); refreshCount();
+      });
+      return b;
+    }));
+    drawGrid();
+    const chosen = () => [...picked].map((k) => pics.find((x) => x.key === k)).filter(Boolean);
+
+    const files = async () => Promise.all(chosen().map(async (x, i) => {
+      const blob = await (await fetch(x.full)).blob();
+      const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+      return new File([blob], `${p.slug}-${i + 1}.${ext}`, { type: blob.type || "image/jpeg" });
+    }));
+    const busy = async (btn, label, fn) => {
+      const was = btn.textContent; btn.disabled = true; btn.textContent = label;
+      try { await fn(); } finally { btn.disabled = false; btn.textContent = was; }
+    };
+
+    const canShareFiles = (() => { try { return !!navigator.canShare && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] }); } catch { return false; } })();
+    const shareBtn = canShareFiles ? h("button", { type: "button", class: "btn gold" }, "📲 Share to Telegram") : null;
+    if (shareBtn) shareBtn.addEventListener("click", () => busy(shareBtn, "Getting photos…", async () => {
+      try {
+        const f = picked.size ? await files() : [];
+        await navigator.share(f.length ? { files: f, text: text.value } : { text: text.value });
+      } catch (err) { if (err && err.name !== "AbortError") toast("Couldn't open sharing. Use Copy text instead.", true); }
+    }));
+    const copyText = h("button", { type: "button", class: "btn" + (shareBtn ? "" : " gold") }, "📋 Copy text");
+    copyText.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(text.value); toast("📋 Text copied! Paste it in Telegram."); }
+      catch { text.select(); toast("Press Ctrl+C (or Cmd+C) to copy", true); }
+    });
+    const copyPics = h("button", { type: "button", class: "btn" }, "🖼️ Copy photos");
+    copyPics.addEventListener("click", () => {
+      if (!picked.size) return toast("Pick a photo first", true);
+      return busy(copyPics, "Making it…", async () => {
+        try {
+          const cv = await collage(chosen().map((x) => x.full));
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": new Promise((res) => cv.toBlob(res, "image/png")) })]);
+          toast(picked.size > 1 ? "🖼️ Photos copied as one picture! Paste it in Telegram." : "🖼️ Photo copied! Paste it in Telegram.");
+        } catch { toast("Your browser can't copy images. Use Save photos instead.", true); }
+      });
+    });
+    const savePics = h("button", { type: "button", class: "btn ghost" }, "⬇️ Save photos");
+    savePics.addEventListener("click", () => {
+      if (!picked.size) return toast("Pick a photo first", true);
+      return busy(savePics, "Saving…", async () => {
+        try {
+          for (const f of await files()) {
+            const a = h("a", { href: URL.createObjectURL(f), download: f.name }); document.body.append(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            await new Promise((r) => setTimeout(r, 350));
+          }
+        } catch { toast("Couldn't save the photos right now", true); }
+      });
+    });
+
+    modal.append(h("div", { class: "modal-box share-box" },
+      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "📣 Share in Telegram"),
+        h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Close", onclick: close }, "✕")),
+      h("div", {}, h("h3", { class: "tag-label" }, "What to include"), opts),
+      pics.length ? h("div", {}, h("h3", { class: "tag-label" }, `Photos (pick up to ${MAX_SHARE_PHOTOS})`), grid, nsfwNote) : null,
+      h("div", {}, h("h3", { class: "tag-label" }, "Your post (you can edit it)"), text, count),
+      h("div", { class: "actions share-actions" }, shareBtn, copyText, pics.length ? [copyPics, savePics] : null),
+      h("p", { class: "faint share-tip" }, shareBtn
+        ? "Share to Telegram, pick the chat, and your photos go as an album with the text as the caption."
+        : "In Telegram: paste the photos first, then copy the text and paste it as the caption.")));
+    document.body.append(modal);
+    regen();
+
+    // No interests typed in? Use their Kink Jars shelf instead.
+    const kjLink = !p.into && window.KinkJarsImport && (p.play_links || []).find((l) => isKJ(l.url));
+    if (kjLink) {
+      try { kj = window.KinkJarsImport.summarize(await window.KinkJarsImport.resolve(kjLink.url)); if (text.value === fullPost(p, on, null)) regen(); } catch {}
+    }
+  }
+
   async function copyPost(p, isOwner) {
     const text = telegramPost(p, isOwner);
     try { await navigator.clipboard.writeText(text); toast("📣 Post copied! Paste it in Telegram."); }
@@ -685,7 +883,7 @@
         h("div", { class: "actions" },
           data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
-          h("button", { class: "btn", onclick: () => copyPost(p, data.isOwner), title: "Copies a fun post with your link, ready to paste in Telegram" }, "📣 Share in Telegram"),
+          h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
           h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
         reactHolder));
 
@@ -721,6 +919,8 @@
     const compatHolder = h("div", {});
     main.push(compatHolder);
     if (p.bio) main.push(h("section", { class: "prose" }, h("h2", {}, "About"), h("p", { class: "bio" }, p.bio)));
+    const hobbies = hobbyList(p.hobbies);
+    if (hobbies.length) main.push(h("section", { class: "prose" }, h("h2", {}, "Hobbies"), tagRow(hobbies, { max: 10, rotate: false, cls: "tag-hobby" })));
     const prompts = (p.prompts || []).filter((x) => x && x.q && x.a);
     if (prompts.length) {
       main.push(h("section", { class: "prose" }, h("h2", {}, "Ask me about"),
@@ -861,7 +1061,7 @@
       h("span", { class: "hint" }, "This is also your login name. If you change it, log in with the new one."),
       h("div", { class: "actions", style: "margin-top:6px" },
         h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
-        h("button", { class: "btn small", type: "button", onclick: () => copyPost(rec, true) }, "📣 Copy a Telegram post"),
+        h("button", { class: "btn small", type: "button", onclick: () => openShare(rec, photos) }, "📣 Share in Telegram"),
         h("button", { class: "btn small", type: "button", onclick: () => openCard(rec) }, "🖼️ Profile card"),
         h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
       h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
@@ -1146,7 +1346,7 @@
         const fd = new FormData();
         fd.append("display_name", nameI.value.trim());
         fd.append("slug", slugI.value.trim());
-        for (const k of ["pronouns", "dynamic", "location", "bio", "into", "limits"]) fd.append(k, document.getElementById("f_" + k).value.trim());
+        for (const k of ["pronouns", "dynamic", "location", "bio", "hobbies", "into", "limits"]) fd.append(k, document.getElementById("f_" + k).value.trim());
         fd.append("tg_username", document.getElementById("f_tg_username").value.trim().replace(/^@/, ""));
         fd.append("style", JSON.stringify(look));
         fd.append("listed", listedBox.checked ? "true" : "false");
@@ -1309,7 +1509,8 @@
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
             field("General area", input("location", { maxlength: 80, placeholder: "Optional. Keep it general." }), "Never put your exact address here."),
-            field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true))),
+            field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
+            field("Hobbies", input("hobbies", { maxlength: 1000, placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Comma-separated; they show as tags.", true))),
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
           h("div", { class: "form-grid" },
