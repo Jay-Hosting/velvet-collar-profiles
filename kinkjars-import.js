@@ -58,7 +58,8 @@
     });
     if (!res.ok) throw new Error("Kink Jars couldn't find that link. It may have been turned off; make a new one on Kink Jars.");
     const data = await res.json();
-    const p = data && data.payload ? parse("#k=" + data.payload) : null;
+    if (!data || !data.payload) throw new Error("Kink Jars couldn't find that link. It may have been turned off; make a new one on Kink Jars.");
+    const p = parse("#k=" + data.payload);
     if (!p) throw new Error("That link doesn't have a shelf in it.");
     return p;
   }
