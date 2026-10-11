@@ -497,9 +497,7 @@
   function badgesFor(p, photoCount) {
     const out = [];
     for (const b of p.badges || []) if (ADMIN_BADGES[b]) out.push(ADMIN_BADGES[b]);
-    const created = parseDate(p.created);
-    if (created && created < Date.parse("2026-11-01T00:00:00Z")) out.push(["🏛️", "Founding member", "Joined in the first month"]);
-    else if (created && isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
+    if (isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
     const plays = (p.play_links || []).map((l) => l.url || "");
     if (plays.some((u) => /kink-jars/i.test(u))) out.push(["🫙", "Jar collector", "Has a Kink Jars shelf"]);
     if (plays.some((u) => /romance\.jay-hosting/i.test(u))) out.push(["💞", "Sweetheart", "Has a Romantic Jars shelf"]);
