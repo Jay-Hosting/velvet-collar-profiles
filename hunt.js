@@ -151,75 +151,163 @@
       spicy: ["If you're in the {s}, you're mine in ten seconds", "I'm tearing the {s} apart looking for you", "The {s}. Be there. Be ready."],
     },
   };
-  // Kink teases. {k} = the jar ("spanking"), {K} capitalised, {catch} = "when I catch you" / "if you catch me",
-  // {while} = "while you hide" / "while you hunt". Keys: wear/see are clothing jars (I wear it / you wear it);
-  // give/get are split jars (I do it to you / you do it to me); both = jars with one side.
-  const TEASE = {
-    // Only on their shelf (you haven't rated it).
-    theirs: {
-      give: { flirty: ["I peeked at your jars. {K}, huh? 😏 Noted.", "{Catch}, I know where to start: {k} 😇"],
-        teasing: ["Your jars told me about {k}. {Catch}, we're starting there.", "Keep it up and {k} is coming your way"],
-        spicy: ["{Catch}, it's {k} until you're shaking 🔥", "I read your jars. {K}. Hope you're ready, because I am."] },
-      get: { flirty: ["I saw {k} on your jars… is that a promise? 😳", "So you like being the one doing {k}… 👀"],
-        teasing: ["I know you're into {k}. Earn it.", "{K}? Your jars say you'd be good at it. Prove it."],
-        spicy: ["Your jars say {k}. {Catch}, show me what you've got 🔥", "I can't stop thinking about you and {k}"] },
-      both: { flirty: ["Your jars say you're into {k} 👀", "I've been reading your jars. {K}? Interesting…"],
-        teasing: ["{K}, huh? Think about that {while} 😏", "Somebody's into {k}. I remember."],
-        spicy: ["{K}. I saw it on your jars and haven't stopped thinking about it 🔥", "{Catch}, we're talking about {k}. Up close."] },
-      wear: { flirty: ["I hear you like {k}. Guess what I'm wearing 😇"], teasing: ["{Catch}, you'll find out I'm in {k}"], spicy: ["{K}, and nothing else. That's what's waiting for you 🔥"] },
-      see: { flirty: ["I know you like wearing {k} 👀"], teasing: ["{Catch}, I want you in {k}"], spicy: ["{Catch}, you're wearing {k} for me and nothing else"] },
+  // Kink teases: what you'll actually do, written per jar. g = I do it to you, r = you do it to me
+  // (for one-sided jars the hunter uses g and the prey uses r). sg / sr are gentler versions for Flirty games;
+  // jars without them don't show in Flirty.
+  const ACTS = {
+    // power & control
+    "Orgasm control": { g: ["decide exactly when you're allowed to come, and make you wait for it"], r: ["take control of when I get to come, and make me earn every one"] },
+    "Orgasm denial": { g: ["bring you right to the edge and leave you there, over and over"], r: ["keep me right on the edge and refuse to let me finish"] },
+    "Edging": { g: ["edge you until you're shaking and begging me to let you finish"], r: ["edge me until I'm shaking and begging"] },
+    "Forced orgasms": { g: ["hold you down and make you come until you can't take any more"], r: ["hold me down and make me come until I can't take any more"] },
+    "Ruined orgasms": { g: ["take you right to the end and ruin it at the last second"], r: ["take me right to the end and ruin it at the last second"] },
+    "Begging": { g: ["make you beg for every single thing you want"], r: ["make me beg for it, properly"], sg: ["make you ask very nicely"], sr: ["make me ask very nicely"] },
+    "Punishments": { g: ["punish you for every minute you made me chase you"], r: ["punish me for every minute I made you chase me"] },
+    "Commands": { g: ["give you orders, and watch you obey every one"], r: ["tell me exactly what to do, and watch me do it"] },
+    "Verbal commands": { g: ["tell you exactly what to do and watch you obey"], r: ["give me orders and make me obey"] },
+    "Kneeling": { g: ["put you on your knees and keep you there"], r: ["put me on my knees and keep me there"], sg: ["have you kneel for me"], sr: ["have me kneel for you"] },
+    "Collars": { g: ["buckle a collar around your neck and lead you home"], r: ["buckle your collar around my neck"], sg: ["put a collar on you"], sr: ["put your collar on me"] },
+    "Leashes": { g: ["clip a leash on you and walk you back nice and slow"], r: ["clip a leash on me and lead me wherever you want"], sg: ["clip a leash on you"], sr: ["clip a leash on me"] },
+    "Chastity": { g: ["lock you up and keep the key for myself"], r: ["lock me up and keep the key"] },
+    "Teasing": { g: ["tease you slowly until you're squirming"], r: ["tease me until I'm squirming"], sg: ["tease you until you squirm"], sr: ["tease me until I squirm"] },
+    "Forced nudity": { g: ["strip you bare and keep you that way"], r: ["strip me bare and keep me that way"] },
+    "Masturbation on command": { g: ["make you touch yourself while I watch, and stop only when I say"], r: ["make me touch myself for you, and stop only when you say"] },
+    "Bratting & taming": { g: ["tame every bit of brat out of you"], r: ["tame every bit of brat out of me"], sg: ["tame that bratty mouth of yours"], sr: ["try to tame my bratty mouth"] },
+    "Asking permission": { g: ["make you ask permission for everything"], r: ["make me ask permission for everything"] },
+    "Rewards": { g: ["reward you very, very well"], r: ["reward me for being so good"], sg: ["reward you nicely"], sr: ["reward me nicely"] },
+    "Choosing their outfits": { g: ["dress you in exactly what I pick"], r: ["dress me in exactly what you pick"] },
+    "On display": { g: ["put you on display and take my time looking"], r: ["put me on display and take your time looking"] },
+    // impact
+    "Spanking": { g: ["bend you over and spank you until you're counting out loud"], r: ["bend me over and spank me until I can't sit"], sg: ["give you a few good spanks"], sr: ["give me a few good spanks"] },
+    "Over the knee": { g: ["put you over my knee and make you count"], r: ["put me over your knee and make me count"], sg: ["put you over my knee"], sr: ["put me over your knee"] },
+    "Paddling": { g: ["bend you over and paddle you until you're glowing red"], r: ["paddle me until I'm glowing red"] },
+    "Flogging": { g: ["tie you up and flog you, slow and steady"], r: ["flog me until I'm shaking"] },
+    "Caning": { g: ["line you up and cane you, one stroke at a time"], r: ["cane me one slow stroke at a time"] },
+    "Riding crops": { g: ["trace a crop over your skin before it lands"], r: ["use a crop on me until I flinch every time it moves"] },
+    "Hair pulling": { g: ["wrap my hand in your hair and pull your head back"], r: ["grab my hair and pull my head back"], sg: ["tug your hair, just a little"], sr: ["tug my hair, just a little"] },
+    "Biting": { g: ["leave bite marks all the way down your neck"], r: ["bite me hard enough that I feel it tomorrow"], sg: ["nibble on your neck"], sr: ["nibble on my neck"] },
+    "Scratching": { g: ["drag my nails down your back"], r: ["drag your nails down my back"], sg: ["run my nails down your back"], sr: ["run your nails down my back"] },
+    "Leaving marks": { g: ["leave marks on you that you'll see in the mirror tomorrow"], r: ["leave marks on me that I'll see tomorrow"] },
+    "Nipple clamps": { g: ["clamp your nipples and tug the chain"], r: ["clamp my nipples and pull the chain"] },
+    "Counting strokes": { g: ["make you count every stroke out loud"], r: ["make me count every stroke out loud"] },
+    "Wrestling": { g: ["wrestle you down and pin you under me"], r: ["wrestle me down and pin me under you"], sg: ["wrestle you to the ground"], sr: ["wrestle me to the ground"] },
+    // bondage
+    "Tied up": { g: ["tie your wrists and take my time with you"], r: ["tie me up and take your time with me"], sg: ["tie your wrists with something silky"], sr: ["tie my wrists with something silky"] },
+    "Light bondage": { g: ["tie you up just enough that you can't get away"], r: ["tie me up just enough that I can't get away"], sg: ["tie you up, just a little"], sr: ["tie me up, just a little"] },
+    "Heavy bondage": { g: ["bind you so completely you can't move an inch"], r: ["bind me so I can't move an inch"] },
+    "Rope / shibari": { g: ["wrap you in rope, knot by knot, until you can't move"], r: ["wrap me in rope until I can't move"] },
+    "Handcuffs": { g: ["cuff your hands behind your back"], r: ["cuff my hands behind my back"], sg: ["cuff you"], sr: ["cuff me"] },
+    "Tied to the bed": { g: ["tie you to the bed, spread out and helpless"], r: ["tie me to the bed and leave me helpless"] },
+    "Gags": { g: ["gag you so nobody hears what I'm doing to you"], r: ["gag me so nobody hears"] },
+    "Blindfolds": { g: ["blindfold you so you never know where I'll touch next"], r: ["blindfold me so I never know what's coming"], sg: ["blindfold you and make you guess"], sr: ["blindfold me and make me guess"] },
+    "Spreader bars": { g: ["lock your ankles in a spreader bar"], r: ["lock me open in a spreader bar"] },
+    "Hands held down": { g: ["pin your wrists above your head"], r: ["pin my wrists above my head"], sg: ["pin your hands down"], sr: ["pin my hands down"] },
+    "Immobilization": { g: ["hold you so still you can't even squirm"], r: ["hold me so still I can't even squirm"] },
+    // sensation
+    "Wax play": { g: ["drip hot wax down your spine"], r: ["drip hot wax down my spine"], sg: ["drip warm wax on your skin"], sr: ["drip warm wax on my skin"] },
+    "Ice play": { g: ["trace an ice cube down your body and follow it with my mouth"], r: ["run ice down my body and follow it with your mouth"], sg: ["trace an ice cube down your back"], sr: ["trace an ice cube down my back"] },
+    "Feathers": { g: ["drag a feather over every inch of you until you can't stay still"], r: ["tease me with a feather until I can't stay still"], sg: ["trace a feather over every inch of you"], sr: ["tease me with a feather"] },
+    "Tickling": { g: ["pin you down and tickle you until you surrender"], r: ["pin me down and tickle me until I surrender"], sg: ["tickle you until you surrender"], sr: ["tickle me until I surrender"] },
+    "Vibrators": { g: ["hold a vibrator against you and not let you pull away"], r: ["hold a vibrator on me until I can't stand it"], sg: ["try a little vibration on you"], sr: ["try a little vibration on me"] },
+    "Massage": { g: ["rub you down slow, everywhere"], r: ["rub me down slow, everywhere"], sg: ["give you a long, slow massage"], sr: ["give me a long, slow massage"] },
+    "Sensory deprivation": { g: ["take away your sight and sound so all you can feel is me"], r: ["take away everything but your touch"] },
+    "Overstimulation": { g: ["keep going long after you're too sensitive to take it"], r: ["keep going long after I'm too sensitive to take it"] },
+    "Knife play (no cutting)": { g: ["drag the flat of a blade slowly across your skin"], r: ["trace a blade slowly across my skin"] },
+    // breath
+    "Choking": { g: ["wrap my hand around your throat and squeeze"], r: ["wrap your hand around my throat"] },
+    "Hand on throat (no pressure)": { g: ["rest my hand on your throat while I kiss you"], r: ["rest your hand on my throat while you kiss me"] },
+    "Face-sitting": { g: ["sit on your face until all you can breathe is me"], r: ["sit on my face"] },
+    "Hand over mouth": { g: ["keep my hand over your mouth so nobody hears you"], r: ["keep your hand over my mouth so nobody hears me"] },
+    // words
+    "Dirty talk": { g: ["whisper exactly what I'm going to do to you, in filthy detail"], r: ["tell me exactly what you're going to do to me, in filthy detail"], sg: ["whisper every dirty thought I've had tonight"], sr: ["whisper every dirty thought you've had tonight"] },
+    "Praise": { g: ["tell you how good you are while you do exactly as you're told"], r: ["tell me how good I am while I do as I'm told"], sg: ["tell you how good you've been"], sr: ["tell me how good I've been"] },
+    "Good girl / good boy": { g: ["tell you you're being so good for me while you obey"], r: ["tell me I'm being so good for you while I obey"], sg: ["tell you you've been good"], sr: ["tell me I've been good"] },
+    "Humiliation & degradation": { g: ["remind you exactly what you are"], r: ["remind me exactly what I am"] },
+    "Name calling": { g: ["call you every filthy name you deserve"], r: ["call me every filthy name I deserve"] },
+    "Pet names": { g: ["call you my pet while you crawl to me"], r: ["call me your pet"], sg: ["call you every sweet name I can think of"], sr: ["call me something sweet"] },
+    "Moaning & noise": { g: ["make you moan loud enough for the whole {w} to hear"], r: ["make me moan loud enough for the whole {w} to hear"], sg: ["make you moan a little"], sr: ["make me moan a little"] },
+    "Objectification": { g: ["use you like you're mine to use"], r: ["use me like I'm yours to use"] },
+    // body
+    "Kissing": { g: ["kiss you hard up against the nearest wall"], r: ["kiss me hard up against the nearest wall"], sg: ["kiss you breathless"], sr: ["kiss me breathless"] },
+    "Neck kissing": { g: ["kiss my way down your neck, slow"], r: ["kiss your way down my neck, slow"], sg: ["kiss your neck"], sr: ["kiss my neck"] },
+    "Cuddling": { g: ["pull you in close and not let go"], r: ["pull me in close and not let go"], sg: ["pull you in close"], sr: ["pull me in close"] },
+    "Body worship": { g: ["worship every inch of you with my mouth"], r: ["worship every inch of me"], sg: ["kiss every inch of you"], sr: ["kiss every inch of me"] },
+    "Oral": { g: ["spread you open and use my mouth on you until you're shaking"], r: ["get on your knees and use your mouth on me until I'm shaking"] },
+    "Fingering & hand stuff": { g: ["slide my hand between your legs and take my time"], r: ["slide your hand between my legs and take your time"] },
+    "Grinding": { g: ["pin you down and grind against you until you're desperate"], r: ["grind against me until I'm desperate"] },
+    "Rough sex": { g: ["take you hard, right where I find you"], r: ["take me hard, right where you find me"] },
+    "Slow & sensual": { g: ["take you slow, so slow you beg me to hurry"], r: ["take me slow, so slow I beg you to hurry"], sg: ["take things slow with you"], sr: ["take things slow with me"] },
+    "Nipple play": { g: ["tease your nipples until you're arching for more"], r: ["tease my nipples until I'm arching for more"] },
+    "Ass worship": { g: ["get behind you and worship that ass"], r: ["get behind me and worship my ass"] },
+    "Foot rubs": { g: ["rub your feet while you catch your breath"], r: ["rub my feet while I catch my breath"], sg: ["rub your feet"], sr: ["rub my feet"] },
+    "Masturbation": { g: ["watch you touch yourself and not let you stop"], r: ["watch me touch myself, and don't look away"] },
+    "Hair play": { g: ["run my fingers through your hair, then grab a fistful"], r: ["run your fingers through my hair, then grab a fistful"], sg: ["play with your hair"], sr: ["play with my hair"] },
+    // toys
+    "Anal": { g: ["bend you over and take your ass, slow"], r: ["bend me over and take my ass"] },
+    "Rimming": { g: ["spread you and use my tongue"], r: ["spread me and use your tongue"] },
+    "Pegging": { g: ["peg you slow and deep"], r: ["peg me slow and deep"] },
+    "Plugs": { g: ["slide a plug in you and make you wear it the rest of the night"], r: ["plug me and make me wear it all night"] },
+    "Strap-ons": { g: ["strap on and fuck you properly"], r: ["strap on and take me"] },
+    "Dildos": { g: ["fuck you with a toy until you're begging"], r: ["use a toy on me until I'm begging"] },
+    "Wands": { g: ["press a wand against you and hold it there"], r: ["hold a wand on me until I break"] },
+    "Remote-control toys": { g: ["put a toy in you and keep the remote in my pocket"], r: ["make me wear a toy and keep the remote"], sg: ["make you wear a toy while I hold the remote"], sr: ["hand you the remote to my toy"] },
+    "Prostate play": { g: ["find your prostate and not let up"], r: ["find my prostate and not let up"] },
+    // fluids
+    "Spit": { g: ["spit in your mouth and make you say thank you"], r: ["spit in my mouth"] },
+    "Cum play": { g: ["cover you and make you play with it"], r: ["cover me in it"] },
+    "Cum in mouth": { g: ["finish in your mouth"], r: ["finish in my mouth"] },
+    "Swallowing": { g: ["finish in your mouth and watch you swallow"], r: ["finish in my mouth and watch me swallow"] },
+    "Facials": { g: ["finish all over your face"], r: ["finish all over my face"] },
+    "Creampies": { g: ["finish deep inside you"], r: ["finish deep inside me"] },
+    "Cum on body": { g: ["finish all over you"], r: ["finish all over me"] },
+    "Squirting": { g: ["soak you completely"], r: ["make me squirt all over you"] },
+    // out and about (one-sided jars)
+    "Outdoor sex": { g: ["take you right here under the open sky"], r: ["take me right here under the open sky"] },
+    "Risk of getting caught": { g: ["take you somewhere we could get caught any second"], r: ["take me somewhere we could get caught any second"] },
+    "Exhibitionism": { g: ["show you off where anyone could see"], r: ["show me off where anyone could see"] },
+    "Mirrors": { g: ["put you in front of a mirror so you watch everything I do"], r: ["put me in front of a mirror so I watch everything"] },
+    "Public teasing": { g: ["tease you where everyone can see and nobody knows"], r: ["tease me where everyone can see and nobody knows"], sg: ["tease you in public"], sr: ["tease me in public"] },
+    "Sexting": { g: ["send you something that'll ruin your whole day"], r: ["send me something that'll ruin my whole day"], sg: ["send you something that'll make you blush"], sr: ["send me something that'll make me blush"] },
+    // scenes (one-sided jars)
+    "Hunter & hunted": { g: ["drag you down like the prey you are"], r: ["drag me down like the prey I am"], sg: ["drag you back to my den"], sr: ["drag me back to your den"] },
+    "Primal play": { g: ["take you down on the ground like an animal"], r: ["take me down on the ground like an animal"], sg: ["pounce on you"], sr: ["pounce on me"] },
+    "Captor & captive": { g: ["drag you back to my lair and keep you there"], r: ["drag me back to your lair and keep me there"] },
+    "Fear play": { g: ["make you wonder what I'm going to do next"], r: ["make me afraid of what you'll do next"] },
+    "Consensual non-consent": { g: ["take what I want from you, however much you squirm"], r: ["take what you want from me, however much I squirm"] },
+    "Free use": { g: ["use you whenever I want for the rest of the night"], r: ["use me whenever you want for the rest of the night"] },
+    "Pet play": { g: ["make you crawl to me like a good pet"], r: ["make me crawl to you like a good pet"] },
+    "Strangers meeting": { g: ["pretend we've never met and seduce you all over again"], r: ["pretend we've never met and seduce me all over again"], sg: ["pretend we've never met"], sr: ["pretend we've never met"] },
+    "Breeding talk": { g: ["breed you"], r: ["breed me"] },
+  };
+  // How a tease is said. {a} = the act; "give" = I do it to you, "get" = you do it to me.
+  const FRAMES = {
+    hunter: {
+      give: { flirty: ["Find you first, then maybe I'll {a} 😏", "When I catch you, I might just {a}"],
+        teasing: ["When I catch you, I'm going to {a}.", "Keep running. I'm still going to {a}."],
+        spicy: ["When I catch you, I'm going to {a}.", "No more games. I'm going to {a}.", "All I can think about is how I'm going to {a}."] },
+      get: { flirty: ["When I catch you, maybe you'll {a} 😏"],
+        teasing: ["When I catch you, you're going to {a}.", "Once I find you, you're going to {a}."],
+        spicy: ["When I catch you, you're going to {a}. No arguing.", "I'm going to find you, and you're going to {a}.", "When I get my hands on you, you'll {a}."] },
     },
-    // On both shelves.
-    mutual: {
-      give: { flirty: ["We both like {k}. Just saying 😇", "{Catch}, {k} is on the menu"],
-        teasing: ["We're both into {k}. {Catch}, you're getting it.", "Every minute you hide is another minute of {k} later"],
-        spicy: ["We're both into {k}. {Catch}, I'm not holding back.", "{K}, slow and thorough. {Catch}, you'll feel every second."] },
-      get: { flirty: ["We match on {k} 😳 Just so you know."],
-        teasing: ["We're both into {k}, and I'm on the receiving end. Think about that 😏", "You, me and {k}. Tick tock."],
-        spicy: ["{K}. Both our jars, and I want all of it.", "I'm aching for {k}. You know exactly what to do with me."] },
-      both: { flirty: ["We both said yes to {k} 😊", "Kink twins on {k}? Cute."],
-        teasing: ["We both love {k}. Funny how that works 😏", "{K}. Think about it {while}."],
-        spicy: ["{K}. Top of both our lists. Tonight it's happening.", "We're both into {k}. {Catch}, no more waiting."] },
-      wear: { flirty: ["We both like {k}. Guess who's wearing it tonight 😇"], teasing: ["{K} on me, eyes on you. That's the deal."], spicy: ["I'm in {k} right now, and you'd better hurry."] },
-      see: { flirty: ["We both like {k} 😏 Wear it for me sometime?"], teasing: ["You. {K}. Tonight."], spicy: ["{Catch}, I want you in {k}, and I want you now."] },
-    },
-    // Both rated it 4 or 5 ("love"): the drive-it-home lines.
-    love: {
-      give: { teasing: ["{K} is a favourite on both our jars. {Catch}, you're getting a lot of it."],
-        spicy: ["We both love {k}. {Catch}, I'm not stopping until you beg.", "{K}. You crave it, I crave giving it. {Catch}, there's no mercy.", "I've been thinking about {k} all night. {Catch}, you'll feel every second of it."] },
-      get: { teasing: ["{K}. Both our favourites, and I'm the lucky one. Hurry."],
-        spicy: ["We both love {k}, and I want all of it. Don't you dare go easy on me.", "{K}. My favourite thing on both our jars. Take me there.", "{Catch}, it's {k} until I can't think straight."] },
-      both: { teasing: ["{K}: a favourite on both our jars. We're dangerous together 😈"],
-        spicy: ["We both love {k}. Tonight I want it all, again and again.", "{K} is all I can think about. {Catch}, it's happening.", "Your favourite, my favourite: {k}. No more waiting 🔥"] },
-      wear: { spicy: ["You love seeing {k}, I love wearing it. Come peel it off me."] },
-      see: { spicy: ["You in {k}. Both our favourites. I'm already losing my mind."] },
-    },
-    // Jars made for this game, when both of you like them.
-    chase: {
-      flirty: ["{K} is on both our jars. This game was made for us 😊"],
-      teasing: ["We both love {k}. Run like you mean it. Hunt like you mean it."],
-      spicy: ["{K}, both of us. Tonight neither of us is playing nice.", "We both love {k}. This is exactly what we wanted 😈"],
+    prey: {
+      give: { flirty: ["Catch me and maybe I'll {a} 😇", "If you catch me, I might {a}"],
+        teasing: ["If you catch me, I'm going to {a}.", "Win this and I'll {a}."],
+        spicy: ["Catch me and I'll {a}.", "Find me and I'm going to {a}. Hurry.", "I'm hiding here thinking about how I'm going to {a}."] },
+      get: { flirty: ["If you catch me, maybe you could {a} 😳"],
+        teasing: ["If you catch me, I want you to {a}.", "Find me and you get to {a}."],
+        spicy: ["Find me and {a}. Don't hold back.", "If you catch me, I need you to {a}.", "When you find me, {a}."] },
     },
   };
-  const CHASE_JARS = new Set(["Hunter & hunted", "Primal play", "Fear play", "Captor & captive", "Chasing"]);
-  // How each jar reads in a sentence, when its label doesn't.
-  const SAY = {
-    "Tied up": { give: "tying you up", get: "being tied up" }, "Tied to the bed": { give: "tying you to the bed", get: "being tied to the bed" },
-    "Hands held down": { give: "pinning your hands down", get: "having my hands pinned down" },
-    "Over the knee": { give: "putting you over my knee", get: "going over your knee" }, "Collar in public": { give: "collaring you in public", get: "wearing your collar in public" },
-    "On display": { give: "putting you on display", get: "being put on display" }, "Good girl / good boy": { give: "telling you you're good", get: "being told I'm good" },
-    "Kneeling": { give: "making you kneel", get: "kneeling for you" }, "Hand on throat (no pressure)": { give: "my hand on your throat", get: "your hand on my throat" },
-    "Doing stuff in public": "public mischief", "Nothing at all": "nothing at all", "Light pain": "a little pain", "Heavy pain": "a lot of pain",
-    "Risk of getting caught": "the risk of getting caught", "Being watched": "being watched", "Feet": "feet",
+  const GEAR_SAY = { "Lingerie": "lingerie", "Stockings": "stockings", "Heels": "heels", "Leather": "leather", "Latex": "latex", "Rubber": "rubber",
+    "PVC": "PVC", "Corsets": "a corset", "Harnesses": "a harness", "Boots": "boots", "Gloves": "gloves", "Fishnets": "fishnets", "Suits & ties": "a suit and tie",
+    "Jockstraps": "a jockstrap", "Collar & tags": "a collar and tags", "Spandex": "spandex", "Slutty outfits": "something slutty" };
+  // Clothing jars: "wear" = I wear it, "see" = you wear it for me. {k} = the item.
+  const GEAR = {
+    hunter: { wear: ["Hide all you like. I'm in {k}, and I'm coming for you.", "When I catch you, you'll find out what's under this. Hint: {k}."],
+      see: ["When I catch you, you're putting on {k} for me.", "You're wearing {k} for me tonight."] },
+    prey: { wear: ["I'm hiding in nothing but {k}. Come and see.", "Catch me and you'll find out I'm in {k}."],
+      see: ["If you catch me, I want to see you in {k}.", "Find me, then put on {k} for me."] },
   };
-
-  // Gentle enough for Flirty games. Teasing skips the heaviest jars; Spicy can use anything both of you said yes to.
-  const MILD = new Set(["Kissing", "Neck kissing", "Cuddling", "Massage", "Feathers", "Tickling", "Teasing", "Hair play", "Collars",
-    "Blindfolds", "Body worship", "Foot rubs", "Slow & sensual", "Praise", "Pet names", "Good girl / good boy", "Dirty talk",
-    "Moaning & noise", "Spanking", "Hunter & hunted", "Primal play", "Pet play", "Roleplay", "Strangers meeting", "Pick-up scenario",
-    "Cosplay", "Uniforms", "Sexting", "Phone & video sex", "Mirrors", "Public teasing", "Begging", "Rewards", "Asking permission",
-    "Biting", "Scratching", "Hair pulling", "Ice play", "Wax play", "Leashes", "Kneeling", "Rope / shibari", "Handcuffs", "Tied up",
-    "Light bondage", "Remote-control toys", "Vibrators", "Kink clubs & dungeons", "Wrestling", "Hands held down"]);
   const HEAVY_CATS = new Set(["toys", "fluids", "breath"]);
   const HEAVY = new Set(["Heavy pain", "Punching", "Kicking", "Face slapping", "Genital slapping", "Breast whipping", "Single tail whip",
     "Consensual non-consent", "Kidnapping fantasy", "Vore (fantasy)", "Humiliation & degradation", "Public humiliation", "Fire play"]);
@@ -257,10 +345,10 @@
     const ok = (v) => v >= 1 && v <= 5;
     const out = [];
     (window.KINKJARS || []).forEach(([code, label, sA, , , cat]) => {
-      if (SKIP_CATS.has(cat) || hitsLimit(label, words)) return;
+      if (SKIP_CATS.has(cat) || hitsLimit(label, words) || (!ACTS[label] && !GEAR_SAY[label])) return;
       const t = theirs.r.get(code) || [0, 0], m = (mine && mine.r.get(code)) || [0, 0];
       if (t.includes(7) || m.includes(7)) return;   // a hard no for either of you anywhere on this jar: leave it alone
-      const base = { label, cat, chase: CHASE_JARS.has(label) };
+      const base = { label, cat };
       const push = (my, th, dir) => {
         if (ok(my) && ok(th)) out.push({ ...base, dir, lvl: my >= 4 && th >= 4 ? "love" : "mutual" });
         else if (th >= 3 && th <= 5 && (my === 0 || my === 6)) out.push({ ...base, dir, lvl: "theirs" });
@@ -273,25 +361,23 @@
     });
     return out;
   }
-  const heatOk = (c, heat) => heat === "spicy" || (heat === "teasing" ? !HEAVY_CATS.has(c.cat) && !HEAVY.has(c.label) : c.cat === "gear" || MILD.has(c.label));
+  const heatOk = (c, heat) => heat === "spicy" || (heat === "teasing" ? !HEAVY_CATS.has(c.cat) && !HEAVY.has(c.label) : c.cat === "gear" || !!(ACTS[c.label] && ACTS[c.label].sg));
 
   function teaseLine(c, role, heat) {
-    let pool = [];
-    if (c.chase && c.lvl !== "theirs") pool = TEASE.chase[heat];
-    if (c.lvl === "love" && heat !== "flirty") pool = pool.concat((TEASE.love[c.dir] || {})[heat] || []);
-    if (!pool.length || Math.random() < 0.35) pool = pool.concat(TEASE[c.lvl === "theirs" ? "theirs" : "mutual"][c.dir][heat] || []);
-    const say = SAY[c.label];
-    const k = (say && typeof say === "object" ? say[c.dir] || say.get : say) || c.label.replace(/\s*\(.*?\)\s*/g, " ").trim().toLowerCase();
-    const caught = role === "hunter" ? "when I catch you" : "if you catch me";
-    return pool[Math.floor(Math.random() * pool.length)]
-      .replace(/\{K\}/g, cap(k)).replace(/\{k\}/g, k).replace(/\{Catch\}/g, cap(caught)).replace(/\{catch\}/g, caught)
-      .replace(/\{while\}/g, role === "hunter" ? "while you hide" : "while you hunt");
+    const any = (l) => l[Math.floor(Math.random() * l.length)];
+    if (c.cat === "gear") return any(GEAR[role][c.dir === "wear" ? "wear" : "see"]).replace(/\{k\}/g, GEAR_SAY[c.label]);
+    // One-sided jars: the hunter does it, the prey asks for it.
+    const dir = c.dir === "both" ? (role === "hunter" ? "give" : "get") : c.dir;
+    const A = ACTS[c.label], soft = heat === "flirty";
+    const acts = dir === "give" ? (soft ? A.sg : A.g) : (soft ? A.sr : A.r);
+    if (!acts || !acts.length) return null;
+    return any(FRAMES[role][dir][heat]).replace(/\{a\}/g, any(acts)).replace(/\{w\}/g, WORD);
   }
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   function pickTease(list, heat) {
     const fit = list.filter((c) => heatOk(c, heat));
     if (!fit.length) return null;
-    const w = (c) => (c.lvl === "love" ? (heat === "spicy" ? 6 : 4) : c.lvl === "mutual" ? 2 : 1) * (c.chase ? 2 : 1);
+    const w = (c) => (c.lvl === "love" ? (heat === "spicy" ? 6 : 4) : c.lvl === "mutual" ? 2 : 1);
     let r = Math.random() * fit.reduce((a, c) => a + w(c), 0);
     for (const c of fit) { r -= w(c); if (r <= 0) return c; }
     return fit[0];
@@ -322,7 +408,7 @@
       hint = whereLine();
       const c = pickTease(teases, heat);
       tease = null;
-      for (let n = 0; c && n < 8 && !tease; n++) { const t = teaseLine(c, role, heat); if (lineOk(t, blocked)) tease = t; }
+      for (let n = 0; c && n < 8 && !tease; n++) { const t = teaseLine(c, role, heat); if (t && lineOk(t, blocked)) tease = t; }
       const fine = pool.map((t, i) => i).filter((i) => lineOk(pool[i], blocked));
       if (fine.filter((i) => !used.has(i)).length < 4) used.clear();
       extra = fine.filter((i) => !used.has(i)).sort(() => Math.random() - 0.5).slice(0, 4);
