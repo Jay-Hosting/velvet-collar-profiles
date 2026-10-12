@@ -1253,7 +1253,7 @@
         h("div", { class: "chips" },
           p.pronouns ? h("span", { class: "chip" }, p.pronouns) : null,
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
-          p.location ? h("span", { class: "chip" }, p.location) : null,
+          p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
           null),
         badgeHolder,
         matchHolder,
@@ -1491,6 +1491,22 @@
     let photos = await pb.collection("photos").getFullList({ filter: pb.filter("owner = {:id}", { id: rec.id }), sort: "sort,created" });
     let avatarFile = null, removeAvatar = false;
 
+    // Rough areas around Sacramento and the Bay Area (the old free-text "general area" was too vague).
+    const AREAS = [
+      ["Sacramento area", ["Sacramento", "Natomas", "West Sacramento", "Elk Grove", "Rancho Cordova", "Carmichael / Fair Oaks", "Citrus Heights", "Roseville", "Rocklin", "Lincoln", "Folsom", "El Dorado Hills", "Cameron Park / Placerville", "Auburn", "Davis", "Woodland", "Vacaville / Dixon", "Yuba City / Marysville", "Galt / Lodi"]],
+      ["Bay Area", ["San Francisco", "Oakland", "Berkeley", "Richmond / El Cerrito", "Hayward / San Leandro", "Fremont / Newark", "San Jose", "Santa Clara / Sunnyvale", "Mountain View / Palo Alto", "San Mateo / Peninsula", "Walnut Creek / Concord", "Pleasanton / Livermore / Dublin", "Vallejo / Fairfield", "Napa", "Santa Rosa / Sonoma", "Marin", "Santa Cruz"]],
+      ["Nearby", ["Stockton / Tracy", "Modesto", "Elsewhere in California", "Out of state"]],
+    ];
+    const areaSelect = () => {
+      const cur = rec.location || "";
+      const known = AREAS.some(([, list]) => list.includes(cur));
+      const sel = h("select", { id: "f_location", name: "location" },
+        h("option", { value: "" }, "Prefer not to say"),
+        cur && !known ? h("option", { value: cur }, `${cur} (old answer, please pick one)`) : null,
+        AREAS.map(([group, list]) => h("optgroup", { label: group }, list.map((a) => h("option", { value: a }, a)))));
+      sel.value = cur;
+      return sel;
+    };
     const input = (name, attrs = {}) => h("input", Object.assign({ type: "text", id: "f_" + name, name, value: rec[name] || "" }, attrs));
     const area = (name, attrs = {}) => { const t = h("textarea", Object.assign({ id: "f_" + name, name }, attrs)); t.value = rec[name] || ""; return t; };
     const field = (label, control, hint, full) => h("div", { class: "field" + (full ? " full" : "") }, h("label", { for: control.id }, label), control, hint ? h("span", { class: "hint" }, hint) : null);
@@ -1991,7 +2007,7 @@
             field("Display name", nameI),
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
-            field("General area", input("location", { maxlength: 80, placeholder: "Optional. Keep it general." }), "Never put your exact address here."),
+            field("Area", areaSelect(), "Roughly where you are, so people nearby can find you. Optional."),
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
             field("Hobbies", input("hobbies", { maxlength: 1000, placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Comma-separated; they show as tags.", true),
             field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
