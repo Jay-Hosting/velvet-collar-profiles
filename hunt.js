@@ -49,7 +49,8 @@
   async function renderLobby(app, startSlug) {
     const { h, pb, toast, go, errMsg, personChip } = deps();
     document.title = "The Hunt · Velvet Collar";
-    const [data, players] = await Promise.all([pb.send("/api/vc/hunts", {}), pb.send("/api/vc/hunt-players", {})]);
+    clearInterval(poll);
+    const [data, players, queue] = await Promise.all([pb.send("/api/vc/hunts", {}), pb.send("/api/vc/hunt-players", {}), pb.send("/api/vc/hunt-queue", {})]);
     let opt = data.opt || "off";
 
     const optRow = h("div", { class: "pills", role: "group", "aria-label": "Hunt settings" });
@@ -65,7 +66,7 @@
     const games = data.hunts.slice().sort((a, b) => (b.invitedMe || b.myTurn) - (a.invitedMe || a.myTurn));
     const gameList = games.length ? h("div", { class: "hunt-list" }, games.map((g) => h("a", { class: "hunt-row" + (g.invitedMe || g.myTurn ? " hot" : ""), href: "/hunt/" + g.id, "data-nav": "" },
       g.other ? deps().miniAvatar(g.other) : null,
-      h("span", { class: "txt" }, h("b", {}, (g.role === "hunter" ? "🐺 You're hunting " : "🐇 Hunted by ") + (g.other ? g.other.display_name : "someone")),
+      h("span", { class: "txt" }, h("b", {}, (g.role === "hunter" ? "🐺 You're hunting " : "🐇 Hunted by ") + (g.other ? g.other.display_name : "someone"), g.random ? h("span", { class: "new-pill" }, "🎲 Random") : null),
         h("small", {}, statusText(g) + " · " + (HEATS.find((x) => x[0] === g.heat) || [, ""])[1])),
       h("span", { class: "arrow", "aria-hidden": "true" }, "→")))) : h("p", { class: "muted" }, "No hunts yet.");
 
@@ -111,6 +112,59 @@
       return b;
     })) : h("p", { class: "muted" }, "Nobody on the member list has opted in yet. Be the first!");
 
+    // Random hunt: wait to be paired with someone from the other side.
+    const randomBox = h("section", { class: "panel hunt-random" });
+    const drawRandom = (q) => {
+      const w = q.waiting || {};
+      const waitingLine = h("p", { class: "faint" }, `Waiting right now: 🐇 ${w.prey || 0} prey · 🐺 ${w.hunter || 0} hunters · 🔁 ${w.either || 0} either`);
+      if (q.queued) {
+        const roleLabel = { prey: "🐇 prey", hunter: "🐺 a hunter", either: "🔁 either role" }[q.queued.role];
+        const leave = h("button", { type: "button", class: "btn small ghost" }, "Leave the queue");
+        leave.addEventListener("click", async () => { try { drawRandom(await pb.send("/api/vc/hunt-queue", { method: "DELETE" })); clearInterval(poll); toast("Out of the queue"); } catch (err) { toast(errMsg(err), true); } });
+        randomBox.replaceChildren(h("h2", {}, "🎲 Random hunt"),
+          h("p", { class: "queue-on" }, h("span", { class: "dot", "aria-hidden": "true" }), `You're in the forest as ${roleLabel} (${q.queued.heats.map((x) => (HEATS.find((y) => y[0] === x) || [, x])[1]).join(", ")}). The moment someone from the other side joins, your hunt starts.`),
+          waitingLine,
+          h("p", { class: "faint" }, "Your spot lasts 24 hours. You can close this page; the game will be waiting in Your hunts."),
+          h("div", { class: "actions" }, leave));
+        clearInterval(poll);
+        poll = setInterval(async () => {
+          if (!document.body.contains(randomBox)) return clearInterval(poll);
+          try {
+            const fresh = await pb.send("/api/vc/hunts", {});
+            const nu = fresh.hunts.find((x) => x.random && x.status === "active" && !data.hunts.some((y) => y.id === x.id));
+            if (nu) { clearInterval(poll); toast("🎲 You've been matched! The hunt is on 🌕"); go("/hunt/" + nu.id); }
+          } catch {}
+        }, 20000);
+        return;
+      }
+      let role = ["prey", "hunter"].includes(opt) ? opt : "either";
+      const heats = new Set(["flirty", "teasing"]);
+      const roleRow = h("div", { class: "pills" }), heatRow = h("div", { class: "pills" });
+      const drawRows = () => {
+        roleRow.replaceChildren(...[["prey", "🐇 Be the prey"], ["hunter", "🐺 Be the hunter"], ["either", "🔁 Either"]].map(([v, l]) =>
+          h("button", { type: "button", class: "pill", "aria-pressed": String(role === v), onclick: () => { role = v; drawRows(); } }, l)));
+        heatRow.replaceChildren(...HEATS.map(([v, l, d]) => h("button", { type: "button", class: "pill", title: d, "aria-pressed": String(heats.has(v)),
+          onclick: () => { if (heats.has(v) && heats.size > 1) heats.delete(v); else heats.add(v); drawRows(); } }, l)));
+      };
+      drawRows();
+      const join = h("button", { type: "button", class: "btn gold" }, "🌲 Throw me in the forest");
+      join.addEventListener("click", async () => {
+        join.disabled = true;
+        try {
+          const r = await pb.send("/api/vc/hunt-queue", { method: "POST", body: { role, heats: [...heats] } });
+          if (r.matched) { toast("🎲 Matched straight away! The hunt is on 🌕"); go("/hunt/" + r.matched); return; }
+          toast("You're in the queue. We'll pair you as soon as someone joins.");
+          drawRandom(r);
+        } catch (err) { toast(errMsg(err), true); join.disabled = false; }
+      });
+      randomBox.replaceChildren(h("h2", {}, "🎲 Random hunt"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Don't want to pick? Say which side you want and get paired with a random member from the other side. The game starts as soon as you're matched (you've both said yes by joining)."),
+        h("span", { class: "label" }, "I want to"), roleRow,
+        h("span", { class: "label" }, "Heat I'm up for", h("small", { class: "faint" }, " (pick one or more)")), heatRow,
+        waitingLine, h("div", { class: "actions" }, join));
+    };
+    drawRandom(queue);
+
     const st = data.stats || {};
     app.replaceChildren(...[
       h("section", { class: "hunt-hero" },
@@ -120,13 +174,14 @@
         st.played ? h("p", { class: "faint" }, `Your record: 🐺 ${st.catches} caught · 🌅 ${st.escapes} escaped`) : null),
       h("section", { class: "panel" }, h("h2", {}, "Are you playing?"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "Only people who opt in can be invited. Change it any time."), optRow),
+      randomBox,
       h("section", { class: "panel" }, h("h2", {}, "Your hunts"), gameList),
-      h("section", { class: "panel" }, h("h2", {}, "Start a hunt"),
+      h("section", { class: "panel" }, h("h2", {}, "Invite someone"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "🐇 wants to be hunted · 🐺 likes to hunt · 🔁 either. Only people on the member list show here."), playerList),
       startHolder,
       h("section", { class: "panel hunt-rules" }, h("h2", {}, "How it works"),
         h("ol", {},
-          h("li", {}, "Invite someone and pick the heat and a forfeit. They accept (or pass, no hard feelings)."),
+          h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a forfeit. Invites need a yes (passing is fine, no hard feelings)."),
           h("li", {}, "Each hour, the prey hides in one of six spots. They can't stay put two hours in a row."),
           h("li", {}, "The hunter searches one spot. Spots are on a trail; searching right next to the prey means you hear them."),
           h("li", {}, "Catch them before dawn (4 hours) and the hunter claims them. Otherwise the prey escapes."),
@@ -281,7 +336,7 @@
           h("div", { class: "side" }, h("span", { class: "role" }, "🐺 Hunter"), g.role === "hunter" ? h("b", {}, "You") : personChip(other)),
           h("span", { class: "vs-x", "aria-hidden": "true" }, "vs"),
           h("div", { class: "side" }, h("span", { class: "role" }, "🐇 Prey"), g.role === "prey" ? h("b", {}, "You") : personChip(other))),
-        h("p", { class: "hunt-meta" }, heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · Loser owes: ${g.forfeit}` : "")),
+        h("p", { class: "hunt-meta" }, g.random ? "🎲 Random match · " : "", heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · Loser owes: ${g.forfeit}` : "")),
       action,
       over && g.log.length ? h("section", { class: "panel" }, h("h2", {}, "Where everyone was"), map) : null,
       g.log.length ? h("section", { class: "panel" }, h("h2", {}, "The night so far"), story) : null,

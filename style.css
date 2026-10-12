@@ -883,3 +883,9 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .hunt-limits summary { cursor: pointer; font-weight: 700; }
 .center { text-align: center; }
 @media (max-width: 420px) { .hunt-map .spot { width: 74px; height: 74px; margin: -37px 0 0 -37px; } .hunt-map .sn { font-size: .6rem; } }
+.hunt-random { display: grid; gap: 8px; }
+.hunt-random h2 { margin: 0; }
+.hunt-random .label { margin-top: 4px; font-weight: 700; font-size: .88rem; }
+.queue-on { display: flex; gap: 10px; align-items: flex-start; margin: 0; }
+.queue-on .dot { margin-top: 6px; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(61, 220, 132, .08); } }
