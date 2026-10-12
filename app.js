@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
@@ -203,6 +203,8 @@
     if (path === "login" || path === "join") return { name: path };
     if (path === "playroom") return { name: "playroom" };
     if (path === "events") return { name: "events" };
+    if (path === "hunt") return { name: "hunt", start: (q.get("start") || "").toLowerCase() };
+    if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
     if (path === "question") return { name: "question" };
     return { name: "profile", slug: path.split("/")[0] };
   }
@@ -243,6 +245,8 @@
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
       if (r.name === "playroom") return await renderPlayroom();
       if (r.name === "events") return me() ? await renderEvents() : renderLogin("/events");
+      if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
+      if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
     } catch (err) {
@@ -315,6 +319,10 @@
           g.description ? h("span", {}, g.description) : null),
         h("span", { class: "game-go" }, "Play")));
     }
+    grid.prepend(h("a", { class: "game hunt-game", href: "/hunt", "data-nav": "" },
+      h("span", { class: "game-emoji", "aria-hidden": "true" }, "🏹"),
+      h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "A midnight chase, right here on the site. One hides, one hunts. Opt in to play.")),
+      h("span", { class: "game-go" }, "Play")));
     app.replaceChildren(
       h("section", { class: "playroom-head" },
         h("h1", {}, "Playroom"),
@@ -449,9 +457,10 @@
   }
 
   async function drawThisWeek(holder) {
-    const [ev, q] = await Promise.all([
+    const [ev, q, hu] = await Promise.all([
       pb.send("/api/vc/events", {}).catch(() => null),
       pb.send("/api/vc/question", {}).catch(() => null),
+      pb.send("/api/vc/hunts", {}).catch(() => null),
     ]);
     const cards = [];
     const next = ev && ev.upcoming[0];
@@ -465,6 +474,11 @@
         h("span", { class: "pq" }, "❓ Question of the week"), h("b", {}, q.question.text),
         h("small", {}, q.mine ? `You answered · ${n} answer${n === 1 ? "" : "s"}` : `${n} answer${n === 1 ? "" : "s"} · add yours`)));
     }
+    const hot = hu ? hu.hunts.filter((x) => x.myTurn || x.invitedMe) : [];
+    if (hot.length) cards.unshift(h("a", { class: "week-card hot", href: hot.length === 1 ? "/hunt/" + hot[0].id : "/hunt", "data-nav": "" },
+      h("span", { class: "pq" }, "🏹 The Hunt"),
+      h("b", {}, hot.length === 1 ? (hot[0].invitedMe ? `${hot[0].other ? hot[0].other.display_name : "Someone"} invited you to a hunt` : `Your move against ${hot[0].other ? hot[0].other.display_name : "them"}`) : `${hot.length} hunts need you`),
+      h("small", {}, "Tap to play")));
     holder.replaceChildren(...cards);
   }
 
@@ -1132,6 +1146,7 @@
     const reactHolder = h("div", { class: "react-holder" });
     const badgeHolder = h("div", { class: "hold" }, badgeRow(badgesFor(p, photos.length)));
     const crushHolder = h("span", { class: "crush-holder" });
+    const huntHolder = h("span", { class: "hunt-holder" });
     const matchHolder = h("div", { class: "hold" });
     const chatHolder = h("div", { class: "hold" }, data.isOwner ? null : chatLine(p));
     const head = h("div", { class: "profile-card" },
@@ -1154,6 +1169,7 @@
           data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           data.isOwner ? null : crushHolder,
+          data.isOwner ? null : huntHolder,
           h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
           h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
         data.isOwner ? chatControl(p) : null,
@@ -1255,8 +1271,18 @@
       if (x.eventsAttended >= 3) extra.push(["🎟️", "Regular", "Has been to 3+ group events"]);
       else if (x.eventsAttended >= 1) extra.push(["🎟️", "Event-goer", "Has been to a group event"]);
       if (x.vouchCount >= 3) extra.push(["🤝", "Trusted", "Vouched for by 3+ members"]);
+      if (x.hunt) {
+        if (x.hunt.catches >= 3) extra.push(["🐺", "Apex hunter", `Caught ${x.hunt.catches} in The Hunt`]);
+        if (x.hunt.escapes >= 3) extra.push(["🦊", "Escape artist", `Escaped ${x.hunt.escapes} hunts`]);
+        if (x.hunt.played && x.hunt.catches < 3 && x.hunt.escapes < 3) extra.push(["🏹", "In the hunt", "Has played The Hunt"]);
+      }
       if (extra.length) badgeHolder.replaceChildren(badgeRow([...badgesFor(p, photos.length), ...extra]));
       if (x.crush) drawCrush(x.crush, false);
+      const hOpt = x.hunt && x.hunt.opt;
+      if (me() && !data.isOwner && hOpt && hOpt !== "off") {
+        const label = { prey: "🏹 Hunt them", hunter: "🐇 Be hunted", both: "🏹 Hunt" }[hOpt];
+        huntHolder.replaceChildren(h("a", { class: "btn", href: "/hunt?start=" + p.slug, "data-nav": "", title: "Start a game of The Hunt" }, label));
+      }
       qotwHolder.replaceChildren(qotwCard(p, x, data.isOwner) || "");
       vouchHolder.replaceChildren(vouchSection(p, x, data.isOwner, loadExtras) || "");
     }
@@ -1956,6 +1982,12 @@
     showTab(location.hash.slice(1));
     refreshLook();
   }
+
+  async function copyText(text, msg) {
+    try { await navigator.clipboard.writeText(text); toast(msg || "Copied"); }
+    catch { prompt("Copy this:", text); }
+  }
+  if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText };
 
   render();
 })();
