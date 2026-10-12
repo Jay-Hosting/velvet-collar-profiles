@@ -116,7 +116,10 @@
     const randomBox = h("section", { class: "panel hunt-random" });
     const drawRandom = (q) => {
       const w = q.waiting || {};
-      const waitingLine = h("p", { class: "faint" }, `Waiting right now: 🐇 ${w.prey || 0} prey · 🐺 ${w.hunter || 0} hunters · 🔁 ${w.either || 0} either`);
+      const others = (w.prey || 0) + (w.hunter || 0) + (w.either || 0);
+      const waitingLine = h("p", { class: "faint" }, others
+        ? `${q.queued ? "Also waiting" : "Waiting right now"}: 🐇 ${w.prey || 0} prey · 🐺 ${w.hunter || 0} hunters · 🔁 ${w.either || 0} either`
+        : q.queued ? "Nobody else is waiting yet. You're first in line, so the next person who joins from the other side gets you." : "Nobody's waiting right now. Join and you'll be first in line.");
       if (q.queued) {
         const roleLabel = { prey: "🐇 prey", hunter: "🐺 a hunter", either: "🔁 either role" }[q.queued.role];
         const leave = h("button", { type: "button", class: "btn small ghost" }, "Leave the queue");
