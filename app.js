@@ -237,7 +237,7 @@
     const old = btn.querySelector(".nav-badge"); if (old) old.remove();
     if (p && p.total) btn.append(h("span", { class: "nav-badge", "aria-label": `${p.total} waiting for you` }, String(p.total)));
   }
-  setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 60000);
+  setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
   document.addEventListener("visibilitychange", () => { if (me() && document.visibilityState === "visible") drawNavBadge(true); });
 
   function renderNav() {
@@ -255,7 +255,7 @@
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
-      drawNavBadge(here === "playroom" || here === "home" || here === "hunt" || here === "whispers");
+      drawNavBadge(here === "playroom");
     }
   }
 
@@ -278,9 +278,18 @@
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
     } catch (err) {
+      // Busy for a moment: say so and try again by itself rather than showing an error.
+      if (busyPath !== location.pathname) { busyPath = location.pathname; busyTries = 0; }
+      if (err && err.status === 429 && busyTries < 4) {
+        busyTries++;
+        app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "One sec…"), h("p", { class: "muted" }, "Lots going on right now. Trying again in a few seconds.")));
+        setTimeout(render, 6000 * busyTries);
+        return;
+      }
       app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Hmm."), h("p", { class: "muted" }, errMsg(err))));
     }
   }
+  let busyTries = 0, busyPath = "";
 
   // ---------- landing ----------
   function renderLanding() {

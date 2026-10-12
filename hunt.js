@@ -691,6 +691,7 @@
         clearInterval(poll);
         poll = setInterval(async () => {
           if (!document.body.contains(randomBox)) return clearInterval(poll);
+        if (document.hidden) return;   // background tabs wait until you look at them again
           try {
             const fresh = await pb.send("/api/vc/hunts", {});
             const nu = fresh.hunts.find((x) => x.random && x.status === "active" && !data.hunts.some((y) => y.id === x.id));
@@ -912,6 +913,7 @@
         map, h("div", { class: "actions" }, nudge, h("button", { type: "button", class: "btn small ghost", onclick: () => renderGame(app, g.id) }, "Refresh"), red));
       poll = setInterval(async () => {
         if (!document.body.contains(action)) return clearInterval(poll);
+        if (document.hidden) return;   // background tabs wait until you look at them again
         try { const fresh = await pb.send("/api/vc/hunts/" + g.id, {}); if (fresh.updated !== g.updated) { clearInterval(poll); renderGame(app, g.id); } } catch {}
       }, 20000);
     } else {

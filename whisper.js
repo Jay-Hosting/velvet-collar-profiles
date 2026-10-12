@@ -78,6 +78,7 @@
         const known = new Set(data.chats.map((c) => c.id));
         poll = setInterval(async () => {
           if (!document.body.contains(finder)) return clearInterval(poll);
+        if (document.hidden) return;   // background tabs wait until you look at them again
           try { const fresh = await pb.send("/api/vc/whispers", {}); const nu = fresh.chats.find((c) => c.status === "active" && !known.has(c.id)); if (nu) { clearInterval(poll); toast("🤫 Someone's here…"); go("/whispers/" + nu.id); } } catch {}
         }, 15000);
       } else {
@@ -213,6 +214,7 @@
 
     if (live) poll = setInterval(async () => {
       if (!document.body.contains(thread)) return clearInterval(poll);
+        if (document.hidden) return;   // background tabs wait until you look at them again
       try {
         const fresh = await pb.send(`/api/vc/whispers/${c.id}?after=${encodeURIComponent(lastAt)}`, {});
         if (fresh.status !== "active") { clearInterval(poll); renderChat(app, c.id); return; }
