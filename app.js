@@ -217,11 +217,34 @@
     if (a && !e.metaKey && !e.ctrlKey) { e.preventDefault(); go(a.getAttribute("href")); }
   });
 
+  // What's waiting on me: hunt invites, hunt turns and unread whispers. Shared by the nav badge and the Playroom tiles.
+  let pendingAsk = null, pendingAt = 0;
+  function getPending(fresh) {
+    if (!me()) return Promise.resolve(null);
+    if (pendingAsk && !fresh && Date.now() - pendingAt < 15000) return pendingAsk;
+    pendingAt = Date.now();
+    pendingAsk = Promise.all([pb.send("/api/vc/hunts", {}).catch(() => null), pb.send("/api/vc/whispers", {}).catch(() => null)]).then(([hu, wh]) => {
+      const hunts = hu ? hu.hunts : [], chats = wh ? wh.chats : [];
+      const invites = hunts.filter((x) => x.invitedMe), turns = hunts.filter((x) => x.myTurn), unread = chats.filter((x) => x.status === "active" && x.unread);
+      return { invites, turns, unread, hunt: invites.length + turns.length, total: invites.length + turns.length + unread.length };
+    });
+    return pendingAsk;
+  }
+  async function drawNavBadge(fresh) {
+    const p = await getPending(fresh);
+    const btn = nav.querySelector(".playroom-link");
+    if (!btn) return;
+    const old = btn.querySelector(".nav-badge"); if (old) old.remove();
+    if (p && p.total) btn.append(h("span", { class: "nav-badge", "aria-label": `${p.total} waiting for you` }, String(p.total)));
+  }
+  setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 60000);
+  document.addEventListener("visibilitychange", () => { if (me() && document.visibilityState === "visible") drawNavBadge(true); });
+
   function renderNav() {
     nav.replaceChildren();
     const user = me();
     const here = route().name;
-    const playroom = h("a", { class: "btn small ghost" + (here === "playroom" ? " current" : ""), href: "/playroom", "data-nav": "" }, "Playroom");
+    const playroom = h("a", { class: "btn small ghost playroom-link" + (here === "playroom" ? " current" : ""), href: "/playroom", "data-nav": "" }, "Playroom");
     if (!user) {
       nav.append(playroom, h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"));
     } else {
@@ -232,6 +255,7 @@
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
+      drawNavBadge(here === "playroom" || here === "home" || here === "hunt" || here === "whispers");
     }
   }
 
@@ -323,14 +347,30 @@
           g.description ? h("span", {}, g.description) : null),
         h("span", { class: "game-go" }, "Play")));
     }
-    grid.prepend(h("a", { class: "game hunt-game", href: "/whispers", "data-nav": "" },
+    const whisperTile = h("a", { class: "game hunt-game", href: "/whispers", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🤫"),
       h("span", { class: "game-txt" }, h("b", {}, "Whispers"), h("span", {}, "Anonymous flirting with a matched member. No names, no faces, just words and emojis. Opt in to play.")),
-      h("span", { class: "game-go" }, "Open")));
-    grid.prepend(h("a", { class: "game hunt-game", href: "/hunt", "data-nav": "" },
+      h("span", { class: "game-go" }, "Open"));
+    const huntTile = h("a", { class: "game hunt-game", href: "/hunt", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🏹"),
       h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "A midnight chase, right here on the site. One hides, one hunts. Opt in to play.")),
-      h("span", { class: "game-go" }, "Play")));
+      h("span", { class: "game-go" }, "Play"));
+    grid.prepend(huntTile, whisperTile);
+    // Flag the tiles when something is waiting on you.
+    getPending(true).then((p) => {
+      if (!p) return;
+      const flag = (tile, text, href) => {
+        tile.classList.add("waiting");
+        if (href) tile.setAttribute("href", href);
+        tile.querySelector(".game-txt").prepend(h("span", { class: "game-badge" }, text));
+      };
+      const name = (g) => (g.other ? g.other.display_name : "Someone");
+      if (p.hunt) flag(huntTile, p.hunt === 1 ? (p.invites.length ? `🔔 ${name(p.invites[0])} invited you` : `⚡ Your move against ${name(p.turns[0])}`)
+        : [p.invites.length ? `🔔 ${p.invites.length} invite${p.invites.length === 1 ? "" : "s"}` : "", p.turns.length ? `⚡ ${p.turns.length} waiting on your move` : ""].filter(Boolean).join(" · "),
+        p.hunt === 1 ? "/hunt/" + (p.invites[0] || p.turns[0]).id : null);
+      if (p.unread.length) flag(whisperTile, p.unread.length === 1 ? `💬 ${p.unread[0].them} whispered to you` : `💬 ${p.unread.length} new whispers`,
+        p.unread.length === 1 ? "/whispers/" + p.unread[0].id : null);
+    });
     app.replaceChildren(
       h("section", { class: "playroom-head" },
         h("h1", {}, "Playroom"),

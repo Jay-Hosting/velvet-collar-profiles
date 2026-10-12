@@ -948,3 +948,13 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .hunt-map .spot.far { opacity: .3; }
 .hunt-map.trail12 .spot.hiding, .hunt-map.trail12 .spot.chosen { opacity: 1; }
 @media (max-width: 420px) { .hunt-map.trail12 .spot { width: 56px; height: 56px; margin: -28px 0 0 -28px; } .hunt-map.trail12 .se { font-size: 1.1rem; } .hunt-map.trail12 .sn { font-size: .5rem; } }
+
+/* Something waiting for you: nav count and Playroom tile flags */
+.playroom-link { position: relative; }
+.nav-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 999px;
+  background: #ff5fa2; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px rgba(255, 95, 162, .25); animation: navPulse 2s ease-in-out infinite; }
+@keyframes navPulse { 50% { box-shadow: 0 0 0 5px rgba(255, 95, 162, .08); } }
+@media (prefers-reduced-motion: reduce) { .nav-badge { animation: none; } }
+.game.waiting { border-color: #ff5fa2; box-shadow: 0 0 0 3px rgba(255, 95, 162, .18); }
+.game-txt .game-badge { display: table; align-self: flex-start; margin-bottom: 4px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 95, 162, .16);
+  border: 1px solid rgba(255, 95, 162, .5); color: #ffb3d4; font-size: .78rem; font-weight: 600; }
