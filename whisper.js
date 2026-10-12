@@ -133,7 +133,8 @@
 
     const thread = h("div", { class: "whisper-thread", role: "log", "aria-live": "polite" });
     const bubble = (m) => {
-      const b = h("div", { class: "wmsg " + (m.mine ? "mine" : "theirs"), "data-id": m.id }, h("p", {}, m.text),
+      const onlyEmoji = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s){1,12}$/u.test(m.text) && !/[0-9#*]/.test(m.text);
+      const b = h("div", { class: "wmsg " + (m.mine ? "mine" : "theirs") + (onlyEmoji ? " big-emoji" : ""), "data-id": m.id }, h("p", {}, m.text),
         h("span", { class: "wtime" }, new Date(parseDate(m.at)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
       if (!m.mine && live) b.append(h("button", { type: "button", class: "wreport", title: "Report this message", "aria-label": "Report this message", onclick: () => report(m) }, "⚑"));
       return b;
