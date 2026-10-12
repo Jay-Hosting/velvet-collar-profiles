@@ -1,10 +1,10 @@
-/* The Mod page: reports, members, events, question of the week and content clean-up.
-   Members with the "mod" badge see every tab; "host" sees Events only. The server checks this too.
+/* The Admin page: reports, members, events, question of the week and content clean-up.
+   Members with the "admin" or "owner" badge see every tab; "host" sees Events only. The server checks this too.
    Uses helpers app.js shares on window.VCMod.deps (h, pb, toast, go, me, errMsg, personChip, miniAvatar, copyText, fmtWhen). */
 (() => {
   "use strict";
   const deps = () => window.VCMod.deps;
-  const BADGES = [["mod", "🛡️ Mod"], ["host", "🎉 Host"], ["welcomer", "👋 Welcomer"], ["helper", "🤝 Helper"], ["vip", "💎 VIP"]];
+  const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
   const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["events", "📅 Events"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
@@ -12,22 +12,22 @@
 
   async function render(app, tab) {
     const { h, pb, toast, go, errMsg } = deps();
-    document.title = "Mod · Velvet Collar";
+    document.title = "Admin · Velvet Collar";
     let sum;
     try { sum = await pb.send("/api/vc/mod/summary", {}); } catch (err) { sum = { mod: false, host: false }; }
     if (!sum.host) {
-      app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Mods only"), h("p", { class: "muted" }, "This page is for the group's mods and hosts."), h("a", { class: "btn", href: "/", "data-nav": "" }, "Back to members")));
+      app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Admins only"), h("p", { class: "muted" }, "This page is for the group's admins and hosts."), h("a", { class: "btn", href: "/", "data-nav": "" }, "Back to members")));
       return;
     }
     const tabs = sum.mod ? TABS : TABS.filter((t) => t[0] === "events");
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
-      h("a", { class: "pill", href: "/mod/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
+      h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null)));
-    app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Mod"),
+    app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members, events, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), events, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -55,7 +55,7 @@
   }
 
   // ---------- members ----------
-  async function members(body) {
+  async function members(body, sum) {
     const { h, pb, toast, personChip, errMsg, copyText } = deps();
     const search = h("input", { type: "search", placeholder: "Search by name or profile name", "aria-label": "Search members" });
     const list = h("div", { class: "mod-members" });
@@ -74,7 +74,9 @@
     function row(m) {
       const el = h("div", { class: "mod-member" + (m.hidden ? " is-hidden" : "") });
       const draw = () => {
+        // Only an owner can give or remove the Owner badge.
         const badgeRow = h("div", { class: "pills" }, BADGES.map(([id, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(m.badges.includes(id)),
+          disabled: id === "owner" && !(sum && sum.owner), title: id === "owner" && !(sum && sum.owner) ? "Only an owner can change this" : "",
           onclick: async () => { const next = m.badges.includes(id) ? m.badges.filter((b) => b !== id) : [...m.badges, id]; if (await save(m, { badges: next }, "Badges updated")) draw(); } }, label)));
         el.className = "mod-member" + (m.hidden ? " is-hidden" : "");
         el.replaceChildren(

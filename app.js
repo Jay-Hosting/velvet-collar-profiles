@@ -173,7 +173,7 @@
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn)),
         field("Password", pwIn),
         msg, btn,
-        h("p", { class: "faint" }, "New here? ", h("a", { href: "/join", "data-nav": "" }, "Make a profile"), " · Forgot your password? Ask a mod to reset it."));
+        h("p", { class: "faint" }, "New here? ", h("a", { href: "/join", "data-nav": "" }, "Make a profile"), " · Forgot your password? Ask an admin to reset it."));
       form.addEventListener("submit", async (e) => {
         e.preventDefault(); msg.textContent = "";
         btn.disabled = true; btn.textContent = "Logging in…";
@@ -207,7 +207,8 @@
     if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
     if (path === "whispers") return { name: "whispers" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
-    if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };
+    if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };   // old address
+    if (path === "admin" || path.startsWith("admin/")) return { name: "mod", tab: path.slice(6) };
     if (path === "question") return { name: "question" };
     return { name: "profile", slug: path.split("/")[0] };
   }
@@ -256,12 +257,13 @@
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
-      // Mods and hosts get a Mod button (mods see how many reports are open).
+      // Admins, owners and hosts get an Admin button (admins see how many reports are open).
       const badges = user.badges || [];
-      if (badges.includes("mod") || badges.includes("host")) {
-        const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/mod", "data-nav": "", title: "Mod tools" }, "🛡️ Mod");
+      const isAdmin = badges.includes("admin") || badges.includes("owner");
+      if (isAdmin || badges.includes("host")) {
+        const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        if (badges.includes("mod")) pb.send("/api/vc/mod/summary", {}).then((sm) => { if (sm.openReports) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${sm.openReports} open reports` }, String(sm.openReports))); }).catch(() => {});
+        if (isAdmin) pb.send("/api/vc/mod/summary", {}).then((sm) => { if (sm.openReports) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${sm.openReports} open reports` }, String(sm.openReports))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }
@@ -282,7 +284,7 @@
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "whisper") return me() ? await window.VCWhisper.renderChat(app, r.id) : renderLogin("/whispers/" + r.id);
-      if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/mod");
+      if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/admin");
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
@@ -956,7 +958,7 @@
 
   // ---------- badges ----------
   // Admin-given badges come from the dashboard; the rest are worked out from the profile.
-  const ADMIN_BADGES = { mod: ["🛡️", "Mod", "Keeps the group running"], host: ["🎪", "Event host", "Hosts group events"], welcomer: ["🤗", "Welcomer", "Says hi to new members"], helper: ["🛠️", "Helper", "Helps behind the scenes"], vip: ["👑", "VIP", "Someone special to the group"] };
+  const ADMIN_BADGES = { owner: ["🗝️", "Owner", "Owns the group"], admin: ["🛡️", "Admin", "Keeps the group running"], host: ["🎪", "Event host", "Hosts group events"], welcomer: ["🤗", "Welcomer", "Says hi to new members"], helper: ["🛠️", "Helper", "Helps behind the scenes"], vip: ["👑", "VIP", "Someone special to the group"] };
   const parseDate = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? null : t; };
   const isNew = (m) => { const t = parseDate(m.created); return t && Date.now() - t < 7 * 864e5; };
   function badgesFor(p, photoCount) {
