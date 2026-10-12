@@ -837,6 +837,11 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .hunt-row .txt { flex: 1; min-width: 0; display: grid; }
 .hunt-row small { color: var(--muted); }
 .hunt-row .arrow { color: var(--gold); }
+.hunt-done { margin-top: 18px; }
+.hunt-done h3 { margin: 0 0 8px; font-size: .95rem; color: var(--muted); font-weight: 600; }
+.hunt-row.done { padding: 7px 12px; opacity: .85; }
+.hunt-row.done b { font-size: .95rem; }
+.hunt-row.done .avatar, .hunt-row.done img { width: 28px; height: 28px; }
 .hunt-players .person { cursor: pointer; font: inherit; }
 .hunt-start { display: grid; gap: 8px; }
 .hunt-start .label { margin-top: 6px; font-weight: 700; font-size: .88rem; }

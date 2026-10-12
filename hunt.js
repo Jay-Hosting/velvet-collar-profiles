@@ -513,12 +513,32 @@
     const statusText = (g) => g.invitedMe ? "🔔 Invited you" : g.status === "invited" ? "Waiting for them to accept" : g.myTurn ? "⚡ Your turn" :
       g.status === "active" ? `Their turn · ${HOURS[g.round - 1] || ""}` : { caught: g.role === "hunter" ? "🐺 You caught them" : "🪤 You got caught", escaped: g.role === "prey" ? "🌅 You escaped" : "💨 They escaped",
         red: "🛑 Stopped (red)", declined: "Declined", cancelled: "Cancelled" }[g.status] || g.status;
-    const games = data.hunts.slice().sort((a, b) => (b.invitedMe || b.myTurn) - (a.invitedMe || a.myTurn));
-    const gameList = games.length ? h("div", { class: "hunt-list" }, games.map((g) => h("a", { class: "hunt-row" + (g.invitedMe || g.myTurn ? " hot" : ""), href: "/hunt/" + g.id, "data-nav": "" },
+    // Games still going are always shown (anything waiting on you first). Finished ones are tucked
+    // underneath, newest first, three at a time.
+    const ago = (t) => { const d = (Date.now() - new Date(String(t).replace(" ", "T"))) / 864e5; return !(d >= 0) ? "" : d < 1 ? "today" : d < 2 ? "yesterday" : d < 7 ? `${Math.floor(d)} days ago` : new Date(String(t).replace(" ", "T")).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Los_Angeles" }); };
+    const heatLabel = (g) => (HEATS.find((x) => x[0] === g.heat) || [, ""])[1];
+    const row = (g, done) => h("a", { class: "hunt-row" + (g.invitedMe || g.myTurn ? " hot" : "") + (done ? " done" : ""), href: "/hunt/" + g.id, "data-nav": "" },
       g.other ? deps().miniAvatar(g.other) : null,
-      h("span", { class: "txt" }, h("b", {}, (g.role === "hunter" ? "🐺 You're hunting " : "🐇 Hunted by ") + (g.other ? g.other.display_name : "someone"), g.random ? h("span", { class: "new-pill" }, "🎲 Random") : null),
-        h("small", {}, statusText(g) + " · " + (HEATS.find((x) => x[0] === g.heat) || [, ""])[1])),
-      h("span", { class: "arrow", "aria-hidden": "true" }, "→")))) : h("p", { class: "muted" }, "No hunts yet.");
+      h("span", { class: "txt" }, h("b", {}, (g.role === "hunter" ? (done ? "🐺 You hunted " : "🐺 You're hunting ") : "🐇 Hunted by ") + (g.other ? g.other.display_name : "someone"), g.random ? h("span", { class: "new-pill" }, "🎲 Random") : null),
+        h("small", {}, statusText(g) + " · " + heatLabel(g) + (done && g.updated ? " · " + ago(g.updated) : ""))),
+      h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
+    const recent = (g) => Date.now() - new Date(String(g.updated).replace(" ", "T")) < 2 * 864e5;
+    const live = data.hunts.filter((g) => g.status === "invited" || g.status === "active").sort((a, b) => (b.invitedMe || b.myTurn) - (a.invitedMe || a.myTurn));
+    const done = data.hunts.filter((g) => !(g.status === "invited" || g.status === "active") && g.status !== "cancelled" && (g.status !== "declined" || recent(g)));
+    let shown = 3;
+    const doneList = h("div", { class: "hunt-list" });
+    const moreBtn = h("button", { type: "button", class: "btn small ghost" });
+    const drawDone = () => {
+      doneList.replaceChildren(...done.slice(0, shown).map((g) => row(g, true)));
+      const left = done.length - shown;
+      moreBtn.hidden = left <= 0;
+      moreBtn.textContent = `Show ${Math.min(left, 5)} more`;
+    };
+    moreBtn.addEventListener("click", () => { shown += 5; drawDone(); });
+    drawDone();
+    const gameList = !data.hunts.length ? h("p", { class: "muted" }, "No hunts yet.") : h("div", {},
+      live.length ? h("div", { class: "hunt-list" }, live.map((g) => row(g, false))) : h("p", { class: "faint", style: "margin:0" }, "Nothing going right now."),
+      done.length ? h("div", { class: "hunt-done" }, h("h3", {}, `Finished (${done.length})`), doneList, h("div", { class: "actions", style: "margin-top:8px" }, moreBtn)) : null);
 
     // Start a hunt
     const startHolder = h("div", {});
