@@ -128,7 +128,6 @@
 
     if (mode === "join") {
       const codeIn = h("input", { type: "text", id: "a_code", autocomplete: "off", autocapitalize: "off", spellcheck: "false", required: true });
-      const nameIn = h("input", { type: "text", id: "a_name", maxlength: 60, required: true, autocomplete: "nickname" });
       const pw2In = h("input", { type: "password", id: "a_pw2", autocomplete: "new-password", minlength: 8, maxlength: 72, required: true });
       const slugStatus = h("span", { class: "status" });
       let t;
@@ -145,10 +144,9 @@
       });
       form = h("form", { class: "auth-form panel" },
         field("Join code", codeIn, "Shared in the group chat."),
-        field("Display name", nameIn),
         h("div", { class: "field" }, h("label", { for: "a_slug" }, "Link name"),
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn),
-          slugStatus, h("span", { class: "hint" }, "Your page's address. It's also what you log in with.")),
+          slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
         field("Password", pwIn, "At least 8 characters."),
         field("Password again", pw2In),
         msg, btn,
@@ -158,13 +156,13 @@
         if (pwIn.value !== pw2In.value) { msg.textContent = "The passwords don't match."; return pw2In.focus(); }
         btn.disabled = true; btn.textContent = "Making it…";
         try {
-          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: nameIn.value, slug: slugIn.value, password: pwIn.value } });
+          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: slugIn.value.charAt(0).toUpperCase() + slugIn.value.slice(1), slug: slugIn.value, password: pwIn.value } });
           pb.authStore.save(res.token, res.record);
           afterAuth(res.record, true);
         } catch (err) {
           const d = err.response || {};
           msg.textContent = d.message || errMsg(err);
-          const focus = { join_code: codeIn, display_name: nameIn, slug: slugIn, password: pwIn }[d.field];
+          const focus = { join_code: codeIn, display_name: slugIn, slug: slugIn, password: pwIn }[d.field];
           if (focus) focus.focus();
           btn.disabled = false; btn.textContent = "Make my profile";
         }
