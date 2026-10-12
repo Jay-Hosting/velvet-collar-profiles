@@ -859,6 +859,8 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 
 .hunt-map { position: relative; width: min(340px, 100%); aspect-ratio: 1; margin: 6px auto; border-radius: 50%;
   background: radial-gradient(circle at 50% 50%, rgba(255, 240, 190, .08), transparent 35%), radial-gradient(circle, #0f1f17 0%, #0b140f 70%, transparent 71%); }
+.hunt-map.theme-manor { background: radial-gradient(circle at 50% 50%, rgba(255, 210, 160, .08), transparent 35%), radial-gradient(circle, #23141c 0%, #170c12 70%, transparent 71%); }
+.hunt-map.theme-city { background: radial-gradient(circle at 50% 50%, rgba(170, 200, 255, .09), transparent 35%), radial-gradient(circle, #111a2b 0%, #0b101b 70%, transparent 71%); }
 .hunt-map .trail { position: absolute; inset: 17%; border-radius: 50%; border: 2px dashed rgba(255,255,255,.14); }
 .hunt-map .spot { --r: 37%; position: absolute; width: 86px; height: 86px; margin: -43px 0 0 -43px;
   left: calc(50% + var(--r) * sin(calc(var(--i) * 60deg))); top: calc(50% - var(--r) * cos(calc(var(--i) * 60deg)));

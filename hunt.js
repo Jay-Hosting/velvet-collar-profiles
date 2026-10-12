@@ -27,7 +27,10 @@
     TRAIL_LINKS.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
     return adj.map((_, s) => { const d = Array(n).fill(-1); d[s] = 0; const q = [s]; while (q.length) { const x = q.shift(); adj[x].forEach((y) => { if (d[y] < 0) { d[y] = d[x] + 1; q.push(y); } }); } return d; });
   })();
-  const spotsFor = (g) => (g && g.board === "grid16" ? GRID : g && g.board === "trail12" ? TRAIL : SPOTS);
+  const spotsFor = (g) => (g && g.map && g.map.spots ? g.map.spots : g && g.board === "grid16" ? GRID : g && g.board === "trail12" ? TRAIL : SPOTS);
+  // Where spot i sits round the loop on this game's map (each map is turned, and sometimes mirrored).
+  const posOf = (g, i) => { const m = g && g.map; if (!m) return i; return m.flip ? (m.rot - i + 24) % 12 : (i + m.rot) % 12; };
+  const THEME_PICKS = [["", "🎲 Surprise me"], ["forest", "🌲 Forest"], ["manor", "🏰 Manor"], ["city", "🌃 City"]];
   const HOURS = ["Midnight", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM"];
   const DAWN = (g) => (g && g.board === "grid16" ? "6 AM" : g && g.board === "trail12" ? "5 AM" : "4 AM");
   const HEATS = [
@@ -43,7 +46,7 @@
   const TEXT = {
     close: {
       flirty: ["{h} checks the {s}. Empty, but there's a giggle from somewhere close by…", "Nothing at the {s}, though {h} spots a dropped ribbon. Warm. Very warm."],
-      teasing: ["{h} tears through the {s}. Nothing… but the scent is fresh. {p} is near, heart pounding.", "The {s} is empty, but a twig snaps right next door. {h} smiles."],
+      teasing: ["{h} tears through the {s}. Nothing… but the scent is fresh. {p} is near, heart pounding.", "The {s} is empty, but something creaks right next door. {h} smiles."],
       spicy: ["{h} rips the {s} apart. Empty. But {p} is breathing hard just out of reach.", "Not at the {s}. Close, though. Close enough that {h} can almost taste it."],
     },
     far: {
@@ -57,7 +60,7 @@
       spicy: ["{h} pins {p} against the {s}. No more running. Caught, claimed, and very much theirs."],
     },
     escaped: {
-      flirty: ["The sky turns pink. {p} skips out of the forest without a scratch. {h} owes up!"],
+      flirty: ["The sky turns pink. {p} skips out of the {w} without a scratch. {h} owes up!"],
       teasing: ["Dawn breaks. {p} slips free into the morning light, leaving {h} empty-handed and wanting."],
       spicy: ["First light. {p} escapes, breathless and smug, while {h} is left aching for next time."],
     },
@@ -77,7 +80,7 @@
         "Come and get me… if you can 😈", "My heart's pounding. Is yours?", "So close… but not close enough.",
         "I can feel you looking for me", "Getting warmer? Wouldn't you like to know.", "Breathe a little louder, I can't hear you yet",
         "You want me that badly?", "Keep chasing. I like the attention.", "One wrong turn and I'm gone forever",
-        "Careful, the thorns bite. So do I.", "Your footsteps give you away, hunter", "I'll make you work for every inch of this forest",
+        "Careful. I bite back.", "Your footsteps give you away, hunter", "I'll make you work for every inch of this {w}",
         "Go on, beg the moon for a clue", "If you catch me, then what?", "I'm right where you're not looking",
         "Can you smell my perfume yet?", "I love it when you get frustrated", "Run faster. I dare you.",
       ],
@@ -85,7 +88,7 @@
         "You'll have to earn this, beast 🔥", "Hunt me harder.", "I'm shaking… and I like it.",
         "Every step you take makes me want to run faster", "Catch me and I'm yours. Fail and you're mine.", "Pin me if you can.",
         "You can't tame what you can't find", "Your hunger is showing, wolf", "I want to hear you growl when you miss",
-        "Closer… closer… wrong.", "Don't you want to know what happens when you catch me?", "I'm leaving claw marks on this tree for you",
+        "Closer… closer… wrong.", "Don't you want to know what happens when you catch me?", "I'm leaving claw marks everywhere I've been",
         "Make me regret running", "Is that a promise or a threat? Either way, keep coming.", "The dark suits you. So does losing.",
         "My pulse is racing for you", "I'll make you chase me all night", "Find me before I decide to find you",
       ],
@@ -94,14 +97,14 @@
       flirty: [
         "Ready or not, here I come! 🐺", "I can smell cookies. Are you hiding cookies?", "Found a sock. Is this yours?",
         "You can run, but you'll get tired eventually", "I brought a flashlight. And snacks.", "Come out, come out, wherever you are!",
-        "That giggle is going to get you caught", "I'm very patient. And very nosy.", "Every bush, every tree. I'll check them all.",
+        "That giggle is going to get you caught", "I'm very patient. And very nosy.", "Every corner, every shadow. I'll check them all.",
         "You're cute when you hide", "I heard that, you know", "My nose is never wrong. Mostly.",
         "Should I howl? I'm going to howl.", "I'll find you before the owls do", "Coming closer… 👀",
         "Hide well, little bunny", "Fun fact: I've never lost at hide and seek", "Your boots left prints. Rookie mistake.",
       ],
       teasing: [
         "I can hear your heart racing", "Run, little rabbit 😏", "You can't hide from me forever.",
-        "I'm getting closer. You know I am.", "That snapping twig? That was you.", "I love a prey with spirit",
+        "I'm getting closer. You know I am.", "That creak? That was you.", "I love a prey with spirit",
         "Your scent is all over this trail", "Every hour you run, the sweeter the catch", "Don't make me come in there",
         "Careful, I'm right behind you. Or am I?", "I'll find you. I always do.", "Keep running, I'm enjoying the view",
         "Breathe quieter, darling", "The moon's on my side tonight", "Nowhere left to hide soon",
@@ -109,7 +112,7 @@
       ],
       spicy: [
         "When I catch you, you're mine 🔥", "I can taste your fear on the wind.", "Run. I want you breathless.",
-        "Every step brings me closer to claiming you", "There's nowhere in this forest I won't follow you", "I'm going to pin you down when I find you",
+        "Every step brings me closer to claiming you", "There's nowhere in this {w} I won't follow you", "I'm going to pin you down when I find you",
         "Hide well. I'm starving.", "Your heartbeat is a dinner bell", "I'll drag you out of there myself",
         "You made a mistake teasing me", "I want to see you tremble", "The hunt is the foreplay. The catch is the fun.",
         "Keep running. It only makes me hungrier.", "I'll leave marks you'll feel tomorrow", "You're already mine, you just don't know it yet",
@@ -129,7 +132,7 @@
     const deal = () => {
       if (used.size > pool.length - 3) used.clear();
       const picks = [];
-      while (picks.length < 3) { const i = Math.floor(Math.random() * pool.length); if (!used.has(i)) { used.add(i); picks.push(pool[i]); } }
+      while (picks.length < 3) { const i = Math.floor(Math.random() * pool.length); if (!used.has(i)) { used.add(i); picks.push(pool[i].replace(/\{w\}/g, WORD)); } }
       chips.replaceChildren(...picks.map((t) => h("button", { type: "button", class: "quick", onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t)),
         h("button", { type: "button", class: "quick more", title: "Three more lines", "aria-label": "Show three more lines", onclick: deal }, "🔄"));
     };
@@ -140,7 +143,8 @@
   }
 
   const pick = (list, seed) => list[Math.abs(seed) % list.length];
-  const fill = (t, v) => t.replace(/\{h\}/g, v.h).replace(/\{p\}/g, v.p).replace(/\{s\}/g, v.s);
+  let WORD = "forest";
+  const fill = (t, v) => t.replace(/\{h\}/g, v.h).replace(/\{p\}/g, v.p).replace(/\{s\}/g, v.s).replace(/\{w\}/g, WORD);
 
   function deps() { return window.VCHunt.deps; }
 
@@ -193,10 +197,12 @@
       if (iCanRun && theyHunt) roles.push(["prey", `🐇 ${p.display_name} hunts me`]);
       if (!roles.length) { startHolder.replaceChildren(h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, opt === "off" ? "Pick how you want to play above first." : `${p.display_name} is up for ${({ prey: "being hunted", hunter: "hunting" })[p.opt] || "something else"}, which doesn't match your setting. Try "Either".`))); return; }
       let role = roles[0][0], heat = "flirty";
-      const roleRow = h("div", { class: "pills" }); const heatRow = h("div", { class: "pills" });
+      const roleRow = h("div", { class: "pills" }); const heatRow = h("div", { class: "pills" }); const themeRow = h("div", { class: "pills" });
+      let theme = "";
       const drawRows = () => {
         roleRow.replaceChildren(...roles.map(([v, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(role === v), onclick: () => { role = v; drawRows(); } }, l)));
         heatRow.replaceChildren(...HEATS.map(([v, l, d]) => h("button", { type: "button", class: "pill", title: d, "aria-pressed": String(heat === v), onclick: () => { heat = v; drawRows(); } }, l)));
+        themeRow.replaceChildren(...THEME_PICKS.map(([v, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(theme === v), onclick: () => { theme = v; drawRows(); } }, l)));
       };
       drawRows();
       const forfeit = h("input", { type: "text", maxlength: 140, placeholder: "e.g. A cheeky selfie", list: "hunt-forfeits", "aria-label": "Forfeit" });
@@ -204,13 +210,14 @@
       const send = h("button", { type: "button", class: "btn gold" }, "🏹 Send the invite");
       send.addEventListener("click", async () => {
         send.disabled = true;
-        try { const g = await pb.send("/api/vc/hunts", { method: "POST", body: { slug: p.slug, role, heat, forfeit: forfeit.value.trim(), message: msg.value.trim() } }); toast("Invite sent! Give them a nudge in Telegram."); go("/hunt/" + g.id); }
+        try { const g = await pb.send("/api/vc/hunts", { method: "POST", body: { slug: p.slug, role, heat, theme, forfeit: forfeit.value.trim(), message: msg.value.trim() } }); toast("Invite sent! Give them a nudge in Telegram."); go("/hunt/" + g.id); }
         catch (err) { toast(errMsg(err), true); send.disabled = false; }
       });
       startHolder.replaceChildren(h("section", { class: "panel hunt-start" },
         h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Hunt with ", p.display_name), h("button", { type: "button", class: "btn small ghost", onclick: () => startHolder.replaceChildren() }, "Close")),
         h("span", { class: "label" }, "Who's chasing who"), roleRow,
         h("span", { class: "label" }, "Heat"), heatRow,
+        h("span", { class: "label" }, "Where", h("small", { class: "faint" }, " (the places are shuffled every game)")), themeRow,
         h("span", { class: "label" }, "The forfeit", h("small", { class: "faint" }, " (whoever loses owes it)")), forfeit,
         h("datalist", { id: "hunt-forfeits" }, FORFEITS.map((f) => h("option", { value: f }))),
         h("span", { class: "label" }, "Message"), msg,
@@ -292,7 +299,7 @@
       h("section", { class: "hunt-hero" },
         h("div", { class: "hunt-moon", "aria-hidden": "true" }, "🌕"),
         h("h1", {}, "The Hunt"),
-        h("p", {}, "Midnight in the forest. One of you hides, one of you hunts. Twelve hiding spots on a loop of forest trails. Each hour the prey creeps one or two steps along the trails, and the hunter searches one spot. Track them down before dawn and they're yours. Survive until 5 AM and the prey wins."),
+        h("p", {}, "Midnight in the forest, an old manor or the city after dark. One of you hides, one of you hunts. Twelve hiding spots on a loop of paths, and a new map every game. Each hour the prey creeps one or two steps along the paths, and the hunter searches one spot. Track them down before dawn and they're yours. Survive until 5 AM and the prey wins."),
         st.played ? h("p", { class: "faint" }, `Your record: 🐺 ${st.catches} caught · 🌅 ${st.escapes} escaped`) : null),
       h("section", { class: "panel" }, h("h2", {}, "Are you playing?"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "Only people who opt in can be invited. Change it any time."), optRow),
@@ -304,7 +311,7 @@
       h("section", { class: "panel hunt-rules" }, h("h2", {}, "How it works"),
         h("ol", {},
           h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a forfeit. Invites need a yes (passing is fine, no hard feelings)."),
-          h("li", {}, "Twelve spots sit on a loop of trails, with two shortcuts across. The prey starts anywhere, then each hour must move one or two steps along the trails."),
+          h("li", {}, "Every game gets a new map: the forest, an old manor or the city after dark, with 12 places picked at random and the two shortcuts in new spots. The prey starts anywhere, then each hour must move one or two steps along the paths."),
           h("li", {}, "The hunter searches one spot each hour. If the prey is one step away, the hunter hears them, and can start tracking."),
           h("li", {}, "Catch them before dawn (five hours, midnight to 5 AM) and the hunter claims them. Otherwise the prey escapes."),
           h("li", {}, "The winner gets the last word, and the loser owes the forfeit."),
@@ -328,6 +335,7 @@
     const names = { h: g.role === "hunter" ? myName : other.display_name, p: g.role === "prey" ? myName : other.display_name };
     const nameOf = (r) => (r === g.role ? "You" : other.display_name);
     const heat = HEATS.find((x) => x[0] === g.heat) || HEATS[0];
+    WORD = (g.map && g.map.word) || "forest";
     const SP = spotsFor(g), grid = g.board === "grid16", trail = g.board === "trail12", picks = g.searches || 1;
     const over = ["caught", "escaped", "red", "declined", "cancelled"].includes(g.status);
 
@@ -365,10 +373,10 @@
     const lastPrey = g.lastPreySpot;
     const currentHide = g.role === "prey" && g.log.length && g.log[g.log.length - 1].search == null ? g.log[g.log.length - 1].prey_spot : null;
     const canPick = g.myTurn;
-    const map = h("div", { class: "hunt-map" + (grid ? " grid" : "") + (trail ? " trail12" : ""), role: "group", "aria-label": "The forest" });
+    const map = h("div", { class: "hunt-map" + (grid ? " grid" : "") + (trail ? " trail12" : "") + (g.map ? " theme-" + g.map.theme : ""), role: "group", "aria-label": g.map ? g.map.label : "The forest" });
     // Trail lines: the loop, plus the shortcuts across.
     const trailSvg = () => {
-      const pt = (i) => [50 + 38 * Math.sin(i * Math.PI / 6), 50 - 38 * Math.cos(i * Math.PI / 6)];
+      const pt = (i) => { const k = posOf(g, i); return [50 + 38 * Math.sin(k * Math.PI / 6), 50 - 38 * Math.cos(k * Math.PI / 6)]; };
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("class", "trail-lines"); svg.setAttribute("aria-hidden", "true");
       const line = (a, b, cls) => { const [x1, y1] = pt(a), [x2, y2] = pt(b); const l = document.createElementNS(svg.namespaceURI, "line");
@@ -383,8 +391,8 @@
       const blocked = (canPick && g.role === "prey" && i === lastPrey) || tooFar;
       const mark = (searched.has(i) ? { caught: "🎯", close: "👂", far: "🔍" }[searched.get(i)] : "") + (hid.has(i) && searched.get(i) !== "caught" ? "🐇" : "");
       const on = chosen.includes(i);
-      const b = h("button", { type: "button", class: "spot" + (on ? " chosen" : "") + (currentHide === i ? " hiding" : "") + (tooFar ? " far" : ""), style: `--i:${i}`,
-        disabled: !canPick || blocked, "aria-pressed": String(on), title: tooFar ? "Too far: you can move 1–2 steps along the trails" : blocked ? "You hid here last hour" : sp.n },
+      const b = h("button", { type: "button", class: "spot" + (on ? " chosen" : "") + (currentHide === i ? " hiding" : "") + (tooFar ? " far" : ""), style: `--i:${trail ? posOf(g, i) : i}`,
+        disabled: !canPick || blocked, "aria-pressed": String(on), title: tooFar ? "Too far: you can move 1–2 steps along the paths" : blocked ? "You hid here last hour" : sp.n },
         h("span", { class: "se", "aria-hidden": "true" }, sp.e), h("span", { class: "sn" }, sp.n),
         mark ? h("span", { class: "spot-mark", "aria-hidden": "true" }, mark) : null,
         currentHide === i ? h("span", { class: "spot-mark", "aria-hidden": "true" }, "🫣") : null);
@@ -443,8 +451,8 @@
       action = h("section", { class: "panel hunt-action your-turn" },
         h("h2", {}, g.role === "prey" ? `${HOURS[g.round - 1]}. Where do you hide?` : `${HOURS[g.round - 1]}. Where do you search?`),
         h("p", { class: "faint" }, g.role === "prey"
-          ? (lastPrey !== null && lastPrey !== undefined ? (trail ? `You're at the ${SP[lastPrey].n.toLowerCase()}. Move 1 or 2 steps along the trails. ` : `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. `) : trail ? "Start anywhere. After this you can only move 1 or 2 steps along the trails each hour. " : "") + "Tap a spot in the forest."
-          : trail ? "Pick a spot to search. They move 1–2 steps along the trails each hour, and if they're right next to where you search, you'll hear them." : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
+          ? (lastPrey !== null && lastPrey !== undefined ? (trail ? `You're at the ${SP[lastPrey].n.toLowerCase()}. Move 1 or 2 steps along the paths. ` : `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. `) : trail ? "Start anywhere. After this you can only move 1 or 2 steps along the paths each hour. " : "") + "Tap a spot on the map."
+          : trail ? "Pick a spot to search. They move 1–2 steps along the paths each hour, and if they're right next to where you search, you'll hear them." : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
         map, line, quickPicker(h, g.role, g.heat, line), h("div", { class: "actions" }, go2, red));
     } else if (g.status === "active") {
       action = h("section", { class: "panel hunt-action" },
@@ -490,7 +498,7 @@
           h("div", { class: "side" }, h("span", { class: "role" }, "🐺 Hunter"), g.role === "hunter" ? h("b", {}, "You") : personChip(other)),
           h("span", { class: "vs-x", "aria-hidden": "true" }, "vs"),
           h("div", { class: "side" }, h("span", { class: "role" }, "🐇 Prey"), g.role === "prey" ? h("b", {}, "You") : personChip(other))),
-        h("p", { class: "hunt-meta" }, g.random ? "🎲 Random match · " : "", heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · Loser owes: ${g.forfeit}` : "")),
+        h("p", { class: "hunt-meta" }, g.random ? "🎲 Random match · " : "", g.map ? `${g.map.e} ${g.map.label} · ` : "", heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · Loser owes: ${g.forfeit}` : "")),
       action,
       over && g.log.length ? h("section", { class: "panel" }, h("h2", {}, "Where everyone was"), map) : null,
       g.log.length ? h("section", { class: "panel" }, h("h2", {}, "The night so far"), story) : null,
