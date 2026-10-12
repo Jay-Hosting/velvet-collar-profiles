@@ -246,7 +246,7 @@
         const leave = h("button", { type: "button", class: "btn small ghost" }, "Leave the queue");
         leave.addEventListener("click", async () => { try { drawRandom(await pb.send("/api/vc/hunt-queue", { method: "DELETE" })); clearInterval(poll); toast("Out of the queue"); } catch (err) { toast(errMsg(err), true); } });
         randomBox.replaceChildren(h("h2", {}, "🎲 Random hunt"),
-          h("p", { class: "queue-on" }, h("span", { class: "dot", "aria-hidden": "true" }), `You're in the forest as ${roleLabel} (${q.queued.heats.map((x) => (HEATS.find((y) => y[0] === x) || [, x])[1]).join(", ")}). The moment someone from the other side joins, your hunt starts.`),
+          h("p", { class: "queue-on" }, h("span", { class: "dot", "aria-hidden": "true" }), `You're in the queue as ${roleLabel} (${q.queued.heats.map((x) => (HEATS.find((y) => y[0] === x) || [, x])[1]).join(", ")}). The moment someone from the other side joins, your hunt starts.`),
           waitingLine,
           h("p", { class: "faint" }, "Your spot lasts 24 hours. You can close this page; the game will be waiting in Your hunts."),
           h("div", { class: "actions" }, leave));
@@ -271,7 +271,7 @@
           onclick: () => { if (heats.has(v) && heats.size > 1) heats.delete(v); else heats.add(v); drawRows(); } }, l)));
       };
       drawRows();
-      const join = h("button", { type: "button", class: "btn gold" }, "🌲 Throw me in the forest");
+      const join = h("button", { type: "button", class: "btn gold" }, "🎲 Throw me in");
       join.addEventListener("click", async () => {
         join.disabled = true;
         try {
@@ -287,7 +287,7 @@
         } catch (err) { toast(errMsg(err), true); join.disabled = false; }
       });
       randomBox.replaceChildren(h("h2", {}, "🎲 Random hunt"),
-        h("p", { class: "faint", style: "margin-top:-6px" }, "Don't want to pick? Say which side you want and get paired with a random member from the other side. The game starts as soon as you're matched (you've both said yes by joining)."),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Don't want to pick? Say which side you want and get paired with a random member from the other side. The game starts as soon as you're matched (you've both said yes by joining). Where you'll play is a surprise: 🌲 the forest, 🏰 the manor or 🌃 the city after dark."),
         h("span", { class: "label" }, "I want to"), roleRow,
         h("span", { class: "label" }, "Heat I'm up for", h("small", { class: "faint" }, " (pick one or more)")), heatRow,
         waitingLine, h("div", { class: "actions" }, join));
