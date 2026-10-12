@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
@@ -207,6 +207,7 @@
     if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
     if (path === "whispers") return { name: "whispers" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
+    if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };
     if (path === "question") return { name: "question" };
     return { name: "profile", slug: path.split("/")[0] };
   }
@@ -255,6 +256,13 @@
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
+      // Mods and hosts get a Mod button (mods see how many reports are open).
+      const badges = user.badges || [];
+      if (badges.includes("mod") || badges.includes("host")) {
+        const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/mod", "data-nav": "", title: "Mod tools" }, "🛡️ Mod");
+        nav.append(modBtn);
+        if (badges.includes("mod")) pb.send("/api/vc/mod/summary", {}).then((sm) => { if (sm.openReports) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${sm.openReports} open reports` }, String(sm.openReports))); }).catch(() => {});
+      }
       drawNavBadge(here === "playroom");
     }
   }
@@ -274,6 +282,7 @@
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "whisper") return me() ? await window.VCWhisper.renderChat(app, r.id) : renderLogin("/whispers/" + r.id);
+      if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/mod");
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
@@ -2069,6 +2078,7 @@
     catch { prompt("Copy this:", text); }
   }
   if (window.VCWhisper) window.VCWhisper.deps = { h, pb, toast, go, me, errMsg, personChip };
+  if (window.VCMod) window.VCMod.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, copyText };
   if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText, limitsBody };
 
   render();
