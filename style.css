@@ -964,3 +964,6 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .game.waiting { border-color: #ff5fa2; box-shadow: 0 0 0 3px rgba(255, 95, 162, .18); }
 .game-txt .game-badge { display: table; align-self: flex-start; margin-bottom: 4px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 95, 162, .16);
   border: 1px solid rgba(255, 95, 162, .5); color: #ffb3d4; font-size: .78rem; font-weight: 600; }
+.whisper-report { margin-top: 12px; border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.report-preview { margin: 0 0 10px; padding-left: 18px; color: var(--muted); font-size: .9rem; }
+.report-preview li { margin: 2px 0; }

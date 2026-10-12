@@ -115,7 +115,7 @@
           h("li", {}, "You'll only find out who it was if you both tap 🎭 Reveal. Either of you can just leave instead."),
           h("li", {}, "Chats fade after 24 hours and the messages are deleted. Both tap ⏳ Keep going for another day."),
           h("li", {}, "End a chat any time. 🚫 End & block means you're never matched again."),
-          h("li", {}, "⚑ Report a message if something's not OK. Only then can the group's admins see who sent it."),
+          h("li", {}, "⚑ Report a chat if something's not OK (the button is at the bottom of the chat). Only then can the group's admins see who sent it."),
           h("li", {}, "Everyone here is 21+. Be kind, respect limits, and stop the moment someone says stop.")))].filter(Boolean));
   }
 
@@ -136,18 +136,32 @@
       const onlyEmoji = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s){1,12}$/u.test(m.text) && !/[0-9#*]/.test(m.text);
       const b = h("div", { class: "wmsg " + (m.mine ? "mine" : "theirs") + (onlyEmoji ? " big-emoji" : ""), "data-id": m.id }, h("p", {}, m.text),
         h("span", { class: "wtime" }, new Date(parseDate(m.at)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
-      if (!m.mine && live) b.append(h("button", { type: "button", class: "wreport", title: "Report this message", "aria-label": "Report this message", onclick: () => report(m) }, "⚑"));
       return b;
     };
     const addMsgs = (list) => { list = list.filter((m) => !thread.querySelector(`[data-id="${m.id}"]`)); list.forEach((m) => thread.append(bubble(m))); if (list.length) { lastAt = list[list.length - 1].at; thread.scrollTop = thread.scrollHeight; } };
     if (!c.messages.length && live) thread.append(h("p", { class: "faint wempty" }, `Say hello to ${c.them}. They can't see who you are.`));
     addMsgs(c.messages);
 
-    async function report(m) {
-      const reason = prompt("Report this message to the admins? They'll see who sent it. The chat will end and you won't be matched again.\n\nOptional: tell them why.");
-      if (reason === null) return;
-      try { await pb.send(`/api/vc/whispers/${c.id}/report`, { method: "POST", body: { message: m.id, reason } }); toast("Reported. Thank you for speaking up 💜"); go("/whispers"); }
-      catch (err) { toast(errMsg(err), true); }
+    // Reporting lives at the bottom (no tiny flag to hit by accident). It sends the last few messages to the admins.
+    const reportPanel = h("div", {});
+    function openReport() {
+      const theirs = [...thread.querySelectorAll(".wmsg.theirs p")].slice(-5).map((p) => p.textContent);
+      if (!theirs.length) { toast("They haven't said anything to report yet. You can still end and block.", true); return; }
+      const why = h("textarea", { rows: 2, maxlength: 300, placeholder: "Optional: tell the admins what happened", "aria-label": "Reason" });
+      const sendBtn = h("button", { type: "button", class: "btn small danger" }, "⚑ Send report");
+      sendBtn.addEventListener("click", async () => {
+        sendBtn.disabled = true;
+        try { await pb.send(`/api/vc/whispers/${c.id}/report`, { method: "POST", body: { reason: why.value.trim() } }); toast("Reported. Thank you for speaking up 💜"); go("/whispers"); }
+        catch (err) { toast(errMsg(err), true); sendBtn.disabled = false; }
+      });
+      reportPanel.replaceChildren(h("section", { class: "panel whisper-report" },
+        h("h2", {}, "⚑ Report this chat"),
+        h("p", { class: "muted" }, "The admins will get the last few messages of this chat and see who sent them. The chat ends and you two won't be matched again."),
+        h("p", { class: "faint", style: "margin-bottom:4px" }, "Their latest messages:"),
+        h("ul", { class: "report-preview" }, theirs.map((t) => h("li", {}, t))),
+        why,
+        h("div", { class: "actions" }, sendBtn, h("button", { type: "button", class: "btn small ghost", onclick: () => reportPanel.replaceChildren() }, "Cancel"))));
+      reportPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     const box = h("textarea", { rows: 2, maxlength: 500, placeholder: `Whisper to ${c.them}…`, "aria-label": "Your message" });
@@ -230,7 +244,9 @@
       end.addEventListener("click", async () => { if (!confirm("End this whisper? The messages will be deleted.")) return; try { await pb.send(`/api/vc/whispers/${c.id}/end`, { method: "POST", body: {} }); toast("Whisper ended"); go("/whispers"); } catch (err) { toast(errMsg(err), true); } });
       const block = h("button", { type: "button", class: "btn small danger" }, "🚫 End & block");
       block.addEventListener("click", async () => { if (!confirm("End this whisper and never be matched with them again?")) return; try { await pb.send(`/api/vc/whispers/${c.id}/end`, { method: "POST", body: { block: true } }); toast("Ended and blocked"); go("/whispers"); } catch (err) { toast(errMsg(err), true); } });
-      controls.replaceChildren(keep, reveal, end, block);
+      const rpt = h("button", { type: "button", class: "btn small ghost", title: "Report this chat to the admins" }, "⚑ Report");
+      rpt.addEventListener("click", openReport);
+      controls.replaceChildren(keep, reveal, end, block, rpt);
     };
     const revealHolder = h("div", {});
     const drawReveal = (v) => revealHolder.replaceChildren(v.revealed ? h("div", { class: "match-banner whisper-reveal" }, "🎭 You revealed to each other: ", personChip(v.revealed)) : "");
@@ -247,8 +263,8 @@
         live ? h("div", { class: "whisper-compose" }, box, h("div", { class: "actions", style: "margin:0" }, send)) : h("p", { class: "muted" }, c.endedBy === "them" ? "They ended this whisper." : "This whisper has ended."),
         live ? h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Need an opener?"), quick,
           hasJars ? h("span", { class: "faint" }, "🫙 From what's on both your jars:") : null, hasJars ? jarQuick : null, emojis) : null),
-      live ? controls : null,
-      h("p", { class: "faint center" }, "Anonymous until you both reveal. ⚑ on any of their messages reports it to the admins.")].filter(Boolean));
+      live ? controls : null, live ? reportPanel : null,
+      h("p", { class: "faint center" }, "Anonymous until you both reveal. ⚑ Report at the bottom sends the chat to the admins.")].filter(Boolean));
     thread.scrollTop = thread.scrollHeight;
 
     if (live) poll = setInterval(async () => {
