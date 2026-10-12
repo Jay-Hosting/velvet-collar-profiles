@@ -889,3 +889,12 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .queue-on { display: flex; gap: 10px; align-items: flex-start; margin: 0; }
 .queue-on .dot { margin-top: 6px; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(61, 220, 132, .08); } }
+.quick-picker { display: grid; gap: 8px; margin-top: -2px; }
+.quick-picker > .faint { font-size: .8rem; }
+.quick-lines { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.04); color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; text-align: left; }
+.quick:hover { border-color: var(--gold); background: var(--gold-soft); }
+.quick.more { padding: 6px 10px; }
+.quick-emoji { display: flex; flex-wrap: wrap; gap: 4px; }
+.quick-emoji button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: 1.15rem; cursor: pointer; }
+.quick-emoji button:hover { border-color: var(--gold); transform: scale(1.08); }

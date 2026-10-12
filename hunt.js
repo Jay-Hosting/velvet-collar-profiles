@@ -40,6 +40,83 @@
       spicy: ["First light. {p} escapes, breathless and smug, while {h} is left aching for next time."],
     },
   };
+  // Ready-made lines players can tap instead of typing. Three show at a time; 🔄 deals three more.
+  const QUICK = {
+    prey: {
+      flirty: [
+        "Bet you can't find me 😝", "Ready or not… oh wait, that's your line", "You're getting colder. Brrr.",
+        "I left you a trail of glitter. Just kidding.", "Psst… over here! (Or am I?)", "Catch me and I might let you buy me a drink",
+        "Somebody's slow tonight 🐢", "I can hear you tripping over roots 😂", "You'll never guess. Not in a million years.",
+        "Is that the best you've got, wolf?", "Peekaboo… nope, gone again", "I'm hiding somewhere very cute",
+        "You look lost. Need a map?", "Close your eyes and count to ten. Then cry.", "I may have stolen your snacks on the way",
+        "Find me and you get a hug. Maybe.", "Running in heels is a skill, you know", "Tag, you're still it",
+      ],
+      teasing: [
+        "Come and get me… if you can 😈", "My heart's pounding. Is yours?", "So close… but not close enough.",
+        "I can feel you looking for me", "Getting warmer? Wouldn't you like to know.", "Breathe a little louder, I can't hear you yet",
+        "You want me that badly?", "Keep chasing. I like the attention.", "One wrong turn and I'm gone forever",
+        "Careful, the thorns bite. So do I.", "Your footsteps give you away, hunter", "I'll make you work for every inch of this forest",
+        "Go on, beg the moon for a clue", "If you catch me, then what?", "I'm right where you're not looking",
+        "Can you smell my perfume yet?", "I love it when you get frustrated", "Run faster. I dare you.",
+      ],
+      spicy: [
+        "You'll have to earn this, beast 🔥", "Hunt me harder.", "I'm shaking… and I like it.",
+        "Every step you take makes me want to run faster", "Catch me and I'm yours. Fail and you're mine.", "Pin me if you can.",
+        "You can't tame what you can't find", "Your hunger is showing, wolf", "I want to hear you growl when you miss",
+        "Closer… closer… wrong.", "Don't you want to know what happens when you catch me?", "I'm leaving claw marks on this tree for you",
+        "Make me regret running", "Is that a promise or a threat? Either way, keep coming.", "The dark suits you. So does losing.",
+        "My pulse is racing for you", "I'll make you chase me all night", "Find me before I decide to find you",
+      ],
+    },
+    hunter: {
+      flirty: [
+        "Ready or not, here I come! 🐺", "I can smell cookies. Are you hiding cookies?", "Found a sock. Is this yours?",
+        "You can run, but you'll get tired eventually", "I brought a flashlight. And snacks.", "Come out, come out, wherever you are!",
+        "That giggle is going to get you caught", "I'm very patient. And very nosy.", "Every bush, every tree. I'll check them all.",
+        "You're cute when you hide", "I heard that, you know", "My nose is never wrong. Mostly.",
+        "Should I howl? I'm going to howl.", "I'll find you before the owls do", "Coming closer… 👀",
+        "Hide well, little bunny", "Fun fact: I've never lost at hide and seek", "Your boots left prints. Rookie mistake.",
+      ],
+      teasing: [
+        "I can hear your heart racing", "Run, little rabbit 😏", "You can't hide from me forever.",
+        "I'm getting closer. You know I am.", "That snapping twig? That was you.", "I love a prey with spirit",
+        "Your scent is all over this trail", "Every hour you run, the sweeter the catch", "Don't make me come in there",
+        "Careful, I'm right behind you. Or am I?", "I'll find you. I always do.", "Keep running, I'm enjoying the view",
+        "Breathe quieter, darling", "The moon's on my side tonight", "Nowhere left to hide soon",
+        "I can wait. Can you?", "You'll be begging me to find you", "Tick tock, little one",
+      ],
+      spicy: [
+        "When I catch you, you're mine 🔥", "I can taste your fear on the wind.", "Run. I want you breathless.",
+        "Every step brings me closer to claiming you", "There's nowhere in this forest I won't follow you", "I'm going to pin you down when I find you",
+        "Hide well. I'm starving.", "Your heartbeat is a dinner bell", "I'll drag you out of there myself",
+        "You made a mistake teasing me", "I want to see you tremble", "The hunt is the foreplay. The catch is the fun.",
+        "Keep running. It only makes me hungrier.", "I'll leave marks you'll feel tomorrow", "You're already mine, you just don't know it yet",
+        "Scream if you want. Nobody's coming.", "On your knees when I find you", "Mine. Soon.",
+      ],
+    },
+  };
+  const EMOJI = {
+    prey: ["🐇", "😝", "😈", "🫣", "💨", "🥵", "💋", "🙈", "✨", "🌙"],
+    hunter: ["🐺", "😏", "👀", "🔥", "🌕", "👅", "😈", "🦴", "⛓️", "🐾"],
+  };
+  // A small picker under the line box: three quick lines (🔄 for three more) and some emojis.
+  function quickPicker(h, role, heat, input) {
+    const pool = (QUICK[role] && QUICK[role][heat]) || QUICK[role].flirty;
+    const used = new Set();
+    const chips = h("div", { class: "quick-lines" });
+    const deal = () => {
+      if (used.size > pool.length - 3) used.clear();
+      const picks = [];
+      while (picks.length < 3) { const i = Math.floor(Math.random() * pool.length); if (!used.has(i)) { used.add(i); picks.push(pool[i]); } }
+      chips.replaceChildren(...picks.map((t) => h("button", { type: "button", class: "quick", onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t)),
+        h("button", { type: "button", class: "quick more", title: "Three more lines", "aria-label": "Show three more lines", onclick: deal }, "🔄"));
+    };
+    deal();
+    const emojis = h("div", { class: "quick-emoji", role: "group", "aria-label": "Add an emoji" }, (EMOJI[role] || []).map((em) =>
+      h("button", { type: "button", onclick: () => { if ((input.value + em).length <= 140) { input.value = (input.value ? input.value.replace(/\s*$/, " ") : "") + em; input.focus(); } } }, em)));
+    return h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Tap one, type your own, or skip it:"), chips, emojis);
+  }
+
   const pick = (list, seed) => list[Math.abs(seed) % list.length];
   const fill = (t, v) => t.replace(/\{h\}/g, v.h).replace(/\{p\}/g, v.p).replace(/\{s\}/g, v.s);
 
@@ -313,7 +390,7 @@
         h("p", { class: "faint" }, g.role === "prey"
           ? (lastPrey !== null ? `You can't stay at the ${SPOTS[lastPrey].n.toLowerCase()}. ` : "") + "Tap a spot on the trail."
           : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
-        map, line, h("div", { class: "actions" }, go2, red));
+        map, line, quickPicker(h, g.role, g.heat, line), h("div", { class: "actions" }, go2, red));
     } else if (g.status === "active") {
       action = h("section", { class: "panel hunt-action" },
         h("h2", {}, `${HOURS[g.round - 1]}. ${other.display_name}'s move`),
