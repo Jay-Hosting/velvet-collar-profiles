@@ -179,6 +179,43 @@
     deal();
     const emojis = h("div", { class: "quick-emoji" }, EMOJI.map((em) => h("button", { type: "button", onclick: () => { if ((box.value + em).length <= 500) { box.value = (box.value ? box.value.replace(/\s*$/, " ") : "") + em; box.focus(); } } }, em)));
 
+    // Prompts from what you both have on your jars: things you both love, both enjoy, and are both curious about.
+    const JAR_PROMPTS = {
+      love: {
+        flirty: ["Looks like we both love {k}. What got you into it?", "{K} is a favourite for both of us. What's the best part for you?"],
+        teasing: ["We both love {k}. Tell me exactly how you like it.", "{K} is high on both our lists. What's your ideal version?"],
+        spicy: ["We both love {k}. Describe how you'd want it from me, in detail.", "{K}, both of us. What's the filthiest version you've imagined?"],
+      },
+      enjoy: {
+        flirty: ["We both enjoy {k}. Soft or a little rough?", "{K} came up for both of us. Any good stories?"],
+        teasing: ["We both like {k}. What would make it even better?", "{K} is on both our lists. How would you want it to start?"],
+        spicy: ["We both like {k}. Tell me what you'd want me to do first.", "{K} is on both our lists. How far would you take it?"],
+      },
+      curious: {
+        flirty: ["We're both curious about {k}. Ever been tempted?", "{K} is on both our try-someday lists. What makes you curious?"],
+        teasing: ["We're both curious about {k}. What would it take for you to try it?", "{K} is a maybe for both of us. Want to explore it together, in words first?"],
+        spicy: ["We're both curious about {k}. Talk me through how you'd want to try it.", "{K} is on both our curious lists. Want to find out together?"],
+      },
+    };
+    const cm = c.common || { love: [], enjoy: [], curious: [] };
+    const jarQuick = h("div", { class: "quick-lines" });
+    const say = (x) => x.replace(/\s*\/\s*shibari/i, "").toLowerCase();
+    const dealJars = () => {
+      const any = (l) => l[Math.floor(Math.random() * l.length)];
+      const pickFrom = (kind, n) => { const tl = (JAR_PROMPTS[kind][c.heat] || JAR_PROMPTS[kind].flirty).slice().sort(() => Math.random() - 0.5);
+        return cm[kind].slice().sort(() => Math.random() - 0.5).slice(0, n).map((k, i) => {
+        const t = tl[i % tl.length];
+        return t.replace(/\{K\}/g, say(k).replace(/^./, (x) => x.toUpperCase())).replace(/\{k\}/g, say(k));
+      }); };
+      // Two of each where there are enough; fill up to six from whichever lists are longer.
+      let lines = [...pickFrom("love", 2), ...pickFrom("enjoy", 2), ...pickFrom("curious", 2)];
+      if (lines.length < 6) lines = [...pickFrom("love", 6), ...pickFrom("enjoy", 6), ...pickFrom("curious", 6)].filter((x, i, l) => l.indexOf(x) === i).slice(0, 6);
+      jarQuick.replaceChildren(...lines.map((t) => h("button", { type: "button", class: "quick tease", onclick: () => { box.value = t; box.focus(); } }, t)),
+        h("button", { type: "button", class: "quick more", "aria-label": "Different prompts", title: "Different prompts", onclick: dealJars }, "🔄"));
+    };
+    const hasJars = cm.love.length + cm.enjoy.length + cm.curious.length > 0;
+    if (hasJars) dealJars();
+
     // Keep going, reveal, end.
     const controls = h("div", { class: "whisper-controls" });
     const drawControls = (v) => {
@@ -208,7 +245,8 @@
     app.replaceChildren(...[head, revealHolder,
       h("section", { class: "panel whisper-chat" }, thread,
         live ? h("div", { class: "whisper-compose" }, box, h("div", { class: "actions", style: "margin:0" }, send)) : h("p", { class: "muted" }, c.endedBy === "them" ? "They ended this whisper." : "This whisper has ended."),
-        live ? h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Need an opener?"), quick, emojis) : null),
+        live ? h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Need an opener?"), quick,
+          hasJars ? h("span", { class: "faint" }, "🫙 From what's on both your jars:") : null, hasJars ? jarQuick : null, emojis) : null),
       live ? controls : null,
       h("p", { class: "faint center" }, "Anonymous until you both reveal. ⚑ on any of their messages reports it to the admins.")].filter(Boolean));
     thread.scrollTop = thread.scrollHeight;
