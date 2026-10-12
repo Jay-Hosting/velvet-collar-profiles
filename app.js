@@ -144,7 +144,7 @@
       });
       form = h("form", { class: "auth-form panel" },
         field("Join code", codeIn, "Shared in the group chat."),
-        h("div", { class: "field" }, h("label", { for: "a_slug" }, "Link name"),
+        h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn),
           slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
         field("Password", pwIn, "At least 8 characters."),
@@ -169,7 +169,7 @@
       });
     } else {
       form = h("form", { class: "auth-form panel" },
-        h("div", { class: "field" }, h("label", { for: "a_slug" }, "Link name"),
+        h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn)),
         field("Password", pwIn),
         msg, btn,
@@ -181,7 +181,7 @@
           const res = await pb.collection("members").authWithPassword(slugIn.value.trim(), pwIn.value);
           afterAuth(res.record, false);
         } catch (err) {
-          msg.textContent = err.status === 429 ? "Too many tries. Wait a minute and try again." : "That link name and password don't match.";
+          msg.textContent = err.status === 429 ? "Too many tries. Wait a minute and try again." : "That profile name and password don't match.";
           btn.disabled = false; btn.textContent = "Log in";
         }
       });
@@ -1758,7 +1758,7 @@
     const saveBtn = h("button", { class: "btn gold", type: "button" }, "Save profile");
     saveBtn.addEventListener("click", async () => {
       if (!nameI.value.trim()) return toast("Add a display name", true);
-      if (!slugOk) return toast("Pick a different link name", true);
+      if (!slugOk) return toast("Pick a different profile name", true);
       const bad = [...linksEd.read(), ...readPlayLinks()].find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
