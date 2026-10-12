@@ -293,10 +293,17 @@
       give: { flirty: ["Catch me and maybe I'll {a} 😇", "If you catch me, I might {a}"],
         teasing: ["If you catch me, I'm going to {a}.", "Win this and I'll {a}."],
         spicy: ["Catch me and I'll {a}.", "Find me and I'm going to {a}. Hurry.", "I'm hiding here thinking about how I'm going to {a}."] },
-      // The prey doesn't ask for it: they're nervous (Flirty), breathless (Teasing) or scared (Spicy) of what's coming.
-      get: { flirty: ["Please don't {a}… 😳", "You wouldn't {a}… would you? 🙈", "If you find me, you'd better not {a} 😳"],
-        teasing: ["I can hear you getting closer. Please don't {a}…", "If you find me, you're going to {a}, aren't you? 😰", "My heart's pounding. Don't you dare {a}."],
-        spicy: ["I'm shaking. I know when you find me you'll {a}…", "Please… don't {a}. I don't think I could take it.", "I can't stop trembling. You're going to {a}, aren't you?", "Stay quiet, stay hidden, or you'll {a}…"] },
+      // The prey doesn't ask for it. Two moods: scared, and secretly wanting it. (The taunts come from the general lines.)
+      scared: {
+        flirty: ["If you find me, you'll {a}. So please don't find me.", "Keeping very, very still, because I know you'd {a}."],
+        teasing: ["Every sound, I think it's you, coming to {a}.", "Don't find me. I know you'll {a}.", "I can hear you. If you find me, you'll {a}, and I won't be able to stop you."],
+        spicy: ["I can hear you breathing. If you find me, you'll {a}, and there's nothing I can do.", "Please don't find me. I know exactly what you'll do: {a}.", "My hands won't stop shaking. You're going to {a}."],
+      },
+      horny: {
+        flirty: ["Part of me hopes you find me and {a}.", "Hiding… but not very hard. Maybe you'll {a}."],
+        teasing: ["I'm hiding, but I keep hoping you'll find me and {a}.", "Part of me wants to get caught, just so you'll {a}."],
+        spicy: ["God, I want you to find me and {a}.", "I'm so worked up thinking about you coming to {a}.", "I'm barely hiding. Find me and {a}."],
+      },
     },
   };
   const GEAR_SAY = { "Lingerie": "lingerie", "Stockings": "stockings", "Heels": "heels", "Leather": "leather", "Latex": "latex", "Rubber": "rubber",
@@ -306,7 +313,7 @@
   const GEAR = {
     hunter: { wear: ["Hide all you like. I'm in {k}, and I'm coming for you.", "When I catch you, you'll find out what's under this. Hint: {k}."],
       see: ["When I catch you, you're putting on {k} for me.", "You're wearing {k} for me tonight."] },
-    prey: { wear: ["I'm hiding in nothing but {k}… please don't find me like this 😳", "Of all nights to be in {k}. Please don't find me."],
+    prey: { wear: ["Of all nights to be hiding in {k}. Please don't find me.", "I'm hiding in nothing but {k}. Part of me hopes you find me."],
       see: ["If you catch me, I want to see you in {k}.", "Find me, then put on {k} for me."] },
   };
   const HEAVY_CATS = new Set(["toys", "fluids", "breath"]);
@@ -367,15 +374,17 @@
   }
   const heatOk = (c, heat) => heat === "spicy" || (heat === "teasing" ? !HEAVY_CATS.has(c.cat) && !HEAVY.has(c.label) : c.cat === "gear" || !!(ACTS[c.label] && ACTS[c.label].sg));
 
-  function teaseLine(c, role, heat) {
+  function teaseLine(c, role, heat, mood) {
     const any = (l) => l[Math.floor(Math.random() * l.length)];
-    if (c.cat === "gear") return any(GEAR[role][c.dir === "wear" ? "wear" : "see"]).replace(/\{k\}/g, GEAR_SAY[c.label]);
+    if (c.cat === "gear") { const l = GEAR[role][c.dir === "wear" ? "wear" : "see"]; return (role === "prey" ? l[mood === "horny" ? 1 : 0] : any(l)).replace(/\{k\}/g, GEAR_SAY[c.label]); }
     // One-sided jars: the hunter does it, the prey asks for it.
     const dir = c.dir === "both" ? (role === "hunter" ? "give" : "get") : c.dir;
     const A = ACTS[c.label], soft = heat === "flirty";
     const acts = dir === "give" ? (soft ? A.sg : A.g) : (soft ? A.sr : A.r);
     if (!acts || !acts.length) return null;
-    return any(FRAMES[role][dir][heat]).replace(/\{a\}/g, any(acts)).replace(/\{w\}/g, WORD);
+    const frames = role === "prey" ? FRAMES.prey[mood || "scared"][heat] : FRAMES[role][dir][heat];
+    const act = any(acts);
+    return any(frames).replace(/\{A\}/g, cap(act)).replace(/\{a\}/g, act).replace(/\{w\}/g, WORD);
   }
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   function pickTease(list, heat) {
@@ -452,17 +461,24 @@
       const t = (ok.length ? ok : list)[Math.floor(Math.random() * (ok.length ? ok : list).length)];
       return t.replace(/\{C\}/g, cap(spot.c || "")).replace(/\{c\}/g, spot.c || "").replace(/\{s\}/g, spot.n.toLowerCase());
     };
-    let hint = null, tease = null, extra = [];
+    let hint = null, tease = [], extra = [];
     const draw = () => {
-      const top = [hint ? [hint, "hint"] : null, tease ? [tease, "tease"] : null].filter(Boolean);
+      const top = [hint ? [hint, "hint"] : null, ...tease.map((t) => [t, "tease"])].filter(Boolean);
       chips.replaceChildren(...top.concat(extra.slice(0, 4 - top.length).map((t) => [t, ""])).map(([t, cls]) => chip(t, cls)),
         h("button", { type: "button", class: "quick more", title: "More lines", "aria-label": "Show more lines", onclick: deal }, "🔄"));
     };
     function deal() {
       hint = whereLine();
-      const c = pickTease(teases, heat);
-      tease = null;
-      for (let n = 0; c && n < 8 && !tease; n++) { const t = (opts.tease || teaseLine)(c, role, heat); if (t && lineOk(t, blocked)) tease = t; }
+      // The prey gets a scared line and a horny one; the hunter (and the last word) gets one.
+      const moods = role === "prey" && !opts.tease ? ["scared", "horny"] : [null];
+      tease = [];
+      moods.forEach((mood) => {
+        for (let n = 0; n < 8; n++) {
+          const c = pickTease(teases, heat); if (!c) break;
+          const t = (opts.tease || teaseLine)(c, role, heat, mood);
+          if (t && lineOk(t, blocked) && !tease.includes(t)) { tease.push(t); break; }
+        }
+      });
       const fine = pool.map((t, i) => i).filter((i) => lineOk(pool[i], blocked));
       if (fine.filter((i) => !used.has(i)).length < 4) used.clear();
       extra = fine.filter((i) => !used.has(i)).sort(() => Math.random() - 0.5).slice(0, 4);
