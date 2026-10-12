@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
@@ -205,6 +205,8 @@
     if (path === "events") return { name: "events" };
     if (path === "hunt") return { name: "hunt", start: (q.get("start") || "").toLowerCase() };
     if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
+    if (path === "whispers") return { name: "whispers" };
+    if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
     if (path === "question") return { name: "question" };
     return { name: "profile", slug: path.split("/")[0] };
   }
@@ -246,6 +248,8 @@
       if (r.name === "playroom") return await renderPlayroom();
       if (r.name === "events") return me() ? await renderEvents() : renderLogin("/events");
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
+      if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
+      if (r.name === "whisper") return me() ? await window.VCWhisper.renderChat(app, r.id) : renderLogin("/whispers/" + r.id);
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       return await renderProfile(r.slug);
@@ -319,6 +323,10 @@
           g.description ? h("span", {}, g.description) : null),
         h("span", { class: "game-go" }, "Play")));
     }
+    grid.prepend(h("a", { class: "game hunt-game", href: "/whispers", "data-nav": "" },
+      h("span", { class: "game-emoji", "aria-hidden": "true" }, "🤫"),
+      h("span", { class: "game-txt" }, h("b", {}, "Whispers"), h("span", {}, "Anonymous flirting with a matched member. No names, no faces, just words and emojis. Opt in to play.")),
+      h("span", { class: "game-go" }, "Open")));
     grid.prepend(h("a", { class: "game hunt-game", href: "/hunt", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🏹"),
       h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "A midnight chase, right here on the site. One hides, one hunts. Opt in to play.")),
@@ -457,10 +465,11 @@
   }
 
   async function drawThisWeek(holder) {
-    const [ev, q, hu] = await Promise.all([
+    const [ev, q, hu, wh] = await Promise.all([
       pb.send("/api/vc/events", {}).catch(() => null),
       pb.send("/api/vc/question", {}).catch(() => null),
       pb.send("/api/vc/hunts", {}).catch(() => null),
+      pb.send("/api/vc/whispers", {}).catch(() => null),
     ]);
     const cards = [];
     const next = ev && ev.upcoming[0];
@@ -474,6 +483,9 @@
         h("span", { class: "pq" }, "❓ Question of the week"), h("b", {}, q.question.text),
         h("small", {}, q.mine ? `You answered · ${n} answer${n === 1 ? "" : "s"}` : `${n} answer${n === 1 ? "" : "s"} · add yours`)));
     }
+    const unread = wh ? wh.chats.filter((x) => x.status === "active" && x.unread) : [];
+    if (unread.length) cards.unshift(h("a", { class: "week-card hot", href: unread.length === 1 ? "/whispers/" + unread[0].id : "/whispers", "data-nav": "" },
+      h("span", { class: "pq" }, "🤫 Whispers"), h("b", {}, unread.length === 1 ? `${unread[0].them} whispered to you` : `${unread.length} new whispers`), h("small", {}, "Tap to read")));
     const hot = hu ? hu.hunts.filter((x) => x.myTurn || x.invitedMe) : [];
     if (hot.length) cards.unshift(h("a", { class: "week-card hot", href: hot.length === 1 ? "/hunt/" + hot[0].id : "/hunt", "data-nav": "" },
       h("span", { class: "pq" }, "🏹 The Hunt"),
@@ -2007,6 +2019,7 @@
     try { await navigator.clipboard.writeText(text); toast(msg || "Copied"); }
     catch { prompt("Copy this:", text); }
   }
+  if (window.VCWhisper) window.VCWhisper.deps = { h, pb, toast, go, me, errMsg, personChip };
   if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText, limitsBody };
 
   render();
