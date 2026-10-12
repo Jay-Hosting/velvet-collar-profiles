@@ -14,9 +14,22 @@
     { e: "🏹", n: "Hunter's blind" }, { e: "🌉", n: "Fallen bridge" }, { e: "🦊", n: "Fox den" }, { e: "🌫️", n: "Misty pond" },
     { e: "🪣", n: "Old well" }, { e: "🌾", n: "Bramble maze" }, { e: "✨", n: "Firefly meadow" }, { e: "⛪", n: "Ruined chapel" },
   ];
-  const spotsFor = (g) => (g && g.board === "grid16" ? GRID : SPOTS);
+  // The trail forest used by new games: 12 spots round a loop, two shortcuts across.
+  const TRAIL = [
+    { e: "🌳", n: "Old oak" }, { e: "💧", n: "Creek bed" }, { e: "🛖", n: "Abandoned cabin" }, { e: "🌿", n: "Thorn thicket" },
+    { e: "🦊", n: "Fox den" }, { e: "🌫️", n: "Misty pond" }, { e: "⛪", n: "Ruined chapel" }, { e: "✨", n: "Firefly meadow" },
+    { e: "🌾", n: "Bramble maze" }, { e: "🪣", n: "Old well" }, { e: "🌕", n: "Moonlit clearing" }, { e: "🪨", n: "Rocky ledge" },
+  ];
+  const TRAIL_LINKS = [[2, 5], [8, 11]];
+  const TRAIL_D = (() => {
+    const n = 12, adj = [];
+    for (let i = 0; i < n; i++) adj.push([(i + 1) % n, (i + n - 1) % n]);
+    TRAIL_LINKS.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+    return adj.map((_, s) => { const d = Array(n).fill(-1); d[s] = 0; const q = [s]; while (q.length) { const x = q.shift(); adj[x].forEach((y) => { if (d[y] < 0) { d[y] = d[x] + 1; q.push(y); } }); } return d; });
+  })();
+  const spotsFor = (g) => (g && g.board === "grid16" ? GRID : g && g.board === "trail12" ? TRAIL : SPOTS);
   const HOURS = ["Midnight", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM"];
-  const DAWN = (g) => (g && g.board === "grid16" ? "6 AM" : "4 AM");
+  const DAWN = (g) => (g && g.board === "grid16" ? "6 AM" : g && g.board === "trail12" ? "5 AM" : "4 AM");
   const HEATS = [
     ["flirty", "😊 Flirty", "Playful and suggestive"],
     ["teasing", "😏 Teasing", "Breathless chasing, a little rough"],
@@ -279,7 +292,7 @@
       h("section", { class: "hunt-hero" },
         h("div", { class: "hunt-moon", "aria-hidden": "true" }, "🌕"),
         h("h1", {}, "The Hunt"),
-        h("p", {}, "Midnight in the forest. One of you hides, one of you hunts. Each hour the prey slips to a new hiding spot among sixteen, and the hunter searches two. Find them before dawn and they're yours. Survive until 6 AM and the prey wins."),
+        h("p", {}, "Midnight in the forest. One of you hides, one of you hunts. Twelve hiding spots on a loop of forest trails. Each hour the prey creeps one or two steps along the trails, and the hunter searches one spot. Track them down before dawn and they're yours. Survive until 5 AM and the prey wins."),
         st.played ? h("p", { class: "faint" }, `Your record: 🐺 ${st.catches} caught · 🌅 ${st.escapes} escaped`) : null),
       h("section", { class: "panel" }, h("h2", {}, "Are you playing?"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "Only people who opt in can be invited. Change it any time."), optRow),
@@ -291,9 +304,9 @@
       h("section", { class: "panel hunt-rules" }, h("h2", {}, "How it works"),
         h("ol", {},
           h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a forfeit. Invites need a yes (passing is fine, no hard feelings)."),
-          h("li", {}, "The forest is a 4×4 grid of sixteen spots. Each hour, the prey hides in one. They can't stay put two hours in a row."),
-          h("li", {}, "The hunter searches two spots each hour. If the prey is right beside either one (up, down, left or right), the hunter hears them."),
-          h("li", {}, "Catch them before dawn (six hours, midnight to 6 AM) and the hunter claims them. Otherwise the prey escapes."),
+          h("li", {}, "Twelve spots sit on a loop of trails, with two shortcuts across. The prey starts anywhere, then each hour must move one or two steps along the trails."),
+          h("li", {}, "The hunter searches one spot each hour. If the prey is one step away, the hunter hears them, and can start tracking."),
+          h("li", {}, "Catch them before dawn (five hours, midnight to 5 AM) and the hunter claims them. Otherwise the prey escapes."),
           h("li", {}, "The winner gets the last word, and the loser owes the forfeit."),
           h("li", {}, "🛑 Red stops the game instantly for either of you. No winner, no forfeit, no questions.")))].filter(Boolean));
     if (startSlug) { const p = players.players.find((x) => x.slug === startSlug); if (p) openStart(p); }
@@ -315,7 +328,7 @@
     const names = { h: g.role === "hunter" ? myName : other.display_name, p: g.role === "prey" ? myName : other.display_name };
     const nameOf = (r) => (r === g.role ? "You" : other.display_name);
     const heat = HEATS.find((x) => x[0] === g.heat) || HEATS[0];
-    const SP = spotsFor(g), grid = g.board === "grid16", picks = g.searches || 1;
+    const SP = spotsFor(g), grid = g.board === "grid16", trail = g.board === "trail12", picks = g.searches || 1;
     const over = ["caught", "escaped", "red", "declined", "cancelled"].includes(g.status);
 
     // Story so far
@@ -352,13 +365,26 @@
     const lastPrey = g.lastPreySpot;
     const currentHide = g.role === "prey" && g.log.length && g.log[g.log.length - 1].search == null ? g.log[g.log.length - 1].prey_spot : null;
     const canPick = g.myTurn;
-    const map = h("div", { class: "hunt-map" + (grid ? " grid" : ""), role: "group", "aria-label": "The forest" });
-    const drawMap = () => map.replaceChildren(grid ? "" : h("div", { class: "trail", "aria-hidden": "true" }), ...SP.map((sp, i) => {
-      const blocked = canPick && g.role === "prey" && i === lastPrey;
+    const map = h("div", { class: "hunt-map" + (grid ? " grid" : "") + (trail ? " trail12" : ""), role: "group", "aria-label": "The forest" });
+    // Trail lines: the loop, plus the shortcuts across.
+    const trailSvg = () => {
+      const pt = (i) => [50 + 38 * Math.sin(i * Math.PI / 6), 50 - 38 * Math.cos(i * Math.PI / 6)];
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("class", "trail-lines"); svg.setAttribute("aria-hidden", "true");
+      const line = (a, b, cls) => { const [x1, y1] = pt(a), [x2, y2] = pt(b); const l = document.createElementNS(svg.namespaceURI, "line");
+        l.setAttribute("x1", x1); l.setAttribute("y1", y1); l.setAttribute("x2", x2); l.setAttribute("y2", y2); l.setAttribute("class", cls); svg.append(l); };
+      for (let i = 0; i < 12; i++) line(i, (i + 1) % 12, "path");
+      TRAIL_LINKS.forEach(([a, b]) => line(a, b, "path shortcut"));
+      return svg;
+    };
+    const reach = (i) => !trail || g.role !== "prey" || lastPrey === null || lastPrey === undefined || (TRAIL_D[lastPrey][i] >= 1 && TRAIL_D[lastPrey][i] <= (g.maxStep || 2));
+    const drawMap = () => map.replaceChildren(grid ? "" : trail ? trailSvg() : h("div", { class: "trail", "aria-hidden": "true" }), ...SP.map((sp, i) => {
+      const tooFar = canPick && g.role === "prey" && !reach(i);
+      const blocked = (canPick && g.role === "prey" && i === lastPrey) || tooFar;
       const mark = (searched.has(i) ? { caught: "🎯", close: "👂", far: "🔍" }[searched.get(i)] : "") + (hid.has(i) && searched.get(i) !== "caught" ? "🐇" : "");
       const on = chosen.includes(i);
-      const b = h("button", { type: "button", class: "spot" + (on ? " chosen" : "") + (currentHide === i ? " hiding" : ""), style: `--i:${i}`,
-        disabled: !canPick || blocked, "aria-pressed": String(on), title: blocked ? "You hid here last hour" : sp.n },
+      const b = h("button", { type: "button", class: "spot" + (on ? " chosen" : "") + (currentHide === i ? " hiding" : "") + (tooFar ? " far" : ""), style: `--i:${i}`,
+        disabled: !canPick || blocked, "aria-pressed": String(on), title: tooFar ? "Too far: you can move 1–2 steps along the trails" : blocked ? "You hid here last hour" : sp.n },
         h("span", { class: "se", "aria-hidden": "true" }, sp.e), h("span", { class: "sn" }, sp.n),
         mark ? h("span", { class: "spot-mark", "aria-hidden": "true" }, mark) : null,
         currentHide === i ? h("span", { class: "spot-mark", "aria-hidden": "true" }, "🫣") : null);
@@ -417,8 +443,8 @@
       action = h("section", { class: "panel hunt-action your-turn" },
         h("h2", {}, g.role === "prey" ? `${HOURS[g.round - 1]}. Where do you hide?` : `${HOURS[g.round - 1]}. Where do you search?`),
         h("p", { class: "faint" }, g.role === "prey"
-          ? (lastPrey !== null ? `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. ` : "") + "Tap a spot in the forest."
-          : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
+          ? (lastPrey !== null && lastPrey !== undefined ? (trail ? `You're at the ${SP[lastPrey].n.toLowerCase()}. Move 1 or 2 steps along the trails. ` : `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. `) : trail ? "Start anywhere. After this you can only move 1 or 2 steps along the trails each hour. " : "") + "Tap a spot in the forest."
+          : trail ? "Pick a spot to search. They move 1–2 steps along the trails each hour, and if they're right next to where you search, you'll hear them." : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
         map, line, quickPicker(h, g.role, g.heat, line), h("div", { class: "actions" }, go2, red));
     } else if (g.status === "active") {
       action = h("section", { class: "panel hunt-action" },

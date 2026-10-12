@@ -929,3 +929,15 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .whisper-compose { display: grid; gap: 8px; }
 .whisper-compose textarea { min-height: 64px; }
 .whisper-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
+/* The Hunt: the trail forest (12 spots on a loop with shortcuts) */
+.hunt-map.trail12 { width: min(380px, 100%); }
+.hunt-map.trail12 .trail-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hunt-map.trail12 .trail-lines .path { stroke: rgba(255,255,255,.16); stroke-width: .9; stroke-dasharray: 2 1.6; }
+.hunt-map.trail12 .trail-lines .shortcut { stroke: rgba(255, 224, 163, .28); }
+.hunt-map.trail12 .spot { --r: 38%; width: 66px; height: 66px; margin: -33px 0 0 -33px;
+  left: calc(50% + var(--r) * sin(calc(var(--i) * 30deg))); top: calc(50% - var(--r) * cos(calc(var(--i) * 30deg))); }
+.hunt-map.trail12 .se { font-size: 1.3rem; }
+.hunt-map.trail12 .sn { font-size: .56rem; }
+.hunt-map .spot.far { opacity: .3; }
+.hunt-map.trail12 .spot.hiding, .hunt-map.trail12 .spot.chosen { opacity: 1; }
+@media (max-width: 420px) { .hunt-map.trail12 .spot { width: 56px; height: 56px; margin: -28px 0 0 -28px; } .hunt-map.trail12 .se { font-size: 1.1rem; } .hunt-map.trail12 .sn { font-size: .5rem; } }
