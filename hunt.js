@@ -55,7 +55,20 @@
 
     const optRow = h("div", { class: "pills", role: "group", "aria-label": "Hunt settings" });
     const drawOpt = () => optRow.replaceChildren(...OPTS.map(([v, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(opt === v), onclick: async () => {
-      try { const me = deps().me(); const upd = await pb.collection("members").update(me.id, { hunt_opt: v }); pb.authStore.save(pb.authStore.token, upd); opt = v; drawOpt(); toast(v === "off" ? "You're out of the hunt" : "Saved. Let the games begin 🏹"); }
+      try {
+        const me = deps().me(); const upd = await pb.collection("members").update(me.id, { hunt_opt: v }); pb.authStore.save(pb.authStore.token, upd); opt = v; drawOpt();
+        // Keep a random-queue spot on the same side as this setting.
+        if (current && current.queued) {
+          if (v === "off") { drawRandom(await pb.send("/api/vc/hunt-queue", { method: "DELETE" })); clearInterval(poll); toast("You're out of the hunt and the queue"); return; }
+          const role = { prey: "prey", hunter: "hunter", both: "either" }[v];
+          if (role !== current.queued.role) {
+            const r = await pb.send("/api/vc/hunt-queue", { method: "POST", body: { role, heats: current.queued.heats } });
+            if (r.matched) { toast("🎲 Matched! The hunt is on 🌕"); go("/hunt/" + r.matched); return; }
+            drawRandom(r); toast("Saved, and your queue spot switched to match 🏹"); return;
+          }
+        }
+        toast(v === "off" ? "You're out of the hunt" : "Saved. Let the games begin 🏹");
+      }
       catch (err) { toast(errMsg(err), true); }
     } }, label)));
     drawOpt();
@@ -114,7 +127,9 @@
 
     // Random hunt: wait to be paired with someone from the other side.
     const randomBox = h("section", { class: "panel hunt-random" });
+    let current = queue;
     const drawRandom = (q) => {
+      current = q;
       const w = q.waiting || {};
       const others = (w.prey || 0) + (w.hunter || 0) + (w.either || 0);
       const waitingLine = h("p", { class: "faint" }, others
@@ -140,7 +155,7 @@
         }, 20000);
         return;
       }
-      let role = ["prey", "hunter"].includes(opt) ? opt : "either";
+      let role = { prey: "prey", hunter: "hunter" }[opt] || "either";
       const heats = new Set(["flirty", "teasing"]);
       const roleRow = h("div", { class: "pills" }), heatRow = h("div", { class: "pills" });
       const drawRows = () => {
@@ -155,6 +170,11 @@
         join.disabled = true;
         try {
           const r = await pb.send("/api/vc/hunt-queue", { method: "POST", body: { role, heats: [...heats] } });
+          // Match "Are you playing?" to the side picked here.
+          const wantOpt = { prey: "prey", hunter: "hunter", either: "both" }[role];
+          if (opt !== wantOpt) {
+            try { const me = deps().me(); const upd = await pb.collection("members").update(me.id, { hunt_opt: wantOpt }); pb.authStore.save(pb.authStore.token, upd); opt = wantOpt; drawOpt(); } catch {}
+          }
           if (r.matched) { toast("🎲 Matched straight away! The hunt is on 🌕"); go("/hunt/" + r.matched); return; }
           toast("You're in the queue. We'll pair you as soon as someone joins.");
           drawRandom(r);
