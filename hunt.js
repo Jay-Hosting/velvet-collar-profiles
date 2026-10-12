@@ -279,6 +279,58 @@
     "Strangers meeting": { g: ["pretend we've never met and seduce you all over again"], r: ["pretend we've never met and seduce me all over again"], sg: ["pretend we've never met"], sr: ["pretend we've never met"] },
     "Breeding talk": { g: ["breed you"], r: ["breed me"] },
   };
+  // The prey's scared lines: short, in their own words, one jar at a time (Teasing and Spicy).
+  const FEAR = {
+    "Spanking": ["I can already feel your hand coming down. I'm not ready.", "Please, not a spanking. I won't be able to sit tomorrow."],
+    "Over the knee": ["If you get me over your knee, I'm done for."], "Paddling": ["I saw the paddle. I'm not coming out."],
+    "Flogging": ["I keep hearing the flogger in my head. Stay away."], "Caning": ["Not the cane. Anything but the cane."],
+    "Riding crops": ["Every snap I hear out here, I think it's the crop."], "Hair pulling": ["If your hand gets in my hair, it's over."],
+    "Biting": ["My neck's still sore from last time. Stay away."], "Scratching": ["I don't want your nails anywhere near me."],
+    "Leaving marks": ["If you catch me, everyone's going to see the marks tomorrow."], "Nipple clamps": ["I know you've got the clamps. I'm staying right here."],
+    "Counting strokes": ["I'm not counting for you. I'm not."], "Wrestling": ["You're stronger than me. That's the problem."],
+    "Tied up": ["If you get rope on me, I'm not getting away."], "Light bondage": ["One knot and I'm yours. Don't find me."],
+    "Heavy bondage": ["If you tie me down properly, I'm never getting loose."], "Rope / shibari": ["I can hear rope sliding through your hands."],
+    "Handcuffs": ["I heard the cuffs click. Please stay away."], "Tied to the bed": ["Don't drag me back to that bed."],
+    "Gags": ["If you gag me, nobody hears a thing. That's what scares me."], "Blindfolds": ["Don't blindfold me. I need to see you coming."],
+    "Spreader bars": ["Not the spreader bar. Please."], "Hands held down": ["If you pin my wrists, I can't fight you off."],
+    "Immobilization": ["If you hold me down, I won't be able to move at all."],
+    "Orgasm control": ["You'll decide when I get to come. I'm not ready for that."], "Orgasm denial": ["You'll keep me on the edge all night. I know you will."],
+    "Edging": ["I can't take being edged again. Stay away."], "Forced orgasms": ["You won't stop. That's what scares me."],
+    "Ruined orgasms": ["Please don't ruin it for me again."], "Begging": ["I'm not begging. I won't. Don't make me."],
+    "Punishments": ["I know I've earned a punishment. I'm still hiding."], "Commands": ["If you start giving orders, I'll obey. I hate that."],
+    "Verbal commands": ["One word from you and I'll obey. Don't say it."], "Kneeling": ["Don't put me on my knees. Please."],
+    "Collars": ["If that collar goes on, I'm yours. Stay away."], "Leashes": ["I can hear the leash jingling."],
+    "Chastity": ["Don't lock me up again."], "Teasing": ["Please don't tease me. I can't take it tonight."],
+    "Forced nudity": ["I'm not letting you strip me. I'm not."], "Masturbation on command": ["Don't make me touch myself in front of you."],
+    "Bratting & taming": ["You'll tame me. That's exactly what I'm scared of."], "Asking permission": ["I don't want to ask permission for everything."],
+    "On display": ["Don't put me on display."], "Wax play": ["I can smell the candle. I'm not coming out."],
+    "Ice play": ["Keep that ice away from me."], "Feathers": ["Not the feathers. I'll break."],
+    "Tickling": ["If you tickle me, I'll scream and give myself away."], "Vibrators": ["I can hear it buzzing. Stay away."],
+    "Sensory deprivation": ["If you take my eyes and ears, all I'll have is you."], "Overstimulation": ["You won't stop when I'm too sensitive. I know you won't."],
+    "Knife play (no cutting)": ["I saw the blade. I'm not moving."], "Choking": ["If your hand gets around my throat, I'm done."],
+    "Hand on throat (no pressure)": ["I can almost feel your hand on my throat."], "Hand over mouth": ["If your hand covers my mouth, nobody hears me."],
+    "Dirty talk": ["Don't say those things to me. I'll melt."], "Praise": ["If you call me good, I'll do anything. Don't."],
+    "Good girl / good boy": ["Don't call me good. I'll fold."], "Humiliation & degradation": ["Don't remind me what I am."],
+    "Name calling": ["Don't call me those names. Please."], "Pet names": ["If you call me pet, I'll come crawling."],
+    "Moaning & noise": ["If you make me moan, you'll know exactly where I am."], "Objectification": ["Don't use me like that. Please."],
+    "Kissing": ["If you kiss me, I'll stop running."], "Neck kissing": ["Stay away from my neck. It's my weakness."],
+    "Body worship": ["Don't look at me like that."], "Oral": ["I know where your mouth is going if you catch me."],
+    "Fingering & hand stuff": ["Keep your hands to yourself. Please."], "Rough sex": ["You'll be rough with me. I know you will."],
+    "Nipple play": ["Stay away from my nipples. I mean it."], "Anal": ["Not my ass. Please, not tonight."],
+    "Plugs": ["If you plug me, I'll feel it all night."], "Strap-ons": ["I saw the strap-on. I'm not coming out."],
+    "Dildos": ["Keep that toy away from me."], "Wands": ["Not the wand. I can't handle the wand."],
+    "Remote-control toys": ["If that toy goes in, you control everything."], "Pegging": ["I'm not ready to be pegged. Not yet."],
+    "Spit": ["Don't spit on me. Please."], "Facials": ["Not my face. Please."],
+    "Outdoor sex": ["Not out here. Someone could see."], "Risk of getting caught": ["Not here. Someone will catch us."],
+    "Exhibitionism": ["Don't show me off. Please."], "Mirrors": ["Don't make me watch."],
+    "Hunter & hunted": ["You're the hunter. I'm the prey. I know how this ends."], "Primal play": ["You don't even sound human anymore."],
+    "Captor & captive": ["If you drag me back to your lair, I'm never leaving."], "Fear play": ["I'm actually scared now."],
+    "Consensual non-consent": ["If you catch me, struggling won't help. I know that."], "Free use": ["If you catch me, I'm yours to use. That terrifies me."],
+    "Pet play": ["Don't make me crawl."],
+  };
+  // In Flirty games the scared line is just nerves.
+  const NERVES = ["Okay, I'm actually a little nervous now 😳", "Why is my heart beating this fast? 🙈", "If you find me, I'm going to squeal so loud",
+    "I'm hiding behind my hands right now 🙈", "I heard something. Is that you? Please say no.", "Don't laugh, but I'm shaking a little"];
   // How a tease is said. {a} = the act; "give" = I do it to you, "get" = you do it to me.
   const FRAMES = {
     hunter: {
@@ -378,6 +430,7 @@
     const any = (l) => l[Math.floor(Math.random() * l.length)];
     if (c.cat === "gear") { const l = GEAR[role][c.dir === "wear" ? "wear" : "see"]; return (role === "prey" ? l[mood === "horny" ? 1 : 0] : any(l)).replace(/\{k\}/g, GEAR_SAY[c.label]); }
     // One-sided jars: the hunter does it, the prey asks for it.
+    if (role === "prey" && mood === "scared") return heat === "flirty" ? any(NERVES) : FEAR[c.label] ? any(FEAR[c.label]) : null;
     const dir = c.dir === "both" ? (role === "hunter" ? "give" : "get") : c.dir;
     const A = ACTS[c.label], soft = heat === "flirty";
     const acts = dir === "give" ? (soft ? A.sg : A.g) : (soft ? A.sr : A.r);
