@@ -341,7 +341,9 @@
   const hitsLimit = (label, words) => { const n = norm(label); return words.some((w) => n === w || (w.length >= 4 && n.includes(w)) || (n.length >= 4 && w.includes(n))); };
 
   // Build the list of teases from my shelf (may be null) and theirs.
-  function kinkTeases(mine, theirs, words) {
+  // The hunter is always the one doing it, and the prey always the one it's done to: the hunter's doing side
+  // has to meet the prey's receiving side. (For clothing, the prey is the one who wears it.)
+  function kinkTeases(mine, theirs, words, role) {
     const ok = (v) => v >= 1 && v <= 5;
     const out = [];
     (window.KINKJARS || []).forEach(([code, label, sA, , , cat]) => {
@@ -355,8 +357,9 @@
       };
       if (sA) {
         const gear = cat === "gear";
-        push(m[0], t[1], gear ? "wear" : "give");   // my doing side meets their receiving side
-        push(m[1], t[0], gear ? "see" : "get");
+        if (gear) { if (role === "hunter") push(m[1], t[0], "see"); else push(m[0], t[1], "wear"); }   // the prey wears it, the hunter looks
+        else if (role === "hunter") push(m[0], t[1], "give");   // my doing side meets their receiving side
+        else push(m[1], t[0], "get");                            // their doing side meets my receiving side
       } else push(m[0] || m[1], t[0] || t[1], "both");
     });
     return out;
@@ -773,7 +776,7 @@
       let mine = null, theirs = null;
       if (K && g.myKj) { try { mine = await K.resolve(g.myKj); } catch {} }
       if (K && g.otherKj) { try { theirs = await K.resolve(g.otherKj); } catch {} }
-      pk.setTeases(theirs && !g.kinkOff ? kinkTeases(mine, theirs, words) : [], blockedJars(mine, theirs, words));
+      pk.setTeases(theirs && !g.kinkOff ? kinkTeases(mine, theirs, words, g.role) : [], blockedJars(mine, theirs, words));
     };
     if (g.myTurn) loadTeases(picker);
     const go2 = h("button", { type: "button", class: "btn gold", disabled: true }, g.role === "prey" ? "Pick a hiding spot" : picks === 2 ? "Pick two spots to search" : "Pick a spot to search");
