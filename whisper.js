@@ -132,10 +132,44 @@
     const live = c.status === "active";
 
     const thread = h("div", { class: "whisper-thread", role: "log", "aria-live": "polite" });
+    // Reactions: tap one of their messages to pick an emoji; it shows on the bubble for both of you.
+    const REACTIONS = ["❤️", "🔥", "😂", "😏", "🥵", "😮", "👅", "💯"];
+    const setReaction = (id, r) => {
+      const b = thread.querySelector(`[data-id="${id}"]`); if (!b) return;
+      b.dataset.reaction = r || "";
+      const old = b.querySelector(".wreact"); if (old) old.remove();
+      if (r) b.append(h("span", { class: "wreact", title: b.classList.contains("mine") ? "Their reaction" : "Your reaction" }, r));
+    };
+    const openPicker = (b, id) => {
+      const open = b.querySelector(".wpicker");
+      thread.querySelectorAll(".wpicker").forEach((x) => x.remove());
+      thread.querySelectorAll(".picking").forEach((x) => x.classList.remove("picking"));
+      if (open) return;
+      b.classList.add("picking");
+      const cur = b.dataset.reaction || "";
+      b.append(h("div", { class: "wpicker", role: "group", "aria-label": "React" }, REACTIONS.map((em) =>
+        h("button", { type: "button", class: em === cur ? "on" : "", "aria-label": "React " + em, onclick: async (ev) => {
+          ev.stopPropagation();
+          const next = em === cur ? "" : em;
+          thread.querySelectorAll(".wpicker").forEach((x) => x.remove());
+          b.classList.remove("picking");
+          setReaction(id, next);
+          try { await pb.send(`/api/vc/whispers/${c.id}/react`, { method: "POST", body: { message: id, emoji: next } }); }
+          catch (err) { setReaction(id, cur); toast(errMsg(err), true); }
+        } }, em))));
+      b.querySelector(".wpicker").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
     const bubble = (m) => {
       const onlyEmoji = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s){1,12}$/u.test(m.text) && !/[0-9#*]/.test(m.text);
       const b = h("div", { class: "wmsg " + (m.mine ? "mine" : "theirs") + (onlyEmoji ? " big-emoji" : ""), "data-id": m.id }, h("p", {}, m.text),
         h("span", { class: "wtime" }, new Date(parseDate(m.at)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })));
+      b.dataset.reaction = m.reaction || "";
+      if (m.reaction) b.append(h("span", { class: "wreact" }, m.reaction));
+      if (!m.mine && live) {
+        b.classList.add("reactable");
+        b.setAttribute("title", "Tap to react");
+        b.addEventListener("click", (ev) => { if (ev.target.closest(".wpicker")) return; openPicker(b, m.id); });
+      }
       return b;
     };
     const addMsgs = (list) => { list = list.filter((m) => !thread.querySelector(`[data-id="${m.id}"]`)); list.forEach((m) => thread.append(bubble(m))); if (list.length) { lastAt = list[list.length - 1].at; thread.scrollTop = thread.scrollHeight; } };
@@ -264,7 +298,7 @@
         live ? h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Need an opener?"), quick,
           hasJars ? h("span", { class: "faint" }, "🫙 From what's on both your jars:") : null, hasJars ? jarQuick : null, emojis) : null),
       live ? controls : null, live ? reportPanel : null,
-      h("p", { class: "faint center" }, "Anonymous until you both reveal. ⚑ Report at the bottom sends the chat to the admins.")].filter(Boolean));
+      h("p", { class: "faint center" }, "Anonymous until you both reveal. Tap one of their messages to react. ⚑ Report at the bottom sends the chat to the admins.")].filter(Boolean));
     thread.scrollTop = thread.scrollHeight;
 
     if (live) poll = setInterval(async () => {
@@ -275,6 +309,7 @@
         if (fresh.status !== "active") { clearInterval(poll); renderChat(app, c.id); return; }
         const theirs = fresh.messages.filter((m) => !thread.querySelector(`[data-id="${m.id}"]`));
         if (theirs.length) { const emptyNote = thread.querySelector(".wempty"); if (emptyNote) emptyNote.remove(); addMsgs(theirs); }
+        (fresh.reacts || []).forEach((r) => setReaction(r.id, r.reaction));
         drawControls(fresh); drawReveal(fresh); c.expires = fresh.expires;
       } catch {}
     }, 5000);

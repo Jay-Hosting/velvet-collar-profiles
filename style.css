@@ -995,3 +995,15 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .mod-photos figcaption { display: grid; gap: 4px; justify-items: start; }
 input[type=date] { color-scheme: dark; }
 select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
+
+/* Whispers reactions */
+.wmsg.reactable { cursor: pointer; }
+.wmsg .wreact { position: absolute; bottom: -12px; font-size: 1rem; line-height: 1; padding: 3px 5px; border-radius: 999px; background: var(--bg, #1c1b1f); border: 1px solid var(--line); }
+.wmsg.theirs .wreact { right: -6px; }
+.wmsg.picking { margin-bottom: 52px; }
+.wmsg.mine .wreact { left: -6px; }
+.wmsg[data-reaction]:not([data-reaction=""]) { margin-bottom: 10px; }
+.wpicker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 2px; padding: 4px 6px; border-radius: 999px;
+  background: #241f2b; border: 1px solid var(--line-strong); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.wpicker button { border: 0; background: none; font-size: 1.25rem; padding: 4px; border-radius: 50%; cursor: pointer; line-height: 1; }
+.wpicker button:hover, .wpicker button.on { background: var(--gold-soft); transform: scale(1.12); }
