@@ -65,7 +65,7 @@
       spicy: ["First light. {p} escapes, breathless and smug, while {h} is left aching for next time."],
     },
   };
-  // Ready-made lines players can tap instead of typing. Three show at a time; 🔄 deals three more.
+  // Ready-made lines players can tap instead of typing. Up to four show at a time; 🔄 deals more.
   const QUICK = {
     prey: {
       flirty: [
@@ -75,6 +75,7 @@
         "Is that the best you've got, wolf?", "Peekaboo… nope, gone again", "I'm hiding somewhere very cute",
         "You look lost. Need a map?", "Close your eyes and count to ten. Then cry.", "I may have stolen your snacks on the way",
         "Find me and you get a hug. Maybe.", "Running in heels is a skill, you know", "Tag, you're still it",
+        "I'm humming so you can find me. Badly.", "Winner picks the dessert 🍰", "Plot twist: I'm very good at this",
       ],
       teasing: [
         "Come and get me… if you can 😈", "My heart's pounding. Is yours?", "So close… but not close enough.",
@@ -83,6 +84,7 @@
         "Careful. I bite back.", "Your footsteps give you away, hunter", "I'll make you work for every inch of this {w}",
         "Go on, beg the moon for a clue", "If you catch me, then what?", "I'm right where you're not looking",
         "Can you smell my perfume yet?", "I love it when you get frustrated", "Run faster. I dare you.",
+        "I'm wearing your favourite. Shame you can't see it.", "You're cute when you're losing", "Catch me and I'll tell you what I was thinking about 😏",
       ],
       spicy: [
         "You'll have to earn this, beast 🔥", "Hunt me harder.", "I'm shaking… and I like it.",
@@ -91,6 +93,10 @@
         "Closer… closer… wrong.", "Don't you want to know what happens when you catch me?", "I'm leaving claw marks everywhere I've been",
         "Make me regret running", "Is that a promise or a threat? Either way, keep coming.", "The dark suits you. So does losing.",
         "My pulse is racing for you", "I'll make you chase me all night", "Find me before I decide to find you",
+        "I'm already throbbing just thinking about you finding me", "Find me and every inch of me is yours", "I want to be caught, pinned and thoroughly ruined",
+        "Catch me and I'll be moaning your name before dawn", "Hunt me down and take what you've been craving all night", "I'm hiding with my clothes half off. Hurry.",
+        "Thinking about your hands on me is making it hard to stay quiet", "Drag me out, strip me down, make me yours", "If you catch me, don't you dare stop until I'm shaking",
+        "I want your breath on my neck before you take me", "I'm so worked up I might just let you win", "Every time you miss, I get a little more worked up",
       ],
     },
     hunter: {
@@ -101,6 +107,7 @@
         "You're cute when you hide", "I heard that, you know", "My nose is never wrong. Mostly.",
         "Should I howl? I'm going to howl.", "I'll find you before the owls do", "Coming closer… 👀",
         "Hide well, little bunny", "Fun fact: I've never lost at hide and seek", "Your boots left prints. Rookie mistake.",
+        "I'm counting to ten. Very slowly. 1… 2…", "Loser buys breakfast 🥞", "I can hear you trying not to laugh",
       ],
       teasing: [
         "I can hear your heart racing", "Run, little rabbit 😏", "You can't hide from me forever.",
@@ -109,6 +116,7 @@
         "Careful, I'm right behind you. Or am I?", "I'll find you. I always do.", "Keep running, I'm enjoying the view",
         "Breathe quieter, darling", "The moon's on my side tonight", "Nowhere left to hide soon",
         "I can wait. Can you?", "You'll be begging me to find you", "Tick tock, little one",
+        "I like it when you make me work for it", "Every miss just makes the catch sweeter", "Hide better. Or don't. Your choice 😏",
       ],
       spicy: [
         "When I catch you, you're mine 🔥", "I can taste your fear on the wind.", "Run. I want you breathless.",
@@ -117,6 +125,10 @@
         "You made a mistake teasing me", "I want to see you tremble", "The hunt is the foreplay. The catch is the fun.",
         "Keep running. It only makes me hungrier.", "I'll leave marks you'll feel tomorrow", "You're already mine, you just don't know it yet",
         "Scream if you want. Nobody's coming.", "On your knees when I find you", "Mine. Soon.",
+        "I'm going to devour every inch of you", "When I find you, I'm taking you right where you're hiding", "I can already taste you",
+        "I'll have you moaning so loud the whole {w} hears", "Hide all you like. I'm going to make you come apart when I find you", "Strip as you run. It saves me time.",
+        "I want you breathless, trembling and begging for more", "Every second you hide, I'm planning exactly how I'll use you", "When I catch you, I'm not letting go until sunrise",
+        "Your body is going to remember tonight", "I'm going to take my time with you. All of it.", "Run. The harder you make me work, the harder I'll take you",
       ],
     },
   };
@@ -124,22 +136,208 @@
     prey: ["🐇", "😝", "😈", "🫣", "💨", "🥵", "💋", "🙈", "✨", "🌙"],
     hunter: ["🐺", "😏", "👀", "🔥", "🌕", "👅", "😈", "🦴", "⛓️", "🐾"],
   };
-  // A small picker under the line box: three quick lines (🔄 for three more) and some emojis.
+  // ---- Smarter quick lines: a hint about where you're hiding, and teases from both Kink Jars shelves. ----
+  // Hint lines. {c} = the place's hint ("it smells like red wine"), {C} = the same, capitalised.
+  const WHERE = {
+    prey: {
+      flirty: ["Hint: {c} 😘", "Little clue: {c}. Good luck!", "Okay, one clue: {c}", "{C}. That's all you're getting 😇"],
+      teasing: ["{C}. Warmer?", "Want a clue? {c}. Now come and earn me.", "{C}… and I'm getting impatient", "Here's a crumb: {c}. Follow it."],
+      spicy: ["{C}. Come find me and take what's yours.", "{C}, and I'm wearing less than you think. Hurry.", "One clue, then come claim me: {c}", "{C}. Find me and I'm yours until sunrise."],
+    },
+    // {s} = the spot the hunter is about to search.
+    hunter: {
+      flirty: ["Checking the {s} next 👀", "Knock knock, {s}. Anyone home?", "Something tells me you're at the {s}"],
+      teasing: ["The {s}. I can feel it.", "Coming for the {s}. Run if you're close.", "Heading to the {s}. Hope you're decent."],
+      spicy: ["If you're in the {s}, you're mine in ten seconds", "I'm tearing the {s} apart looking for you", "The {s}. Be there. Be ready."],
+    },
+  };
+  // Kink teases. {k} = the jar ("spanking"), {K} capitalised, {catch} = "when I catch you" / "if you catch me",
+  // {while} = "while you hide" / "while you hunt". Keys: wear/see are clothing jars (I wear it / you wear it);
+  // give/get are split jars (I do it to you / you do it to me); both = jars with one side.
+  const TEASE = {
+    // Only on their shelf (you haven't rated it).
+    theirs: {
+      give: { flirty: ["I peeked at your jars. {K}, huh? 😏 Noted.", "{Catch}, I know where to start: {k} 😇"],
+        teasing: ["Your jars told me about {k}. {Catch}, we're starting there.", "Keep it up and {k} is coming your way"],
+        spicy: ["{Catch}, it's {k} until you're shaking 🔥", "I read your jars. {K}. Hope you're ready, because I am."] },
+      get: { flirty: ["I saw {k} on your jars… is that a promise? 😳", "So you like being the one doing {k}… 👀"],
+        teasing: ["I know you're into {k}. Earn it.", "{K}? Your jars say you'd be good at it. Prove it."],
+        spicy: ["Your jars say {k}. {Catch}, show me what you've got 🔥", "I can't stop thinking about you and {k}"] },
+      both: { flirty: ["Your jars say you're into {k} 👀", "I've been reading your jars. {K}? Interesting…"],
+        teasing: ["{K}, huh? Think about that {while} 😏", "Somebody's into {k}. I remember."],
+        spicy: ["{K}. I saw it on your jars and haven't stopped thinking about it 🔥", "{Catch}, we're talking about {k}. Up close."] },
+      wear: { flirty: ["I hear you like {k}. Guess what I'm wearing 😇"], teasing: ["{Catch}, you'll find out I'm in {k}"], spicy: ["{K}, and nothing else. That's what's waiting for you 🔥"] },
+      see: { flirty: ["I know you like wearing {k} 👀"], teasing: ["{Catch}, I want you in {k}"], spicy: ["{Catch}, you're wearing {k} for me and nothing else"] },
+    },
+    // On both shelves.
+    mutual: {
+      give: { flirty: ["We both like {k}. Just saying 😇", "{Catch}, {k} is on the menu"],
+        teasing: ["We're both into {k}. {Catch}, you're getting it.", "Every minute you hide is another minute of {k} later"],
+        spicy: ["We're both into {k}. {Catch}, I'm not holding back.", "{K}, slow and thorough. {Catch}, you'll feel every second."] },
+      get: { flirty: ["We match on {k} 😳 Just so you know."],
+        teasing: ["We're both into {k}, and I'm on the receiving end. Think about that 😏", "You, me and {k}. Tick tock."],
+        spicy: ["{K}. Both our jars, and I want all of it.", "I'm aching for {k}. You know exactly what to do with me."] },
+      both: { flirty: ["We both said yes to {k} 😊", "Kink twins on {k}? Cute."],
+        teasing: ["We both love {k}. Funny how that works 😏", "{K}. Think about it {while}."],
+        spicy: ["{K}. Top of both our lists. Tonight it's happening.", "We're both into {k}. {Catch}, no more waiting."] },
+      wear: { flirty: ["We both like {k}. Guess who's wearing it tonight 😇"], teasing: ["{K} on me, eyes on you. That's the deal."], spicy: ["I'm in {k} right now, and you'd better hurry."] },
+      see: { flirty: ["We both like {k} 😏 Wear it for me sometime?"], teasing: ["You. {K}. Tonight."], spicy: ["{Catch}, I want you in {k}, and I want you now."] },
+    },
+    // Both rated it 4 or 5 ("love"): the drive-it-home lines.
+    love: {
+      give: { teasing: ["{K} is a favourite on both our jars. {Catch}, you're getting a lot of it."],
+        spicy: ["We both love {k}. {Catch}, I'm not stopping until you beg.", "{K}. You crave it, I crave giving it. {Catch}, there's no mercy.", "I've been thinking about {k} all night. {Catch}, you'll feel every second of it."] },
+      get: { teasing: ["{K}. Both our favourites, and I'm the lucky one. Hurry."],
+        spicy: ["We both love {k}, and I want all of it. Don't you dare go easy on me.", "{K}. My favourite thing on both our jars. Take me there.", "{Catch}, it's {k} until I can't think straight."] },
+      both: { teasing: ["{K}: a favourite on both our jars. We're dangerous together 😈"],
+        spicy: ["We both love {k}. Tonight I want it all, again and again.", "{K} is all I can think about. {Catch}, it's happening.", "Your favourite, my favourite: {k}. No more waiting 🔥"] },
+      wear: { spicy: ["You love seeing {k}, I love wearing it. Come peel it off me."] },
+      see: { spicy: ["You in {k}. Both our favourites. I'm already losing my mind."] },
+    },
+    // Jars made for this game, when both of you like them.
+    chase: {
+      flirty: ["{K} is on both our jars. This game was made for us 😊"],
+      teasing: ["We both love {k}. Run like you mean it. Hunt like you mean it."],
+      spicy: ["{K}, both of us. Tonight neither of us is playing nice.", "We both love {k}. This is exactly what we wanted 😈"],
+    },
+  };
+  const CHASE_JARS = new Set(["Hunter & hunted", "Primal play", "Fear play", "Captor & captive", "Chasing"]);
+  // How each jar reads in a sentence, when its label doesn't.
+  const SAY = {
+    "Tied up": { give: "tying you up", get: "being tied up" }, "Tied to the bed": { give: "tying you to the bed", get: "being tied to the bed" },
+    "Hands held down": { give: "pinning your hands down", get: "having my hands pinned down" },
+    "Over the knee": { give: "putting you over my knee", get: "going over your knee" }, "Collar in public": { give: "collaring you in public", get: "wearing your collar in public" },
+    "On display": { give: "putting you on display", get: "being put on display" }, "Good girl / good boy": { give: "telling you you're good", get: "being told I'm good" },
+    "Kneeling": { give: "making you kneel", get: "kneeling for you" }, "Hand on throat (no pressure)": { give: "my hand on your throat", get: "your hand on my throat" },
+    "Doing stuff in public": "public mischief", "Nothing at all": "nothing at all", "Light pain": "a little pain", "Heavy pain": "a lot of pain",
+    "Risk of getting caught": "the risk of getting caught", "Being watched": "being watched", "Feet": "feet",
+  };
+
+  // Gentle enough for Flirty games. Teasing skips the heaviest jars; Spicy can use anything both of you said yes to.
+  const MILD = new Set(["Kissing", "Neck kissing", "Cuddling", "Massage", "Feathers", "Tickling", "Teasing", "Hair play", "Collars",
+    "Blindfolds", "Body worship", "Foot rubs", "Slow & sensual", "Praise", "Pet names", "Good girl / good boy", "Dirty talk",
+    "Moaning & noise", "Spanking", "Hunter & hunted", "Primal play", "Pet play", "Roleplay", "Strangers meeting", "Pick-up scenario",
+    "Cosplay", "Uniforms", "Sexting", "Phone & video sex", "Mirrors", "Public teasing", "Begging", "Rewards", "Asking permission",
+    "Biting", "Scratching", "Hair pulling", "Ice play", "Wax play", "Leashes", "Kneeling", "Rope / shibari", "Handcuffs", "Tied up",
+    "Light bondage", "Remote-control toys", "Vibrators", "Kink clubs & dungeons", "Wrestling", "Hands held down"]);
+  const HEAVY_CATS = new Set(["toys", "fluids", "breath"]);
+  const HEAVY = new Set(["Heavy pain", "Punching", "Kicking", "Face slapping", "Genital slapping", "Breast whipping", "Single tail whip",
+    "Consensual non-consent", "Kidnapping fantasy", "Vore (fantasy)", "Humiliation & degradation", "Public humiliation", "Fire play"]);
+  const SKIP_CATS = new Set(["roles", "groups"]);   // identities and other people don't make good teases
+
+  // General lines that name an act; they're hidden when that act is either player's hard limit.
+  const LINE_TAGS = [
+    [/\bmarks?\b|claw/i, ["Leaving marks", "Scratching"]], [/knees|kneel/i, ["Kneeling"]], [/\bpin(ned)?\b/i, ["Hands held down", "Wrestling", "Immobilization"]],
+    [/\bbeg/i, ["Begging"]], [/\bbite\b|\bbitten\b/i, ["Biting"]], [/\buse you\b/i, ["Objectification", "Free use"]], [/\bstrip/i, ["Forced nudity"]],
+    [/\bruin/i, ["Ruined orgasms"]], [/\bscream/i, ["Fear play"]], [/\btaste\b|\bdevour/i, ["Oral"]], [/\bno mercy\b/i, ["Heavy pain"]],
+  ];
+  const lineOk = (t, blocked) => !blocked.size || !LINE_TAGS.some(([re, jars]) => re.test(t) && jars.some((j) => blocked.has(j)));
+  // Jars that are a hard no (Kink Jars or typed limits) for either player.
+  function blockedJars(mine, theirs, words) {
+    const out = new Set();
+    (window.KINKJARS || []).forEach(([code, label]) => {
+      const a = (mine && mine.r.get(code)) || [], b = (theirs && theirs.r.get(code)) || [];
+      if (a.includes(7) || b.includes(7) || hitsLimit(label, words)) out.add(label);
+    });
+    return out;
+  }
+  const norm = (t) => String(t).toLowerCase().replace(/\(.*?\)/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+  // Anything on either person's typed limits is off the table (Kink Jars hard nos are checked jar by jar).
+  function limitWords(...texts) {
+    const out = [];
+    texts.forEach((t) => String(t || "").replace(/https?:\/\/\S+/g, " ").split(/[\n,;•·|]+/).forEach((x) => {
+      const n = norm(x.replace(/^[^:]{0,24}:/, "")); if (n.length >= 3) out.push(n);
+    }));
+    return out;
+  }
+  const hitsLimit = (label, words) => { const n = norm(label); return words.some((w) => n === w || (w.length >= 4 && n.includes(w)) || (n.length >= 4 && w.includes(n))); };
+
+  // Build the list of teases from my shelf (may be null) and theirs.
+  function kinkTeases(mine, theirs, words) {
+    const ok = (v) => v >= 1 && v <= 5;
+    const out = [];
+    (window.KINKJARS || []).forEach(([code, label, sA, , , cat]) => {
+      if (SKIP_CATS.has(cat) || hitsLimit(label, words)) return;
+      const t = theirs.r.get(code) || [0, 0], m = (mine && mine.r.get(code)) || [0, 0];
+      if (t.includes(7) || m.includes(7)) return;   // a hard no for either of you anywhere on this jar: leave it alone
+      const base = { label, cat, chase: CHASE_JARS.has(label) };
+      const push = (my, th, dir) => {
+        if (ok(my) && ok(th)) out.push({ ...base, dir, lvl: my >= 4 && th >= 4 ? "love" : "mutual" });
+        else if (th >= 3 && th <= 5 && (my === 0 || my === 6)) out.push({ ...base, dir, lvl: "theirs" });
+      };
+      if (sA) {
+        const gear = cat === "gear";
+        push(m[0], t[1], gear ? "wear" : "give");   // my doing side meets their receiving side
+        push(m[1], t[0], gear ? "see" : "get");
+      } else push(m[0] || m[1], t[0] || t[1], "both");
+    });
+    return out;
+  }
+  const heatOk = (c, heat) => heat === "spicy" || (heat === "teasing" ? !HEAVY_CATS.has(c.cat) && !HEAVY.has(c.label) : c.cat === "gear" || MILD.has(c.label));
+
+  function teaseLine(c, role, heat) {
+    let pool = [];
+    if (c.chase && c.lvl !== "theirs") pool = TEASE.chase[heat];
+    if (c.lvl === "love" && heat !== "flirty") pool = pool.concat((TEASE.love[c.dir] || {})[heat] || []);
+    if (!pool.length || Math.random() < 0.35) pool = pool.concat(TEASE[c.lvl === "theirs" ? "theirs" : "mutual"][c.dir][heat] || []);
+    const say = SAY[c.label];
+    const k = (say && typeof say === "object" ? say[c.dir] || say.get : say) || c.label.replace(/\s*\(.*?\)\s*/g, " ").trim().toLowerCase();
+    const caught = role === "hunter" ? "when I catch you" : "if you catch me";
+    return pool[Math.floor(Math.random() * pool.length)]
+      .replace(/\{K\}/g, cap(k)).replace(/\{k\}/g, k).replace(/\{Catch\}/g, cap(caught)).replace(/\{catch\}/g, caught)
+      .replace(/\{while\}/g, role === "hunter" ? "while you hide" : "while you hunt");
+  }
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  function pickTease(list, heat) {
+    const fit = list.filter((c) => heatOk(c, heat));
+    if (!fit.length) return null;
+    const w = (c) => (c.lvl === "love" ? (heat === "spicy" ? 6 : 4) : c.lvl === "mutual" ? 2 : 1) * (c.chase ? 2 : 1);
+    let r = Math.random() * fit.reduce((a, c) => a + w(c), 0);
+    for (const c of fit) { r -= w(c); if (r <= 0) return c; }
+    return fit[0];
+  }
+
+  // A small picker under the line box: four lines (a hint, a tease and two for the heat; 🔄 for more) and some emojis.
   function quickPicker(h, role, heat, input) {
     const pool = (QUICK[role] && QUICK[role][heat]) || QUICK[role].flirty;
     const used = new Set();
+    let where = null, teases = [], blocked = new Set();
     const chips = h("div", { class: "quick-lines" });
-    const deal = () => {
-      if (used.size > pool.length - 3) used.clear();
-      const picks = [];
-      while (picks.length < 3) { const i = Math.floor(Math.random() * pool.length); if (!used.has(i)) { used.add(i); picks.push(pool[i].replace(/\{w\}/g, WORD)); } }
-      chips.replaceChildren(...picks.map((t) => h("button", { type: "button", class: "quick", onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t)),
-        h("button", { type: "button", class: "quick more", title: "Three more lines", "aria-label": "Show three more lines", onclick: deal }, "🔄"));
+    const chip = (t, cls) => h("button", { type: "button", class: "quick" + (cls ? " " + cls : ""), onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t);
+    const whereLine = () => {
+      if (!where) return null;
+      const list = WHERE[role][heat];
+      if (role === "prey" && !where.c) return null;
+      const ok = list.filter((x) => lineOk(x, blocked));
+      const t = (ok.length ? ok : list)[Math.floor(Math.random() * (ok.length ? ok : list).length)];
+      return t.replace(/\{C\}/g, cap(where.c || "")).replace(/\{c\}/g, where.c || "").replace(/\{s\}/g, where.n.toLowerCase());
     };
+    let hint = null, tease = null, extra = [];
+    const draw = () => {
+      const top = [hint ? [hint, "hint"] : null, tease ? [tease, "tease"] : null].filter(Boolean);
+      chips.replaceChildren(...top.concat(extra.slice(0, 4 - top.length).map((t) => [t, ""])).map(([t, cls]) => chip(t, cls)),
+        h("button", { type: "button", class: "quick more", title: "More lines", "aria-label": "Show more lines", onclick: deal }, "🔄"));
+    };
+    function deal() {
+      hint = whereLine();
+      const c = pickTease(teases, heat);
+      tease = null;
+      for (let n = 0; c && n < 8 && !tease; n++) { const t = teaseLine(c, role, heat); if (lineOk(t, blocked)) tease = t; }
+      const fine = pool.map((t, i) => i).filter((i) => lineOk(pool[i], blocked));
+      if (fine.filter((i) => !used.has(i)).length < 4) used.clear();
+      extra = fine.filter((i) => !used.has(i)).sort(() => Math.random() - 0.5).slice(0, 4);
+      extra.forEach((i) => used.add(i));
+      extra = extra.map((i) => pool[i].replace(/\{w\}/g, WORD));
+      draw();
+    }
     deal();
     const emojis = h("div", { class: "quick-emoji", role: "group", "aria-label": "Add an emoji" }, (EMOJI[role] || []).map((em) =>
       h("button", { type: "button", onclick: () => { if ((input.value + em).length <= 140) { input.value = (input.value ? input.value.replace(/\s*$/, " ") : "") + em; input.focus(); } } }, em)));
-    return h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Tap one, type your own, or skip it:"), chips, emojis);
+    const el = h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Tap one, type your own, or skip it. 📍 is a hint about your spot, 🫙 comes from your Kink Jars."), chips, emojis);
+    // The map tells the picker which spot you've tapped, so the hint line can match it.
+    el.setWhere = (spot) => { where = spot; hint = whereLine(); draw(); };
+    el.setTeases = (list, block) => { teases = list; blocked = block || blocked; deal(); };
+    return el;
   }
 
   const pick = (list, seed) => list[Math.abs(seed) % list.length];
@@ -401,6 +599,7 @@
         else if (needed === 1) chosen = [i];
         else chosen = [...chosen, i].slice(-needed);
         drawMap();
+        picker.setWhere(chosen.length ? SP[chosen[chosen.length - 1]] : null);
         const nm = chosen.map((x) => SP[x].n.toLowerCase());
         go2.disabled = chosen.length !== needed;
         go2.textContent = g.role === "prey" ? (nm.length ? "Hide in the " + nm[0] : "Pick a hiding spot")
@@ -409,6 +608,15 @@
       return b;
     }));
     const line = h("input", { type: "text", maxlength: 140, placeholder: g.role === "prey" ? "Optional: a taunt for the hunter" : "Optional: something to growl", "aria-label": "Your line" });
+    const picker = quickPicker(h, g.role, g.heat, line);
+    // Teases from both Kink Jars shelves; lines touching either person's limits are hidden.
+    if (g.myTurn) (async () => {
+      const K = window.KinkJarsImport, words = limitWords(g.otherLimits, g.myLimits);
+      let mine = null, theirs = null;
+      if (K && g.myKj) { try { mine = await K.resolve(g.myKj); } catch {} }
+      if (K && g.otherKj) { try { theirs = await K.resolve(g.otherKj); } catch {} }
+      picker.setTeases(theirs && !g.kinkOff ? kinkTeases(mine, theirs, words) : [], blockedJars(mine, theirs, words));
+    })();
     const go2 = h("button", { type: "button", class: "btn gold", disabled: true }, g.role === "prey" ? "Pick a hiding spot" : picks === 2 ? "Pick two spots to search" : "Pick a spot to search");
     go2.addEventListener("click", async () => {
       if (chosen.length !== needed) return;
@@ -453,7 +661,7 @@
         h("p", { class: "faint" }, g.role === "prey"
           ? (lastPrey !== null && lastPrey !== undefined ? (trail ? `You're at the ${SP[lastPrey].n.toLowerCase()}. Move 1 or 2 steps along the paths. ` : `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. `) : trail ? "Start anywhere. After this you can only move 1 or 2 steps along the paths each hour. " : "") + "Tap a spot on the map."
           : trail ? "Pick a spot to search. They move 1–2 steps along the paths each hour, and if they're right next to where you search, you'll hear them." : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
-        map, line, quickPicker(h, g.role, g.heat, line), h("div", { class: "actions" }, go2, red));
+        map, line, picker, h("div", { class: "actions" }, go2, red));
     } else if (g.status === "active") {
       action = h("section", { class: "panel hunt-action" },
         h("h2", {}, `${HOURS[g.round - 1]}. ${other.display_name}'s move`),

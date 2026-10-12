@@ -897,6 +897,11 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .quick { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.04); color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; text-align: left; }
 .quick:hover { border-color: var(--gold); background: var(--gold-soft); }
 .quick.more { padding: 6px 10px; }
+.quick.hint, .quick.tease { border-style: dashed; }
+.quick.hint::before { content: "📍 "; }
+.quick.tease::before { content: "🫙 "; }
+.quick.hint { border-color: rgba(140, 200, 255, .45); }
+.quick.tease { border-color: rgba(255, 159, 214, .5); }
 .quick-emoji { display: flex; flex-wrap: wrap; gap: 4px; }
 .quick-emoji button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: 1.15rem; cursor: pointer; }
 .quick-emoji button:hover { border-color: var(--gold); transform: scale(1.08); }
