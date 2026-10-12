@@ -387,16 +387,18 @@
   function quickPicker(h, role, heat, input) {
     const pool = (QUICK[role] && QUICK[role][heat]) || QUICK[role].flirty;
     const used = new Set();
-    let where = null, teases = [], blocked = new Set();
+    let where = null, near = [], teases = [], blocked = new Set();
     const chips = h("div", { class: "quick-lines" });
     const chip = (t, cls) => h("button", { type: "button", class: "quick" + (cls ? " " + cls : ""), onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t);
     const whereLine = () => {
       if (!where) return null;
       const list = WHERE[role][heat];
-      if (role === "prey" && !where.c) return null;
+      // The prey's hint is about a random spot they could be in: the one they picked, or one a move away from it.
+      const spot = role === "prey" && near.length ? near[Math.floor(Math.random() * near.length)] : where;
+      if (role === "prey" && !spot.c) return null;
       const ok = list.filter((x) => lineOk(x, blocked));
       const t = (ok.length ? ok : list)[Math.floor(Math.random() * (ok.length ? ok : list).length)];
-      return t.replace(/\{C\}/g, cap(where.c || "")).replace(/\{c\}/g, where.c || "").replace(/\{s\}/g, where.n.toLowerCase());
+      return t.replace(/\{C\}/g, cap(spot.c || "")).replace(/\{c\}/g, spot.c || "").replace(/\{s\}/g, spot.n.toLowerCase());
     };
     let hint = null, tease = null, extra = [];
     const draw = () => {
@@ -421,7 +423,7 @@
       h("button", { type: "button", onclick: () => { if ((input.value + em).length <= 140) { input.value = (input.value ? input.value.replace(/\s*$/, " ") : "") + em; input.focus(); } } }, em)));
     const el = h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Tap one, type your own, or skip it. 📍 is a hint about your spot, 🫙 comes from your Kink Jars."), chips, emojis);
     // The map tells the picker which spot you've tapped, so the hint line can match it.
-    el.setWhere = (spot) => { where = spot; hint = whereLine(); draw(); };
+    el.setWhere = (spot, alts) => { where = spot; near = alts || []; hint = whereLine(); draw(); };
     el.setTeases = (list, block) => { teases = list; blocked = block || blocked; deal(); };
     return el;
   }
@@ -685,7 +687,9 @@
         else if (needed === 1) chosen = [i];
         else chosen = [...chosen, i].slice(-needed);
         drawMap();
-        picker.setWhere(chosen.length ? SP[chosen[chosen.length - 1]] : null);
+        const at = chosen.length ? chosen[chosen.length - 1] : null;
+        picker.setWhere(at === null ? null : SP[at], at !== null && trail && g.role === "prey"
+          ? SP.filter((_, j) => TRAIL_D[at][j] <= (g.maxStep || 2)) : null);
         const nm = chosen.map((x) => SP[x].n.toLowerCase());
         go2.disabled = chosen.length !== needed;
         go2.textContent = g.role === "prey" ? (nm.length ? "Hide in the " + nm[0] : "Pick a hiding spot")
