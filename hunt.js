@@ -383,13 +383,61 @@
     return fit[0];
   }
 
+  // The winner's last word: lines by heat and how it ended, plus jar lines ("Caught. Now I'm going to …").
+  const FINAL = {
+    hunter: {
+      flirty: ["Gotcha! 🐺 Told you I'd find you", "Caught you fair and square 😏", "That was fun. Same time tomorrow?", "Found you. Now come here 💜",
+        "You were adorable trying to hide", "Caught! You owe me, cutie", "Nobody hides from me for long 😘"],
+      teasing: ["Caught. Every hour you ran made this sweeter", "Look who's mine now", "All that running and you still ended up in my hands",
+        "Don't even think about squirming away", "Now you find out what I do with my catch", "Got you. Breathe. You'll need it.", "Shh. You're not going anywhere."],
+      spicy: ["Caught. On your knees.", "Mine. Every inch of you.", "You're going to feel tonight for days", "All that running just made me hungrier",
+        "Strip. Now.", "You made me hunt all night. Now you pay for it.", "Pinned, breathless and all mine", "Hold still. I've earned this."],
+    },
+    prey: {
+      flirty: ["Made it to dawn! 🌅 Better luck next time, wolf", "Too slow 😝", "Sunrise and I'm still free. Rematch?", "Aww, did you lose me? 😇",
+        "I'll be picturing your sad little face all day", "Free as a bird. A very smug bird. 🐦"],
+      teasing: ["All night and you never even touched me", "You were so close. That must hurt.", "Hungry? Shame.", "I could hear you getting frustrated. Delicious.",
+        "Next time, hunt like you mean it", "I'll let you catch me… maybe next time", "Sweet dreams, hunter. Dream of me."],
+      spicy: ["You'll be aching for me all day", "Think about what you missed while you're alone tonight", "I was right there, wearing almost nothing. Too bad.",
+        "Go to bed hungry, hunter", "I was so turned on the whole time you missed me", "Next time I might let you win. Maybe.", "Now I'm the one who decides what happens to you"],
+    },
+  };
+  const FINAL_FRAMES = {
+    hunter: {
+      give: { flirty: ["Caught you 😏 Now I get to {a}.", "Gotcha. Time to {a}."], teasing: ["Caught. Now hold still while I {a}.", "Mine. First, I'm going to {a}."],
+        spicy: ["Caught. Now I'm going to {a}, and you're going to take it.", "You're mine now. I'm going to {a}.", "Down you go. Time to {a}."] },
+      get: { flirty: ["Caught you 😏 Now you get to {a}."], teasing: ["Caught. Now you're going to {a}.", "Gotcha. You know what happens now: {a}."],
+        spicy: ["Caught. Now {a}. Go on.", "You're mine. Now {a}, and don't stop until I say."] },
+    },
+    prey: {
+      give: { flirty: ["Made it to dawn 😇 Next time maybe I'll {a}."], teasing: ["Too slow. Now I'm the one who gets to {a}.", "Dawn's here, so I'm calling the shots: I'm going to {a}."],
+        spicy: ["I won, so here's what happens: I'm going to {a}.", "Sunrise, and you're mine instead. I'm going to {a}."] },
+      get: { flirty: ["I escaped 😇 Maybe next time you'll get to {a}."], teasing: ["Too slow. You missed your chance to {a}.", "Dawn's up. If you'd caught me, you'd get to {a}. Next time."],
+        spicy: ["I won, so you owe me this: {a}.", "You missed your chance to {a}. Want a rematch?"] },
+    },
+  };
+  function finalTease(c, role, heat) {
+    const any = (l) => l[Math.floor(Math.random() * l.length)];
+    if (c.cat === "gear") return role === "hunter"
+      ? (c.dir === "wear" ? `Caught. Want to see what's under ${GEAR_SAY[c.label]}?` : `Caught. Go put on ${GEAR_SAY[c.label]} for me.`)
+      : (c.dir === "wear" ? `Made it to dawn, still in ${GEAR_SAY[c.label]}. Shame you didn't see it.` : `I won. You're wearing ${GEAR_SAY[c.label]} for me next time.`);
+    const dir = c.dir === "both" ? (role === "hunter" ? "give" : "get") : c.dir;
+    const A = ACTS[c.label], soft = heat === "flirty";
+    const acts = dir === "give" ? (soft ? A.sg : A.g) : (soft ? A.sr : A.r);
+    if (!acts || !acts.length) return null;
+    return any(FINAL_FRAMES[role][dir][heat]).replace(/\{a\}/g, any(acts)).replace(/\{w\}/g, WORD);
+  }
+
   // A small picker under the line box: four lines (a hint, a tease and two for the heat; 🔄 for more) and some emojis.
-  function quickPicker(h, role, heat, input) {
-    const pool = (QUICK[role] && QUICK[role][heat]) || QUICK[role].flirty;
+  function quickPicker(h, role, heat, input, opts) {
+    opts = opts || {};
+    const LINES = opts.pool || QUICK;
+    const pool = (LINES[role] && LINES[role][heat]) || LINES[role].flirty;
+    const max = opts.max || 140;
     const used = new Set();
     let where = null, near = [], teases = [], blocked = new Set();
     const chips = h("div", { class: "quick-lines" });
-    const chip = (t, cls) => h("button", { type: "button", class: "quick" + (cls ? " " + cls : ""), onclick: () => { input.value = t.slice(0, 140); input.focus(); } }, t);
+    const chip = (t, cls) => h("button", { type: "button", class: "quick" + (cls ? " " + cls : ""), onclick: () => { input.value = t.slice(0, max); input.focus(); } }, t);
     const whereLine = () => {
       if (!where) return null;
       const list = WHERE[role][heat];
@@ -410,7 +458,7 @@
       hint = whereLine();
       const c = pickTease(teases, heat);
       tease = null;
-      for (let n = 0; c && n < 8 && !tease; n++) { const t = teaseLine(c, role, heat); if (t && lineOk(t, blocked)) tease = t; }
+      for (let n = 0; c && n < 8 && !tease; n++) { const t = (opts.tease || teaseLine)(c, role, heat); if (t && lineOk(t, blocked)) tease = t; }
       const fine = pool.map((t, i) => i).filter((i) => lineOk(pool[i], blocked));
       if (fine.filter((i) => !used.has(i)).length < 4) used.clear();
       extra = fine.filter((i) => !used.has(i)).sort(() => Math.random() - 0.5).slice(0, 4);
@@ -420,8 +468,8 @@
     }
     deal();
     const emojis = h("div", { class: "quick-emoji", role: "group", "aria-label": "Add an emoji" }, (EMOJI[role] || []).map((em) =>
-      h("button", { type: "button", onclick: () => { if ((input.value + em).length <= 140) { input.value = (input.value ? input.value.replace(/\s*$/, " ") : "") + em; input.focus(); } } }, em)));
-    const el = h("div", { class: "quick-picker" }, h("span", { class: "faint" }, "Tap one, type your own, or skip it. 📍 is a hint about your spot, 🫙 comes from your Kink Jars."), chips, emojis);
+      h("button", { type: "button", onclick: () => { if ((input.value + em).length <= max) { input.value = (input.value ? input.value.replace(/\s*$/, " ") : "") + em; input.focus(); } } }, em)));
+    const el = h("div", { class: "quick-picker" }, h("span", { class: "faint" }, opts.caption || "Tap one, type your own, or skip it. 📍 is a hint about your spot, 🫙 comes from your Kink Jars."), chips, emojis);
     // The map tells the picker which spot you've tapped, so the hint line can match it.
     el.setWhere = (spot, alts) => { where = spot; near = alts || []; hint = whereLine(); draw(); };
     el.setTeases = (list, block) => { teases = list; blocked = block || blocked; deal(); };
@@ -700,13 +748,14 @@
     const line = h("input", { type: "text", maxlength: 140, placeholder: g.role === "prey" ? "Optional: a taunt for the hunter" : "Optional: something to growl", "aria-label": "Your line" });
     const picker = quickPicker(h, g.role, g.heat, line);
     // Teases from both Kink Jars shelves; lines touching either person's limits are hidden.
-    if (g.myTurn) (async () => {
+    const loadTeases = async (pk) => {
       const K = window.KinkJarsImport, words = limitWords(g.otherLimits, g.myLimits);
       let mine = null, theirs = null;
       if (K && g.myKj) { try { mine = await K.resolve(g.myKj); } catch {} }
       if (K && g.otherKj) { try { theirs = await K.resolve(g.otherKj); } catch {} }
-      picker.setTeases(theirs && !g.kinkOff ? kinkTeases(mine, theirs, words) : [], blockedJars(mine, theirs, words));
-    })();
+      pk.setTeases(theirs && !g.kinkOff ? kinkTeases(mine, theirs, words) : [], blockedJars(mine, theirs, words));
+    };
+    if (g.myTurn) loadTeases(picker);
     const go2 = h("button", { type: "button", class: "btn gold", disabled: true }, g.role === "prey" ? "Pick a hiding spot" : picks === 2 ? "Pick two spots to search" : "Pick a spot to search");
     go2.addEventListener("click", async () => {
       if (chosen.length !== needed) return;
@@ -774,9 +823,11 @@
       if (g.final_words) parts.push(h("p", { class: "final" }, `${winner === g.role ? "You" : other.display_name}: “${g.final_words}”`));
       else if (won) {
         const ta = h("textarea", { maxlength: 280, rows: 2, placeholder: g.role === "hunter" ? "Your claim: what happens to your catch now?" : "Your victory taunt", "aria-label": "Last word" });
+        const lastPicker = quickPicker(h, g.role, g.heat, ta, { pool: FINAL, tease: finalTease, max: 280, caption: "Tap one, write your own, or leave it. 🫙 comes from your Kink Jars." });
+        loadTeases(lastPicker);
         const send = h("button", { type: "button", class: "btn small gold" }, "Have the last word");
         send.addEventListener("click", async () => { try { await pb.send(`/api/vc/hunts/${g.id}/final`, { method: "POST", body: { text: ta.value.trim() } }); renderGame(app, g.id); } catch (err) { toast(errMsg(err), true); } });
-        parts.push(h("p", { class: "faint" }, "Winner gets the last word."), ta, h("div", { class: "actions" }, send));
+        parts.push(h("p", { class: "faint" }, "Winner gets the last word (optional)."), ta, lastPicker, h("div", { class: "actions" }, send));
       } else if (winner) parts.push(h("p", { class: "faint" }, `${other.display_name} gets the last word…`));
       if (winner) {
         const who = (r) => (r === g.role ? (me.display_name || "I") : other.display_name);
