@@ -161,7 +161,7 @@
     "Edging": { g: ["edge you until you're shaking and begging me to let you finish"], r: ["edge me until I'm shaking and begging"] },
     "Forced orgasms": { g: ["hold you down and make you come until you can't take any more"], r: ["hold me down and make me come until I can't take any more"] },
     "Ruined orgasms": { g: ["take you right to the end and ruin it at the last second"], r: ["take me right to the end and ruin it at the last second"] },
-    "Begging": { g: ["make you beg for every single thing you want"], r: ["make me beg for it, properly"], sg: ["make you ask very nicely"], sr: ["make me ask very nicely"] },
+    "Begging": { g: ["make you beg for every single thing you want"], r: ["make me beg for every single thing"], sg: ["make you ask very nicely"], sr: ["make me ask nicely"] },
     "Punishments": { g: ["punish you for every minute you made me chase you"], r: ["punish me for every minute I made you chase me"] },
     "Commands": { g: ["give you orders, and watch you obey every one"], r: ["tell me exactly what to do, and watch me do it"] },
     "Verbal commands": { g: ["tell you exactly what to do and watch you obey"], r: ["give me orders and make me obey"] },
@@ -293,9 +293,10 @@
       give: { flirty: ["Catch me and maybe I'll {a} 😇", "If you catch me, I might {a}"],
         teasing: ["If you catch me, I'm going to {a}.", "Win this and I'll {a}."],
         spicy: ["Catch me and I'll {a}.", "Find me and I'm going to {a}. Hurry.", "I'm hiding here thinking about how I'm going to {a}."] },
-      get: { flirty: ["If you catch me, maybe you could {a} 😳"],
-        teasing: ["If you catch me, I want you to {a}.", "Find me and you get to {a}."],
-        spicy: ["Find me and {a}. Don't hold back.", "If you catch me, I need you to {a}.", "When you find me, {a}."] },
+      // The prey doesn't ask for it: they're nervous (Flirty), breathless (Teasing) or scared (Spicy) of what's coming.
+      get: { flirty: ["Please don't {a}… 😳", "You wouldn't {a}… would you? 🙈", "If you find me, you'd better not {a} 😳"],
+        teasing: ["I can hear you getting closer. Please don't {a}…", "If you find me, you're going to {a}, aren't you? 😰", "My heart's pounding. Don't you dare {a}."],
+        spicy: ["I'm shaking. I know when you find me you'll {a}…", "Please… don't {a}. I don't think I could take it.", "I can't stop trembling. You're going to {a}, aren't you?", "Stay quiet, stay hidden, or you'll {a}…"] },
     },
   };
   const GEAR_SAY = { "Lingerie": "lingerie", "Stockings": "stockings", "Heels": "heels", "Leather": "leather", "Latex": "latex", "Rubber": "rubber",
@@ -305,7 +306,7 @@
   const GEAR = {
     hunter: { wear: ["Hide all you like. I'm in {k}, and I'm coming for you.", "When I catch you, you'll find out what's under this. Hint: {k}."],
       see: ["When I catch you, you're putting on {k} for me.", "You're wearing {k} for me tonight."] },
-    prey: { wear: ["I'm hiding in nothing but {k}. Come and see.", "Catch me and you'll find out I'm in {k}."],
+    prey: { wear: ["I'm hiding in nothing but {k}… please don't find me like this 😳", "Of all nights to be in {k}. Please don't find me."],
       see: ["If you catch me, I want to see you in {k}.", "Find me, then put on {k} for me."] },
   };
   const HEAVY_CATS = new Set(["toys", "fluids", "breath"]);
@@ -415,15 +416,15 @@
     prey: {
       give: { flirty: ["Made it to dawn 😇 Next time maybe I'll {a}."], teasing: ["Too slow. Now I'm the one who gets to {a}.", "Dawn's here, so I'm calling the shots: I'm going to {a}."],
         spicy: ["I won, so here's what happens: I'm going to {a}.", "Sunrise, and you're mine instead. I'm going to {a}."] },
-      get: { flirty: ["I escaped 😇 Maybe next time you'll get to {a}."], teasing: ["Too slow. You missed your chance to {a}.", "Dawn's up. If you'd caught me, you'd get to {a}. Next time."],
-        spicy: ["I won, so you owe me this: {a}.", "You missed your chance to {a}. Want a rematch?"] },
+      get: { flirty: ["Made it! 😮‍💨 You almost got to {a}."], teasing: ["Phew. I really thought you were going to {a}.", "Dawn. I was so sure you'd {a}."],
+        spicy: ["I'm still shaking. You were so close to getting to {a}.", "Sunrise, and I'm safe. I kept picturing how you'd {a}…"] },
     },
   };
   function finalTease(c, role, heat) {
     const any = (l) => l[Math.floor(Math.random() * l.length)];
     if (c.cat === "gear") return role === "hunter"
       ? (c.dir === "wear" ? `Caught. Want to see what's under ${GEAR_SAY[c.label]}?` : `Caught. Go put on ${GEAR_SAY[c.label]} for me.`)
-      : (c.dir === "wear" ? `Made it to dawn, still in ${GEAR_SAY[c.label]}. Shame you didn't see it.` : `I won. You're wearing ${GEAR_SAY[c.label]} for me next time.`);
+      : `Made it to dawn, still in ${GEAR_SAY[c.label]}. You never saw a thing 😮‍💨`;
     const dir = c.dir === "both" ? (role === "hunter" ? "give" : "get") : c.dir;
     const A = ACTS[c.label], soft = heat === "flirty";
     const acts = dir === "give" ? (soft ? A.sg : A.g) : (soft ? A.sr : A.r);
