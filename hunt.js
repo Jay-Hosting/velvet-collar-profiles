@@ -7,7 +7,16 @@
     { e: "🌳", n: "Old oak" }, { e: "💧", n: "Creek bed" }, { e: "🛖", n: "Abandoned cabin" },
     { e: "🌿", n: "Thorn thicket" }, { e: "🌕", n: "Moonlit clearing" }, { e: "🪨", n: "Rocky ledge" },
   ];
-  const HOURS = ["Midnight", "1 AM", "2 AM", "3 AM", "4 AM"];
+  // The 4×4 forest used by new games (row by row).
+  const GRID = [
+    { e: "🌳", n: "Old oak" }, { e: "💧", n: "Creek bed" }, { e: "🛖", n: "Abandoned cabin" }, { e: "🌿", n: "Thorn thicket" },
+    { e: "🌕", n: "Moonlit clearing" }, { e: "🪨", n: "Rocky ledge" }, { e: "🪵", n: "Hollow log" }, { e: "🍄", n: "Mushroom ring" },
+    { e: "🏹", n: "Hunter's blind" }, { e: "🌉", n: "Fallen bridge" }, { e: "🦊", n: "Fox den" }, { e: "🌫️", n: "Misty pond" },
+    { e: "🪣", n: "Old well" }, { e: "🌾", n: "Bramble maze" }, { e: "✨", n: "Firefly meadow" }, { e: "⛪", n: "Ruined chapel" },
+  ];
+  const spotsFor = (g) => (g && g.board === "grid16" ? GRID : SPOTS);
+  const HOURS = ["Midnight", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM"];
+  const DAWN = (g) => (g && g.board === "grid16" ? "6 AM" : "4 AM");
   const HEATS = [
     ["flirty", "😊 Flirty", "Playful and suggestive"],
     ["teasing", "😏 Teasing", "Breathless chasing, a little rough"],
@@ -270,7 +279,7 @@
       h("section", { class: "hunt-hero" },
         h("div", { class: "hunt-moon", "aria-hidden": "true" }, "🌕"),
         h("h1", {}, "The Hunt"),
-        h("p", {}, "Midnight in the forest. One of you hides, one of you hunts. Each hour the prey slips to a new hiding spot and the hunter searches one. Find them before dawn and they're yours. Survive until 4 AM and the prey wins."),
+        h("p", {}, "Midnight in the forest. One of you hides, one of you hunts. Each hour the prey slips to a new hiding spot among sixteen, and the hunter searches two. Find them before dawn and they're yours. Survive until 6 AM and the prey wins."),
         st.played ? h("p", { class: "faint" }, `Your record: 🐺 ${st.catches} caught · 🌅 ${st.escapes} escaped`) : null),
       h("section", { class: "panel" }, h("h2", {}, "Are you playing?"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "Only people who opt in can be invited. Change it any time."), optRow),
@@ -282,9 +291,9 @@
       h("section", { class: "panel hunt-rules" }, h("h2", {}, "How it works"),
         h("ol", {},
           h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a forfeit. Invites need a yes (passing is fine, no hard feelings)."),
-          h("li", {}, "Each hour, the prey hides in one of six spots. They can't stay put two hours in a row."),
-          h("li", {}, "The hunter searches one spot. Spots are on a trail; searching right next to the prey means you hear them."),
-          h("li", {}, "Catch them before dawn (4 hours) and the hunter claims them. Otherwise the prey escapes."),
+          h("li", {}, "The forest is a 4×4 grid of sixteen spots. Each hour, the prey hides in one. They can't stay put two hours in a row."),
+          h("li", {}, "The hunter searches two spots each hour. If the prey is right beside either one (up, down, left or right), the hunter hears them."),
+          h("li", {}, "Catch them before dawn (six hours, midnight to 6 AM) and the hunter claims them. Otherwise the prey escapes."),
           h("li", {}, "The winner gets the last word, and the loser owes the forfeit."),
           h("li", {}, "🛑 Red stops the game instantly for either of you. No winner, no forfeit, no questions.")))].filter(Boolean));
     if (startSlug) { const p = players.players.find((x) => x.slug === startSlug); if (p) openStart(p); }
@@ -306,6 +315,7 @@
     const names = { h: g.role === "hunter" ? myName : other.display_name, p: g.role === "prey" ? myName : other.display_name };
     const nameOf = (r) => (r === g.role ? "You" : other.display_name);
     const heat = HEATS.find((x) => x[0] === g.heat) || HEATS[0];
+    const SP = spotsFor(g), grid = g.board === "grid16", picks = g.searches || 1;
     const over = ["caught", "escaped", "red", "declined", "cancelled"].includes(g.status);
 
     // Story so far
@@ -314,44 +324,63 @@
       const lines = [];
       const hour = HOURS[r.round - 1] || "";
       if (r.prey_spot !== undefined && r.prey_spot !== null && (g.role === "prey" || over))
-        lines.push(h("p", { class: "hide-line" }, `${g.role === "prey" ? "You" : other.display_name} slipped into the ${SPOTS[r.prey_spot].n.toLowerCase()} ${SPOTS[r.prey_spot].e}`));
+        lines.push(h("p", { class: "hide-line" }, `${g.role === "prey" ? "You" : other.display_name} slipped into the ${SP[r.prey_spot].n.toLowerCase()} ${SP[r.prey_spot].e}`));
       if (r.prey_line) lines.push(h("p", { class: "say prey" }, `${nameOf("prey")}: “${r.prey_line}”`));
       if (r.search !== null && r.search !== undefined) {
         if (r.hunter_line) lines.push(h("p", { class: "say hunter" }, `${nameOf("hunter")}: “${r.hunter_line}”`));
-        const t = fill(pick(TEXT[r.result] ? TEXT[r.result][g.heat] : ["…"], i + r.search), { h: names.h, p: names.p, s: SPOTS[r.search].n.toLowerCase() });
+        const both = [r.search, r.search2].filter((x) => x !== null && x !== undefined);
+        const where = r.result === "caught" && r.caught_at !== undefined && r.caught_at !== null ? SP[r.caught_at].n.toLowerCase()
+          : both.map((x) => SP[x].n.toLowerCase()).join(" and the ");
+        let t = fill(pick(TEXT[r.result] ? TEXT[r.result][g.heat] : ["…"], i + r.search), { h: names.h, p: names.p, s: where });
+        if (where.includes(" and the ")) t = t.replace(/ is empty/g, " are both empty");
         lines.push(h("p", { class: "narr " + r.result }, (r.result === "caught" ? "🐺 " : r.result === "close" ? "👂 " : "🍃 ") + t));
       } else if (g.status === "active") lines.push(h("p", { class: "faint" }, g.role === "hunter" ? "They've hidden somewhere…" : "Waiting for the hunter to search…"));
       story.append(h("li", {}, h("span", { class: "hour" }, hour), ...lines));
     });
-    if (g.status === "escaped") story.append(h("li", { class: "dawn" }, h("span", { class: "hour" }, "Dawn"), h("p", { class: "narr escaped" }, "🌅 " + fill(pick(TEXT.escaped[g.heat], 0), { h: names.h, p: names.p, s: "" }))));
+    if (g.status === "escaped") story.append(h("li", { class: "dawn" }, h("span", { class: "hour" }, "Dawn · " + DAWN(g)), h("p", { class: "narr escaped" }, "🌅 " + fill(pick(TEXT.escaped[g.heat], 0), { h: names.h, p: names.p, s: "" }))));
 
-    // Map: six spots around a trail.
+    // Map: the 4×4 forest (new games) or six spots around a trail (older games).
     const searched = new Map(), hid = new Set();
     if (over) g.log.forEach((r) => { if (r.prey_spot !== undefined && r.prey_spot !== null) hid.add(r.prey_spot); });
-    if (g.role === "hunter" || over) g.log.forEach((r) => { if (r.search !== null && r.search !== undefined) searched.set(r.search, r.result); });
-    let chosen = null;
+    if (g.role === "hunter" || over) g.log.forEach((r) => {
+      [r.search, r.search2].forEach((x) => { if (x === null || x === undefined) return;
+        const res = r.result === "caught" ? (x === r.caught_at || r.caught_at === undefined ? "caught" : "far") : r.result;
+        if (searched.get(x) !== "caught") searched.set(x, res); });
+    });
+    let chosen = [];
+    const needed = g.role === "hunter" ? picks : 1;
     const lastPrey = g.lastPreySpot;
     const currentHide = g.role === "prey" && g.log.length && g.log[g.log.length - 1].search == null ? g.log[g.log.length - 1].prey_spot : null;
     const canPick = g.myTurn;
-    const map = h("div", { class: "hunt-map", role: "group", "aria-label": "The forest" });
-    const drawMap = () => map.replaceChildren(h("div", { class: "trail", "aria-hidden": "true" }), ...SPOTS.map((sp, i) => {
+    const map = h("div", { class: "hunt-map" + (grid ? " grid" : ""), role: "group", "aria-label": "The forest" });
+    const drawMap = () => map.replaceChildren(grid ? "" : h("div", { class: "trail", "aria-hidden": "true" }), ...SP.map((sp, i) => {
       const blocked = canPick && g.role === "prey" && i === lastPrey;
       const mark = (searched.has(i) ? { caught: "🎯", close: "👂", far: "🔍" }[searched.get(i)] : "") + (hid.has(i) && searched.get(i) !== "caught" ? "🐇" : "");
-      const b = h("button", { type: "button", class: "spot" + (chosen === i ? " chosen" : "") + (currentHide === i ? " hiding" : ""), style: `--i:${i}`,
-        disabled: !canPick || blocked, "aria-pressed": String(chosen === i), title: blocked ? "You hid here last hour" : sp.n },
+      const on = chosen.includes(i);
+      const b = h("button", { type: "button", class: "spot" + (on ? " chosen" : "") + (currentHide === i ? " hiding" : ""), style: `--i:${i}`,
+        disabled: !canPick || blocked, "aria-pressed": String(on), title: blocked ? "You hid here last hour" : sp.n },
         h("span", { class: "se", "aria-hidden": "true" }, sp.e), h("span", { class: "sn" }, sp.n),
         mark ? h("span", { class: "spot-mark", "aria-hidden": "true" }, mark) : null,
         currentHide === i ? h("span", { class: "spot-mark", "aria-hidden": "true" }, "🫣") : null);
-      b.addEventListener("click", () => { chosen = i; drawMap(); go2.disabled = false; go2.textContent = (g.role === "prey" ? "Hide in the " : "Search the ") + sp.n.toLowerCase(); });
+      b.addEventListener("click", () => {
+        if (on) chosen = chosen.filter((x) => x !== i);
+        else if (needed === 1) chosen = [i];
+        else chosen = [...chosen, i].slice(-needed);
+        drawMap();
+        const nm = chosen.map((x) => SP[x].n.toLowerCase());
+        go2.disabled = chosen.length !== needed;
+        go2.textContent = g.role === "prey" ? (nm.length ? "Hide in the " + nm[0] : "Pick a hiding spot")
+          : chosen.length === needed ? "Search the " + nm.join(" and the ") : needed === 2 ? `Pick ${needed - chosen.length} more spot${needed - chosen.length === 1 ? "" : "s"}` : "Pick a spot to search";
+      });
       return b;
     }));
     const line = h("input", { type: "text", maxlength: 140, placeholder: g.role === "prey" ? "Optional: a taunt for the hunter" : "Optional: something to growl", "aria-label": "Your line" });
-    const go2 = h("button", { type: "button", class: "btn gold", disabled: true }, g.role === "prey" ? "Pick a hiding spot" : "Pick a spot to search");
+    const go2 = h("button", { type: "button", class: "btn gold", disabled: true }, g.role === "prey" ? "Pick a hiding spot" : picks === 2 ? "Pick two spots to search" : "Pick a spot to search");
     go2.addEventListener("click", async () => {
-      if (chosen === null) return;
+      if (chosen.length !== needed) return;
       go2.disabled = true;
       try {
-        const upd = await pb.send(`/api/vc/hunts/${g.id}/move`, { method: "POST", body: { spot: chosen, line: line.value.trim() } });
+        const upd = await pb.send(`/api/vc/hunts/${g.id}/move`, { method: "POST", body: g.role === "hunter" && needed > 1 ? { spots: chosen, line: line.value.trim() } : { spot: chosen[0], line: line.value.trim() } });
         if (upd.status === "caught") toast(g.role === "hunter" ? "🐺 Caught them!" : "🪤 Caught…");
         else if (upd.status === "escaped") toast(g.role === "prey" ? "🌅 You made it to dawn!" : "💨 They got away");
         else toast(g.role === "prey" ? "🫣 Hidden. Send them a nudge!" : "Searched. Their move.");
@@ -388,8 +417,8 @@
       action = h("section", { class: "panel hunt-action your-turn" },
         h("h2", {}, g.role === "prey" ? `${HOURS[g.round - 1]}. Where do you hide?` : `${HOURS[g.round - 1]}. Where do you search?`),
         h("p", { class: "faint" }, g.role === "prey"
-          ? (lastPrey !== null ? `You can't stay at the ${SPOTS[lastPrey].n.toLowerCase()}. ` : "") + "Tap a spot on the trail."
-          : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
+          ? (lastPrey !== null ? `You can't stay at the ${SP[lastPrey].n.toLowerCase()}. ` : "") + "Tap a spot in the forest."
+          : picks === 2 ? "Pick two spots to search. If they're right beside either one (not diagonal), you'll hear them." : "Tap a spot on the trail. If they're right next to it, you'll hear them."),
         map, line, quickPicker(h, g.role, g.heat, line), h("div", { class: "actions" }, go2, red));
     } else if (g.status === "active") {
       action = h("section", { class: "panel hunt-action" },

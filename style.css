@@ -898,3 +898,10 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 .quick-emoji { display: flex; flex-wrap: wrap; gap: 4px; }
 .quick-emoji button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: 1.15rem; cursor: pointer; }
 .quick-emoji button:hover { border-color: var(--gold); transform: scale(1.08); }
+/* The Hunt: the 4×4 forest */
+.hunt-map.grid { aspect-ratio: auto; width: min(460px, 100%); border-radius: 18px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 240, 190, .07), transparent 55%), linear-gradient(180deg, #0f1f17, #0b140f); }
+.hunt-map.grid .spot { position: relative; left: auto; top: auto; margin: 0; width: auto; height: auto; aspect-ratio: 1; border-radius: 14px; }
+.hunt-map.grid .spot:not([disabled]):hover { transform: scale(1.04); }
+.hunt-map.grid .sn { font-size: .62rem; }
+@media (max-width: 420px) { .hunt-map.grid { gap: 5px; padding: 6px; } .hunt-map.grid .spot { width: auto; height: auto; margin: 0; } .hunt-map.grid .se { font-size: 1.25rem; } .hunt-map.grid .sn { font-size: .55rem; } }
