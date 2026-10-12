@@ -610,13 +610,33 @@
     });
     return h("section", { class: "prose" }, h("h2", {}, "Into & curious about"), ...body);
   }
-  function limitsSection(text) {
-    const parsed = parseTags(text);
-    if (!parsed) return null;
+  const KJ_URL = /https?:\/\/jay-hosting\.github\.io\/kink-jars\/?[^\s]*/i;
+  // Limits as tags. If someone pasted their Kink Jars link instead of typing limits (or left them
+  // blank), the hard limits are read from their shelf instead.
+  function limitsBody(text, kjUrl) {
+    const m = String(text || "").match(KJ_URL);
+    const typed = String(text || "").replace(KJ_URL, "").replace(/https?:\/\/\S+/g, "").trim();
+    const url = (m && m[0]) || kjUrl || "";
+    const parsed = parseTags(typed);
     // Limits don't rotate: none of them should drop out of view while someone is reading.
-    const body = parsed.prose ? [proseBlock(parsed.prose)] : parsed.groups.map((g) => h("div", { class: "tag-group" },
+    if (parsed) return parsed.prose ? [proseBlock(parsed.prose)] : parsed.groups.map((g) => h("div", { class: "tag-group" },
       g.label && !/^limits?$/i.test(g.label) ? h("h3", { class: "tag-label" }, g.label) : null,
       tagRow(g.items, { max: 8, rotate: false, cls: "tag-limit" })));
+    if (!url || !window.KinkJarsImport) return null;
+    const holder = h("div", {}, h("p", { class: "faint" }, "Reading their Kink Jars shelf…"));
+    (async () => {
+      try {
+        const sum = window.KinkJarsImport.summarize(await window.KinkJarsImport.resolve(url));
+        holder.replaceChildren(sum.limits.length
+          ? h("div", { class: "tag-group" }, h("h3", { class: "tag-label" }, "Hard no (from Kink Jars)"), tagRow(sum.limits, { max: 8, rotate: false, cls: "tag-limit" }))
+          : h("p", { class: "faint" }, "No hard limits marked on their Kink Jars shelf. Ask before trying anything."));
+      } catch { holder.replaceChildren(h("a", { href: url, target: "_blank", rel: "noopener" }, "See their limits on Kink Jars ↗")); }
+    })();
+    return [holder];
+  }
+  function limitsSection(text, kjUrl) {
+    const body = limitsBody(text, kjUrl);
+    if (!body) return null;
     return h("section", { class: "limits-box" }, h("h2", {}, "Limits"), ...body);
   }
 
@@ -1219,10 +1239,10 @@
     }
     const qotwHolder = h("div", {});
     main.push(qotwHolder);
-    if (p.into || p.limits) {
+    if (p.into || p.limits || (p.play_links || []).some((l) => KJ_URL.test(l.url || ""))) {
       main.push(h("div", { class: "into-limits" },
         intoSection(p.into),
-        limitsSection(p.limits)));
+        limitsSection(p.limits, ((p.play_links || []).find((l) => KJ_URL.test(l.url || "")) || {}).url)));
     }
     const care = p.care || {};
     const REPLY = { minutes: "within minutes", hours: "within a few hours", day: "within a day", days: "in a few days" };
@@ -1987,7 +2007,7 @@
     try { await navigator.clipboard.writeText(text); toast(msg || "Copied"); }
     catch { prompt("Copy this:", text); }
   }
-  if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText };
+  if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText, limitsBody };
 
   render();
 })();

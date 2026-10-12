@@ -350,8 +350,7 @@
       if (over && winner) map.classList.add("reveal");
     }
 
-    const lim = parseTags(g.otherLimits);
-    const limitsItems = lim ? (lim.prose ? [lim.prose] : lim.groups.flatMap((x) => x.items)) : [];
+    const limits = deps().limitsBody(g.otherLimits, g.otherKj);
     app.replaceChildren(...[
       h("section", { class: "hunt-head" },
         h("a", { class: "see-all", href: "/hunt", "data-nav": "" }, "← The Hunt"),
@@ -363,7 +362,8 @@
       action,
       over && g.log.length ? h("section", { class: "panel" }, h("h2", {}, "Where everyone was"), map) : null,
       g.log.length ? h("section", { class: "panel" }, h("h2", {}, "The night so far"), story) : null,
-      limitsItems.length ? h("details", { class: "panel hunt-limits" }, h("summary", {}, `${other.display_name}'s limits`), h("p", { class: "faint" }, limitsItems.join(" · "))) : null,
+      limits ? h("section", { class: "panel hunt-limits limits-box" }, h("h2", {}, `${other.display_name}'s limits`), ...limits)
+        : h("section", { class: "panel hunt-limits" }, h("h2", {}, `${other.display_name}'s limits`), h("p", { class: "faint" }, "They haven't listed any limits. Keep it light and check in.")),
       h("p", { class: "faint center" }, "Text only, and always within each other's limits. 🛑 Red ends it instantly for either of you.")].filter(Boolean));
     if (over) drawMap(); else if (g.status === "active") drawMap();
   }
