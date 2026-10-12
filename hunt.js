@@ -209,7 +209,7 @@
     "Feathers": { g: ["drag a feather over every inch of you until you can't stay still"], r: ["tease me with a feather until I can't stay still"], sg: ["trace a feather over every inch of you"], sr: ["tease me with a feather"] },
     "Tickling": { g: ["pin you down and tickle you until you surrender"], r: ["pin me down and tickle me until I surrender"], sg: ["tickle you until you surrender"], sr: ["tickle me until I surrender"] },
     "Vibrators": { g: ["hold a vibrator against you and not let you pull away"], r: ["hold a vibrator on me until I can't stand it"], sg: ["try a little vibration on you"], sr: ["try a little vibration on me"] },
-    "Massage": { g: ["rub you down slow, everywhere"], r: ["rub me down slow, everywhere"], sg: ["give you a long, slow massage"], sr: ["give me a long, slow massage"] },
+    "Massage": { g: ["make you rub me down, slow, everywhere"], r: ["make me rub you down, slow, everywhere"], sg: ["have you give me a long, slow massage"], sr: ["have me give you a long, slow massage"] },
     "Sensory deprivation": { g: ["take away your sight and sound so all you can feel is me"], r: ["take away everything but your touch"] },
     "Overstimulation": { g: ["keep going long after you're too sensitive to take it"], r: ["keep going long after I'm too sensitive to take it"] },
     "Knife play (no cutting)": { g: ["drag the flat of a blade slowly across your skin"], r: ["trace a blade slowly across my skin"] },
@@ -231,20 +231,25 @@
     "Kissing": { g: ["kiss you hard up against the nearest wall"], r: ["kiss me hard up against the nearest wall"], sg: ["kiss you breathless"], sr: ["kiss me breathless"] },
     "Neck kissing": { g: ["kiss my way down your neck, slow"], r: ["kiss your way down my neck, slow"], sg: ["kiss your neck"], sr: ["kiss my neck"] },
     "Cuddling": { g: ["pull you in close and not let go"], r: ["pull me in close and not let go"], sg: ["pull you in close"], sr: ["pull me in close"] },
-    "Body worship": { g: ["worship every inch of you with my mouth"], r: ["worship every inch of me"], sg: ["kiss every inch of you"], sr: ["kiss every inch of me"] },
-    "Oral": { g: ["spread you open and use my mouth on you until you're shaking"], r: ["get on your knees and use your mouth on me until I'm shaking"] },
+    "Body worship": { g: ["make you worship every inch of me with your mouth"], r: ["make me worship every inch of you"], sg: ["make you kiss every inch of me"], sr: ["make me kiss every inch of you"] },
+    "Oral": { g: ["put you on your knees and make you use your mouth on me"], r: ["put me on my knees and make me use my mouth on you"] },
     "Fingering & hand stuff": { g: ["slide my hand between your legs and take my time"], r: ["slide your hand between my legs and take your time"] },
     "Grinding": { g: ["pin you down and grind against you until you're desperate"], r: ["grind against me until I'm desperate"] },
     "Rough sex": { g: ["take you hard, right where I find you"], r: ["take me hard, right where you find me"] },
     "Slow & sensual": { g: ["take you slow, so slow you beg me to hurry"], r: ["take me slow, so slow I beg you to hurry"], sg: ["take things slow with you"], sr: ["take things slow with me"] },
     "Nipple play": { g: ["tease your nipples until you're arching for more"], r: ["tease my nipples until I'm arching for more"] },
-    "Ass worship": { g: ["get behind you and worship that ass"], r: ["get behind me and worship my ass"] },
-    "Foot rubs": { g: ["rub your feet while you catch your breath"], r: ["rub my feet while I catch my breath"], sg: ["rub your feet"], sr: ["rub my feet"] },
+    "Ass worship": { g: ["put you on your knees behind me and make you worship my ass"], r: ["put me on my knees behind you and make me worship your ass"] },
+    "Foot rubs": { g: ["make you rub my feet"], r: ["make me rub your feet"], sg: ["have you rub my feet"], sr: ["have me rub your feet"] },
     "Masturbation": { g: ["watch you touch yourself and not let you stop"], r: ["watch me touch myself, and don't look away"] },
     "Hair play": { g: ["run my fingers through your hair, then grab a fistful"], r: ["run your fingers through my hair, then grab a fistful"], sg: ["play with your hair"], sr: ["play with my hair"] },
+    "Cock worship": { g: ["put you on your knees and make you worship my cock"], r: ["put me on my knees and make me worship your cock"] },
+    "Pussy worship": { g: ["make you worship my pussy until I say stop"], r: ["make me worship your pussy until you say stop"] },
+    "Boot worship": { g: ["make you lick my boots clean"], r: ["make me lick your boots clean"] },
+    "Feet": { g: ["make you worship my feet"], r: ["make me worship your feet"] },
+    "Sucking a strap-on": { g: ["make you suck my strap-on"], r: ["make me suck your strap-on"] },
     // toys
     "Anal": { g: ["bend you over and take your ass, slow"], r: ["bend me over and take my ass"] },
-    "Rimming": { g: ["spread you and use my tongue"], r: ["spread me and use your tongue"] },
+    "Rimming": { g: ["push your face down and make you use your tongue on me"], r: ["push my face down and make me use my tongue on you"] },
     "Pegging": { g: ["peg you slow and deep"], r: ["peg me slow and deep"] },
     "Plugs": { g: ["slide a plug in you and make you wear it the rest of the night"], r: ["plug me and make me wear it all night"] },
     "Strap-ons": { g: ["strap on and fuck you properly"], r: ["strap on and take me"] },
@@ -314,7 +319,10 @@
     "Name calling": ["Don't call me those names. Please."], "Pet names": ["If you call me pet, I'll come crawling."],
     "Moaning & noise": ["If you make me moan, you'll know exactly where I am."], "Objectification": ["Don't use me like that. Please."],
     "Kissing": ["If you kiss me, I'll stop running."], "Neck kissing": ["Stay away from my neck. It's my weakness."],
-    "Body worship": ["Don't look at me like that."], "Oral": ["I know where your mouth is going if you catch me."],
+    "Body worship": ["You'll make me worship you. Every inch."], "Rimming": ["I know where my tongue is going if you catch me."],
+    "Ass worship": ["You'll have me on my knees behind you. I know it."], "Cock worship": ["I know what you'll make me worship."],
+    "Pussy worship": ["I know what you'll make me worship."], "Boot worship": ["You'll have me licking your boots. I just know it."],
+    "Sucking a strap-on": ["I know what you're going to put in my mouth."], "Feet": ["You'll have me at your feet. Literally."], "Oral": ["I know exactly where my mouth is going if you catch me.", "If you catch me, I'm ending up on my knees. I know it."],
     "Fingering & hand stuff": ["Keep your hands to yourself. Please."], "Rough sex": ["You'll be rough with me. I know you will."],
     "Nipple play": ["Stay away from my nipples. I mean it."], "Anal": ["Not my ass. Please, not tonight."],
     "Plugs": ["If you plug me, I'll feel it all night."], "Strap-ons": ["I saw the strap-on. I'm not coming out."],
@@ -403,6 +411,8 @@
   // Build the list of teases from my shelf (may be null) and theirs.
   // The hunter is always the one doing it, and the prey always the one it's done to: the hunter's doing side
   // has to meet the prey's receiving side. (For clothing, the prey is the one who wears it.)
+  // Jars where the one being served is in charge: the prey does the serving (their first side), the hunter receives.
+  const SERVICE = new Set(["Oral", "Rimming", "Body worship", "Ass worship", "Foot rubs", "Massage", "Cock worship", "Pussy worship", "Boot worship", "Heel worship", "Feet", "Muscle worship"]);
   function kinkTeases(mine, theirs, words, role) {
     const ok = (v) => v >= 1 && v <= 5;
     const out = [];
@@ -418,6 +428,7 @@
       if (sA) {
         const gear = cat === "gear";
         if (gear) { if (role === "hunter") push(m[1], t[0], "see"); else push(m[0], t[1], "wear"); }   // the prey wears it, the hunter looks
+        else if (SERVICE.has(label)) { if (role === "hunter") push(m[1], t[0], "give"); else push(m[0], t[1], "get"); }   // the prey serves
         else if (role === "hunter") push(m[0], t[1], "give");   // my doing side meets their receiving side
         else push(m[1], t[0], "get");                            // their doing side meets my receiving side
       } else push(m[0] || m[1], t[0] || t[1], "both");
