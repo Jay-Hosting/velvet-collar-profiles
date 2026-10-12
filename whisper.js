@@ -71,10 +71,10 @@
       if (data.queued) {
         const leave = h("button", { type: "button", class: "btn small ghost" }, "Stop looking");
         leave.addEventListener("click", async () => { try { await pb.send("/api/vc/whispers/find", { method: "DELETE" }); renderLobby(app); } catch (err) { toast(errMsg(err), true); } });
-        finder.append(h("h2", {}, "🌙 Looking for someone…"),
+        finder.append(...[h("h2", {}, "🌙 Looking for someone…"),
           h("p", { class: "queue-on" }, h("span", { class: "dot", "aria-hidden": "true" }), "You're in line. As soon as someone who suits you starts looking, you'll be whispering. You can close this page."),
           data.waiting ? h("p", { class: "faint" }, `${data.waiting} other${data.waiting === 1 ? " is" : "s are"} waiting, but not a match for your heat or interests yet.`) : null,
-          h("div", { class: "actions" }, leave));
+          h("div", { class: "actions" }, leave)].filter(Boolean));
         const known = new Set(data.chats.map((c) => c.id));
         poll = setInterval(async () => {
           if (!document.body.contains(finder)) return clearInterval(poll);
