@@ -1553,7 +1553,7 @@
     if (prompts.length) {
       main.push(h("section", { class: "prose" }, h("h2", {}, "Ask me about"),
         h("div", { class: "prompt-cards" }, prompts.map((x, i) =>
-          h("div", { class: "prompt-card", style: `--tilt:${[-1.2, 0.9, -0.6, 1.1][i % 4]}deg` }, h("span", { class: "pq" }, x.q), h("p", { class: "pa" }, x.a))))));
+          h("div", { class: "prompt-card" }, h("span", { class: "pq" }, x.q), h("p", { class: "pa" }, x.a))))));
     }
     const qotwHolder = h("div", {});
     main.push(qotwHolder);
