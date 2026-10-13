@@ -160,7 +160,7 @@
     ctx.textAlign = "center"; ctx.fillStyle = look.accent; ctx.font = `800 40px ${sans}`;
     ctx.fillText(d.url.replace(/^https?:\/\//, ""), W / 2, H - 92);
     ctx.fillStyle = "#8f8a9b"; ctx.font = `700 24px ${sans}`;
-    ctx.fillText("CURIOUS MINDS, BOUNDLESS BODIES", W / 2, H - 46);
+    ctx.fillText("CURIOSITY, EMBODIED", W / 2, H - 46);
     return cv;
   }
 

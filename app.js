@@ -309,10 +309,10 @@
     document.title = "Velvet Collar Profiles";
     app.replaceChildren(
       h("section", { class: "hero" },
-        h("div", { class: "logo", role: "img", "aria-label": "Velvet Collar: curious minds, boundless bodies" },
+        h("div", { class: "logo", role: "img", "aria-label": "Velvet Collar: curiosity, embodied" },
           h("span", { class: "mark", "aria-hidden": "true" }),
           h("span", { class: "name", "aria-hidden": "true" }, "Velvet Collar"),
-          h("span", { class: "tagline", "aria-hidden": "true" }, "Curious minds, boundless bodies")),
+          h("span", { class: "tagline", "aria-hidden": "true" }, "Curiosity, embodied")),
         h("h1", {}, "One link for everything about you"),
         h("p", {}, `Make a profile page for ${CFG.GROUP_NAME || "the group"}, put the link in your Telegram bio, and people can find everything about you in one tap.`),
         h("div", { class: "actions", style: "justify-content:center" },
