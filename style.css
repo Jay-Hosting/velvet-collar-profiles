@@ -1298,3 +1298,8 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   .gp-link .gp-note { grid-column: 1 / -1; }
 }
 .group-p + .group-p { margin-top: 12px; }
+/* Group page pinned on the member list */
+.link.group-row { border-color: color-mix(in srgb, var(--k-hosted) 45%, transparent); background: linear-gradient(90deg, rgba(255, 159, 210, .10), transparent 70%), var(--panel); }
+.group-mono { display: grid; place-items: center; background: var(--panel-solid); border: 2px solid var(--k-hosted); }
+.group-mono .mark { width: 26px; height: 17px; }
+.new-pill.group-pill { background: rgba(255, 159, 210, .16); color: var(--k-hosted); }

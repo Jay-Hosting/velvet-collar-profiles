@@ -353,7 +353,7 @@
     try {
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
-      if (r.name === "home") return me() ? await renderDirectory() : renderLanding();
+      if (r.name === "home") return me() ? await renderDirectory() : await renderGroup(renderLanding);
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
       if (r.name === "playroom") return await renderPlayroom();
@@ -647,10 +647,14 @@
   }
 
   // ---------- the group's own profile page (/velvetcollar). Admins and owners edit it on the Admin page. ----------
-  async function renderGroup() {
+  // `fallback` is used on the home page: if the group page is members-only or not set up, show the usual welcome page.
+  async function renderGroup(fallback) {
     let d;
     try { d = await pb.send("/api/vc/group", {}); }
-    catch (err) { if (err.status === 401) return renderLogin("/velvetcollar"); if (err.status === 404) return notFound(); throw err; }
+    catch (err) {
+      if (fallback) return fallback();
+      if (err.status === 401) return renderLogin("/velvetcollar"); if (err.status === 404) return notFound(); throw err;
+    }
     const g = d.page, user = me();
     document.title = g.name;
     const pageUrl = location.origin + "/velvetcollar";
@@ -837,6 +841,13 @@
     const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,play_links,matches_off,birthday" });
     const rows = h("div", { class: "link-list" });
     let term = "", filter = "all";
+    // The group's own page, pinned to the top of the list.
+    const grp = await pb.send("/api/vc/group", {}).catch(() => null);
+    const groupRow = grp ? h("a", { class: "link group-row", href: "/velvetcollar", "data-nav": "" },
+      h("span", { class: "mono-wrap" }, grp.page.logo ? h("img", { class: "mono photo", src: fileUrl(grp.page, grp.page.logo, "400x400"), alt: "", loading: "lazy" })
+        : h("span", { class: "mono group-mono", "aria-hidden": "true" }, h("span", { class: "mark" }))),
+      h("span", { class: "txt" }, h("b", {}, grp.page.name, h("span", { class: "new-pill group-pill" }, "💜 Group")), h("small", {}, grp.page.tagline || "Our group page: about us, links and the team")),
+      h("span", { class: "arrow", "aria-hidden": "true" }, "→")) : null;
     const FILTERS = [["all", "Everyone"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
     const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
     const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
@@ -846,6 +857,7 @@
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
       const items = list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m));
+      if (groupRow && filter === "all" && (!t || (grp.page.name + " velvetcollar group").toLowerCase().includes(t))) rows.append(groupRow);
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
         const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
