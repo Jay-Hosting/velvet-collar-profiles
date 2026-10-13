@@ -955,8 +955,6 @@
       }
     };
     const search = h("input", { class: "search", type: "search", placeholder: `Search ${list.length} ${list.length === 1 ? "member" : "members"}`, "aria-label": "Search members", oninput: (e) => { term = e.target.value; draw(); } });
-    const others = list.filter((m) => m.id !== user.id);
-    const surprise = others.length ? h("button", { type: "button", class: "btn small gold", onclick: () => go("/" + others[Math.floor(Math.random() * others.length)].slug) }, "🎲 Surprise me") : null;
     drawFilters(); draw();
     const onlineTimer = setInterval(async () => {
       if (!rows.isConnected) return clearInterval(onlineTimer);
@@ -977,7 +975,7 @@
       crushHolder,
       twinsHolder,
       h("section", { class: "panel" },
-        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), h("span", { class: "actions", style: "margin:0" }, h("a", { class: "btn small", href: "/network", "data-nav": "" }, "🤝 Networking"), twinsBtn, surprise)),
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), h("span", { class: "actions", style: "margin:0" }, h("a", { class: "btn small", href: "/network", "data-nav": "" }, "🤝 Networking"), twinsBtn)),
         h("p", { class: "faint", style: "margin-top:4px" }, "Only logged-in members can see this list, and only people who opted in are on it. Open-to-anything members show up under every filter."),
         search, filterBar, rows),
     );
