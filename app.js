@@ -120,7 +120,43 @@
     let back = "";
     try { back = sessionStorage.getItem("vc_after_login") || ""; sessionStorage.removeItem("vc_after_login"); } catch {}
     go(isNew ? "/edit" : back || "/");
+    if (isNew) setTimeout(() => openHowTo(true), 400);
   }
+
+  // A short how-to, step by step. Opens once after someone makes their profile, and from "How it works" in the footer.
+  const HOWTO = [
+    { e: "👋", t: "Welcome to Velvet Collar", p: ["This is where members of the group have a profile, find each other, see events and play games.", "Here's a 1-minute tour. You can open it again any time from “How it works” at the bottom of the page."] },
+    { e: "✏️", t: "Fill in your profile", p: ["You're on your Edit page now. Add a photo, a little about you, what you're looking for, your relationship style, and your interests and limits.", "Everything is optional, so share as much or as little as you like. Tap Save profile at the bottom when you're done."], tip: "The glow-up meter at the top shows what's left to fill in." },
+    { e: "🎨", t: "Make it look like you", p: ["The 🎨 Settings tab changes your colours, pattern, font, charm and mood.", "📸 Photos adds a gallery, 🔗 Links adds your other pages, and 🎲 Playroom holds your game links."] },
+    { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Share it in Telegram with 📣 Share in Telegram on your page." },
+    { e: "📅", t: "Events", p: ["The Events calendar shows munches, game nights and play parties. Tap I'm going or ☆ Interested, and add them to your own calendar.", "Some play parties need you to be vetted first. Fill in the vetting form from the Events page."] },
+    { e: "🎲", t: "The Playroom", p: ["Games to play with other members: 🏹 The Hunt, 🤫 Whispers (anonymous chats) and more.", "React to profiles, leave kind notes, vouch for people, and send secret crushes. They're only revealed if it's mutual."] },
+    { e: "💜", t: "Look after each other", p: ["Ask first, respect limits, and keep what's shared here inside the group.", "If anything feels off, use Report inside a Whisper chat, or tell one of the team. You'll find them on the Velvet Collar page."], tip: "Don't want crushes, vouches, reactions or kind notes? Switch each one off in 🎨 Settings any time." },
+  ];
+  function openHowTo(isNew) {
+    let i = 0;
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "ht_title" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", key); };
+    const key = (e) => { if (e.key === "Escape") close(); else if (e.key === "ArrowRight" && i < HOWTO.length - 1) { i++; draw(); } else if (e.key === "ArrowLeft" && i > 0) { i--; draw(); } };
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const box = h("div", { class: "modal-box ht-box" });
+    const draw = () => {
+      const st = HOWTO[i], last = i === HOWTO.length - 1;
+      box.replaceChildren(
+        h("div", { class: "ht-top" }, h("span", { class: "faint" }, `${i + 1} of ${HOWTO.length}`), h("button", { type: "button", class: "btn small ghost", onclick: close }, last ? "Close" : "Skip")),
+        h("div", { class: "ht-emoji", "aria-hidden": "true" }, st.e),
+        h("h2", { id: "ht_title", class: "ht-title" }, st.t),
+        h("div", { class: "ht-body" }, st.p.map((x) => h("p", {}, x)), st.tip ? h("p", { class: "ht-tip" }, "💡 " + st.tip) : null),
+        h("div", { class: "ht-dots", role: "tablist", "aria-label": "Steps" }, HOWTO.map((_, k) => h("button", { type: "button", class: "ht-dot" + (k === i ? " on" : ""), "aria-label": `Step ${k + 1}`, "aria-selected": String(k === i), onclick: () => { i = k; draw(); } }))),
+        h("div", { class: "ht-nav" },
+          i > 0 ? h("button", { type: "button", class: "btn ghost", onclick: () => { i--; draw(); } }, "← Back") : h("span", {}),
+          last ? h("button", { type: "button", class: "btn gold", onclick: () => { close(); if (!isNew && me() && location.pathname !== "/edit") go("/edit"); } }, isNew ? "Let's fill in my profile ✨" : me() ? "Go to my Edit page" : "Got it")
+            : h("button", { type: "button", class: "btn gold", onclick: () => { i++; draw(); } }, "Next →")));
+    };
+    draw();
+    modal.append(box); document.body.append(modal); document.addEventListener("keydown", key);
+  }
+  document.addEventListener("click", (e) => { const a = e.target.closest("[data-howto]"); if (a) { e.preventDefault(); openHowTo(false); } });
 
   // The community guidelines in a pop-up. onAgree (optional) adds an "I agree" button.
   function openGuidelines(onAgree) {

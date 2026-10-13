@@ -1303,3 +1303,16 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .group-mono { display: grid; place-items: center; background: var(--panel-solid); border: 2px solid var(--k-hosted); }
 .group-mono .mark { width: 26px; height: 17px; }
 .new-pill.group-pill { background: rgba(255, 159, 210, .16); color: var(--k-hosted); }
+
+/* How-to guide */
+.ht-box { width: min(480px, 100%); gap: 10px; padding: 18px 20px 20px; }
+.ht-top { display: flex; justify-content: space-between; align-items: center; }
+.ht-emoji { font-size: 3rem; text-align: center; line-height: 1.1; }
+.ht-title { text-align: center; margin: 0; font-family: var(--serif); color: var(--pink); }
+.ht-body { min-height: 150px; color: var(--muted); line-height: 1.55; }
+.ht-body p { margin: 0 0 10px; }
+.ht-tip { padding: 10px 12px; border-radius: 12px; background: var(--gold-soft); color: var(--text); border: 1px solid var(--line-strong); font-size: .92rem; }
+.ht-dots { display: flex; justify-content: center; gap: 8px; }
+.ht-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: var(--line-strong); cursor: pointer; }
+.ht-dot.on { background: var(--gold); transform: scale(1.25); }
+.ht-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
