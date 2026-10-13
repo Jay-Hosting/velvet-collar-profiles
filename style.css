@@ -1413,3 +1413,8 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 @media (max-width: 560px) { .net-score { width: 70px; } }
 .net-block { display: grid; gap: 5px; padding-top: 6px; border-top: 1px dashed var(--line); }
 .net-block-h { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+
+/* Progress meter: highlight the spot it sends you to */
+.glow-target { animation: glow-target 2.4s ease-out; border-radius: 14px; }
+@keyframes glow-target { 0%, 35% { box-shadow: 0 0 0 3px var(--gold), 0 0 24px var(--gold-soft); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .glow-target { animation: none; outline: 2px solid var(--gold); outline-offset: 4px; } }

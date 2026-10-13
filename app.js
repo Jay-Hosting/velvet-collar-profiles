@@ -1482,19 +1482,19 @@
     const look = L.resolve(p.style, p.theme);
     const care = p.care || {};
     const items = [
-      [12, !!p.avatar, "Add a profile photo", "profile"],
-      [8, (p.looking_for || []).length > 0, "Say what you're looking for", "profile"],
-      [6, !!(p.pronouns || p.dynamic), "Add pronouns or your dynamic", "profile"],
-      [10, !!p.bio, "Write a little About you", "profile"],
-      [8, !!p.hobbies, "List a few hobbies", "profile"],
-      [10, !!p.into, "Add what you're into", "profile"],
-      [8, !!p.limits, "Add your limits", "profile"],
-      [8, (p.prompts || []).length > 0, "Answer an Ask me about card", "profile"],
-      [6, !!(care.approach || care.checkins || care.aftercare || care.reply), "Fill in Care & communication", "profile"],
-      [6, (p.links || []).length + (p.jars || []).length > 0, "Add a link", "links"],
-      [8, photoCount > 0, "Upload a photo", "photos"],
-      [5, (p.play_links || []).length > 0, "Add a game link in the Playroom", "playroom"],
-      [5, !!(look.mood_emoji || look.mood_text), "Set a mood sticker", "settings"],
+      [12, !!p.avatar, "Add a profile photo", "profile", ".avatar-edit"],
+      [8, (p.looking_for || []).length > 0, "Say what you're looking for", "profile", '[aria-label="Looking for"]'],
+      [6, !!(p.pronouns || p.dynamic), "Add pronouns or your dynamic", "profile", "#f_pronouns"],
+      [10, !!p.bio, "Write a little About you", "profile", "#f_bio"],
+      [8, !!p.hobbies, "List a few hobbies", "profile", "#f_hobbies"],
+      [10, !!p.into, "Add what you're into", "profile", "#f_into"],
+      [8, !!p.limits, "Add your limits", "profile", "#f_limits"],
+      [8, (p.prompts || []).length > 0, "Answer an Ask me about card", "profile", ".prompt-rows"],
+      [6, !!(care.approach || care.checkins || care.aftercare || care.reply), "Fill in Care & communication", "profile", "#care_approach"],
+      [6, (p.links || []).length + (p.jars || []).length > 0, "Add a link", "links", "#pane-links .presets"],
+      [8, photoCount > 0, "Upload a photo", "photos", 'label[for="photoInput"], #pane-photos'],
+      [5, (p.play_links || []).length > 0, "Add a game link in the Playroom", "playroom", "#pane-playroom"],
+      [5, !!(look.mood_emoji || look.mood_text), "Set a mood sticker", "settings", '[data-look="mood_emoji"]'],
     ];
     const score = items.reduce((n, [w, done]) => n + (done ? w : 0), 0);
     const todo = items.filter(([, done]) => !done).sort((a, b) => b[0] - a[0]);
@@ -2647,6 +2647,20 @@
 
     // Glow-up meter: how complete the saved profile is, and the next thing to add.
     const glowHolder = h("div", {});
+    // Open the right tab, scroll to the exact spot, put the cursor there and give it a little glow.
+    function goTo(tab, sel) {
+      showTab(tab);
+      requestAnimationFrame(() => {
+        const el = sel && document.querySelector(sel);
+        if (!el) return;
+        const field = el.closest(".field") || el.closest("section") || el;
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        const focusEl = el.matches("input, textarea, select, button") ? el : el.querySelector("input:not([type=file]):not(.sr), textarea, select, button");
+        if (focusEl) setTimeout(() => focusEl.focus({ preventScroll: true }), 350);
+        field.classList.remove("glow-target"); void field.offsetWidth; field.classList.add("glow-target");
+        setTimeout(() => field.classList.remove("glow-target"), 2600);
+      });
+    }
     const drawGlow = () => {
       const g = glowUp(rec, photos.length);
       const next = g.todo[0];
@@ -2655,7 +2669,7 @@
         h("div", { class: "glow-ring", style: `--pct:${g.score}`, role: "img", "aria-label": `Profile ${g.score}% complete` }, h("span", {}, g.score + "%")),
         h("div", { class: "glow-txt" },
           h("b", {}, g.score >= 100 ? "✨ Fully glowed up!" : g.score >= 70 ? "Looking good!" : g.score >= 40 ? "Getting there" : "Let's dress up your page"),
-          next ? h("span", {}, "Next: ", h("button", { type: "button", class: "see-all", onclick: () => showTab(next[3]) }, next[2]), h("small", { class: "faint" }, ` (+${next[0]}% · ${tabLabel(next[3])})`))
+          next ? h("span", {}, "Next: ", h("button", { type: "button", class: "see-all", onclick: () => goTo(next[3], next[4]) }, next[2]), h("small", { class: "faint" }, ` (+${next[0]}% · ${tabLabel(next[3])})`))
             : h("span", { class: "faint" }, "You've earned the ✨ Glowed up badge."))));
     };
     drawGlow();
