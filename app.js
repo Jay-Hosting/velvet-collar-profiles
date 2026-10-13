@@ -411,9 +411,9 @@
     const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
     const dayKey = (t) => dayFmt.format(new Date(t));
     const today = dayKey(now);
-    // Colour: going beats vetting tags.
-    const kind = (ev) => (ev.mine ? "going" : ev.vetting === "offered" ? "vet" : ev.vetting === "required" ? "vetonly" : "other");
-    const KINDS = [["going", "You're going"], ["vet", "Get vetted here"], ["vetonly", "Vetted members only"], ["other", "Other events"]];
+    // Colour, first match wins: you're going (gold), vetted only (velvet), hosted by Velvet Collar (pink), get vetted here (green), anything else.
+    const kind = (ev) => (ev.mine ? "going" : ev.vetting === "required" ? "vetonly" : ev.hosted ? "hosted" : ev.vetting === "offered" ? "vet" : "other");
+    const KINDS = [["going", "You're going"], ["hosted", "Hosted by Velvet Collar"], ["vet", "Get vetted here"], ["vetonly", "Vetted members only"], ["other", "Other events"]];
 
     // ---- add to calendar ----
     const icsTime = (t) => new Date(t).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
@@ -450,6 +450,7 @@
           h("div", { class: "event-body" },
             h("div", { class: "event-tags" },
               ev.mine ? h("span", { class: "ev-tag going" }, past ? "✓ You went" : "✓ You're going") : null,
+              ev.hosted ? h("span", { class: "ev-tag hosted" }, "💜 Hosted by Velvet Collar") : null,
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
               ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
             h("h2", {}, ev.title),

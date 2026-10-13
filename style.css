@@ -1062,7 +1062,7 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .vf-answers dd.empty { color: var(--faint); font-style: italic; }
 
 /* events calendar */
-:root { --k-going: #f2c45a; --k-vet: #8fe0b0; --k-vetonly: #ff8fc7; --k-other: #a99fd6; }
+:root { --k-going: #f2c45a; --k-hosted: #ff9fd2; --k-vet: #7fdca6; --k-vetonly: #b0245f; --k-other: #8f8a9b; }
 .cal { padding: 16px; }
 .cal-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .cal-bar .cal-title { margin: 0; flex: 1; text-align: center; font-size: 1.2rem; }
@@ -1081,10 +1081,10 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .cal-num { font-size: .8rem; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; }
 .cal-evs { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cal-ev { display: flex; align-items: center; gap: 3px; font-size: .72rem; line-height: 1.2; padding: 2px 5px; border-radius: 6px; min-width: 0;
-  background: color-mix(in srgb, var(--kc) 22%, transparent); border-left: 3px solid var(--kc); }
+  background: color-mix(in srgb, var(--kc) 28%, transparent); border-left: 3px solid var(--kc); }
 .cal-ev-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-more { font-size: .7rem; color: var(--faint); padding-left: 4px; }
-.k-going { --kc: var(--k-going); } .k-vet { --kc: var(--k-vet); } .k-vetonly { --kc: var(--k-vetonly); } .k-other { --kc: var(--k-other); }
+.k-going { --kc: var(--k-going); } .k-hosted { --kc: var(--k-hosted); } .k-vet { --kc: var(--k-vet); } .k-vetonly { --kc: var(--k-vetonly); } .k-other { --kc: var(--k-other); }
 .cal-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 12px; font-size: .82rem; color: var(--muted); }
 .cal-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--kc); margin-right: 6px; vertical-align: -1px; }
 .cal-legend .btn { margin-left: auto; }
@@ -1092,9 +1092,9 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .event { border-left: 4px solid var(--kc, var(--line)); }
 .event-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .event-tags:empty { display: none; }
-.ev-tag { font-size: .75rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; text-decoration: none; color: var(--kc);
+.ev-tag { font-size: .75rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; text-decoration: none; color: color-mix(in srgb, var(--kc) 65%, white);
   background: color-mix(in srgb, var(--kc) 16%, transparent); border: 1px solid color-mix(in srgb, var(--kc) 45%, transparent); }
-.ev-tag.going { --kc: var(--k-going); } .ev-tag.vet { --kc: var(--k-vet); } .ev-tag.vetonly { --kc: var(--k-vetonly); }
+.ev-tag.going { --kc: var(--k-going); } .ev-tag.hosted { --kc: var(--k-hosted); } .ev-tag.vet { --kc: var(--k-vet); } .ev-tag.vetonly { --kc: var(--k-vetonly); }
 .cal-add-menu { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
 .cal-add-menu[hidden] { display: none; }
 @media (max-width: 640px) {
