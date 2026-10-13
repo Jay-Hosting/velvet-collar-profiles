@@ -1212,3 +1212,18 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .bday-row select, .bday-row input { min-width: 0; }
 .field .check { margin-top: 8px; }
 .new-pill.bday { background: var(--gold-soft); color: var(--gold); }
+
+/* Birthdays on the Events calendar: a party-rainbow look */
+:root { --bday-rainbow: linear-gradient(90deg, #ff7eb3, #ffb36e, #ffe46e, #7fdca6, #7ec8ff, #c49bff); }
+.k-bday { --kc: #ff7eb3; }
+.cal-ev.k-bday { border-left: 0; color: #2a1030; font-weight: 700; background: var(--bday-rainbow); }
+.cal-day.bday .cal-num { box-shadow: 0 0 0 2px #ffb36e; }
+.cal-legend i.k-bday { background: conic-gradient(#ff7eb3, #ffe46e, #7fdca6, #7ec8ff, #c49bff, #ff7eb3); border-radius: 50%; }
+.event.k-bday { border-left: 0; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 126, 179, .16), rgba(255, 228, 110, .10) 40%, rgba(126, 200, 255, .12) 75%, rgba(196, 155, 255, .16)), var(--panel); }
+.event.k-bday::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: linear-gradient(180deg, #ff7eb3, #ffe46e, #7fdca6, #7ec8ff, #c49bff); }
+.ev-tag.bday { color: #2a1030; background: var(--bday-rainbow); border-color: transparent; }
+@media (max-width: 640px) {
+  .cal-ev.k-bday { background: conic-gradient(#ff7eb3, #ffe46e, #7fdca6, #7ec8ff, #c49bff, #ff7eb3); }
+}
+.check[hidden] { display: none; }

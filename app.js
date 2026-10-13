@@ -482,7 +482,23 @@
     const today = dayKey(now);
     // Colour, first match wins: you're going (gold), vetted only (velvet), hosted by Velvet Collar (pink), get vetted here (green), anything else.
     const kind = (ev) => (ev.mine ? "going" : ev.vetting === "required" ? "vetonly" : ev.hosted ? "hosted" : ev.vetting === "offered" ? "vet" : "other");
-    const KINDS = [["going", "You're going"], ["hosted", "Hosted by Velvet Collar"], ["vet", "Get vetted here"], ["vetonly", "Vetted members only"], ["other", "Other events"]];
+    const KINDS = [["going", "You're going"], ["hosted", "Hosted by Velvet Collar"], ["vet", "Get vetted here"], ["vetonly", "Vetted members only"], ["other", "Other events"], ["bday", "Birthdays"]];
+    // Birthdays members chose to put on the calendar. Feb 29 birthdays show on Feb 28 in other years.
+    const BD = data.birthdays || [];
+    const bdMd = (b, y) => b.birthday === "02-29" && !((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? "02-28" : b.birthday;
+    const bdaysOn = (key) => BD.filter((b) => bdMd(b, +key.slice(0, 4)) === key.slice(5));
+    const bdayCard = (b, y) => {
+      const turning = b.birth_year ? y - b.birth_year : 0;
+      const when = new Date(Date.UTC(y, +bdMd(b, y).slice(0, 2) - 1, +bdMd(b, y).slice(3), 12)).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+      const isToday = `${y}-${bdMd(b, y)}` === today;
+      return h("article", { class: "event k-bday" },
+        h("div", { class: "event-emoji", "aria-hidden": "true" }, isToday ? "🎉" : "🎂"),
+        h("div", { class: "event-body" },
+          h("div", { class: "event-tags" }, h("span", { class: "ev-tag bday" }, isToday ? "🎉 Today!" : "🎂 Birthday")),
+          h("h2", {}, `${b.display_name}'s birthday`),
+          h("p", { class: "event-when" }, when + (turning > 0 ? ` · turning ${turning}` : "")),
+          h("div", { class: "actions", style: "margin:10px 0 0" }, personChip(b), h("a", { class: "btn small ghost", href: "/" + b.slug, "data-nav": "" }, isToday ? "Say happy birthday 💜" : "See their page"))));
+    };
 
     // ---- add to calendar ----
     const icsTime = (t) => new Date(t).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
@@ -575,12 +591,14 @@
       for (let i = 0; i < first; i++) cells.push(h("div", { class: "cal-day empty" }));
       for (let d = 1; d <= days; d++) {
         const key = `${monthKey()}-${String(d).padStart(2, "0")}`;
-        const evs = evsOn(key);
-        const cls = "cal-day" + (key === today ? " today" : "") + (key < today ? " gone" : "") + (key === picked ? " picked" : "") + (evs.length ? " has" : "");
-        cells.push(h(evs.length ? "button" : "div", Object.assign({ class: cls }, evs.length ? { type: "button", "aria-label": `${d}: ${evs.map((x) => x.title).join(", ")}`, onclick: () => { picked = picked === key ? "" : key; drawGrid(); drawList(); } } : {}),
+        const evs = evsOn(key), bds = bdaysOn(key), n = evs.length + bds.length;
+        const cls = "cal-day" + (key === today ? " today" : "") + (key < today ? " gone" : "") + (key === picked ? " picked" : "") + (n ? " has" : "") + (bds.length ? " bday" : "");
+        const chips = [
+          ...bds.map((b) => h("span", { class: "cal-ev k-bday" }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, "🎂"), h("span", { class: "cal-ev-t" }, b.display_name))),
+          ...evs.map((ev) => h("span", { class: "cal-ev k-" + kind(ev) + (ev.interested ? " int" : "") }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"), h("span", { class: "cal-ev-t" }, (ev.interested ? "☆ " : "") + ev.title)))];
+        cells.push(h(n ? "button" : "div", Object.assign({ class: cls }, n ? { type: "button", "aria-label": `${d}: ${[...bds.map((b) => b.display_name + "'s birthday"), ...evs.map((x) => x.title)].join(", ")}`, onclick: () => { picked = picked === key ? "" : key; drawGrid(); drawList(); } } : {}),
           h("span", { class: "cal-num" }, d),
-          h("span", { class: "cal-evs" }, evs.slice(0, 3).map((ev) => h("span", { class: "cal-ev k-" + kind(ev) + (ev.interested ? " int" : "") }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"), h("span", { class: "cal-ev-t" }, (ev.interested ? "☆ " : "") + ev.title))),
-            evs.length > 3 ? h("span", { class: "cal-more" }, `+${evs.length - 3}`) : null)));
+          h("span", { class: "cal-evs" }, chips.slice(0, 3), n > 3 ? h("span", { class: "cal-more" }, `+${n - 3}`) : null)));
       }
       grid.replaceChildren(...cells);
     }
@@ -589,8 +607,9 @@
       const upcoming = evs.filter((ev) => !isPast(ev)), past = evs.filter(isPast).reverse();
       const label = picked ? new Date(picked + "T12:00:00Z").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }) : `All of ${title.textContent}`;
       listHead.replaceChildren(...[h("h2", { style: "margin:0" }, label), picked ? h("button", { type: "button", class: "btn small ghost", onclick: () => { picked = ""; drawGrid(); drawList(); } }, "Show the whole month") : null].filter(Boolean));
-      list.replaceChildren(...upcoming.map(eventCard), ...past.map(eventCard));
-      if (!evs.length) list.append(h("p", { class: "muted" }, picked ? "Nothing on this day." : "Nothing on the calendar this month yet. Keep an eye on the group chat!"));
+      const bds = picked ? bdaysOn(picked) : BD.filter((b) => bdMd(b, vy).startsWith(String(vm).padStart(2, "0") + "-")).sort((a, b) => bdMd(a, vy) < bdMd(b, vy) ? -1 : 1);
+      list.replaceChildren(...bds.map((b) => bdayCard(b, vy)), ...upcoming.map(eventCard), ...past.map(eventCard));
+      if (!evs.length && !bds.length) list.append(h("p", { class: "muted" }, picked ? "Nothing on this day." : "Nothing on the calendar this month yet. Keep an eye on the group chat!"));
     }
     const move = (n) => { vm += n; if (vm < 1) { vm = 12; vy--; } if (vm > 12) { vm = 1; vy++; } picked = ""; drawGrid(); drawList(); };
     const mine = () => data.upcoming.filter((ev) => ev.mine || ev.interested);
@@ -602,7 +621,8 @@
     drawGrid(); drawList();
     // Start on the month of the next event if this month has nothing coming up.
     const next = data.upcoming[0];
-    if (next && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
+    const bdaySoon = BD.some((b) => `${vy}-${bdMd(b, vy)}` >= today && `${vy}-${bdMd(b, vy)}`.startsWith(monthKey()));
+    if (next && !bdaySoon && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
     app.replaceChildren(
       h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
         h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
@@ -1828,20 +1848,22 @@
     const [bMo, bDy] = (rec.birthday || "").split("-");
     const bMonth = h("select", { id: "f_bmonth", "aria-label": "Birthday month" }, h("option", { value: "" }, "Month"), MONTHS.map((m, i) => h("option", { value: String(i + 1).padStart(2, "0") }, m)));
     const bDay = h("select", { id: "f_bday", "aria-label": "Birthday day" }, h("option", { value: "" }, "Day"), Array.from({ length: 31 }, (_, i) => h("option", { value: String(i + 1).padStart(2, "0") }, String(i + 1))));
-    const bYear = h("input", { type: "number", id: "f_byear", inputmode: "numeric", min: "1900", max: String(new Date().getFullYear() - 21), placeholder: "Year (optional)", "aria-label": "Birth year (optional)", value: rec.birth_year || "" });
+    const bYear = h("input", { type: "number", id: "f_byear", inputmode: "numeric", min: "1900", max: String(new Date().getFullYear() - 21), placeholder: "Year", title: "Birth year (optional)", "aria-label": "Birth year (optional)", value: rec.birth_year || "" });
     const showAge = h("input", { type: "checkbox", checked: rec.birth_year ? !!rec.show_age : true });
     const ageRow = h("label", { class: "check" }, showAge, "Show my age on my page");
+    const calBox = h("input", { type: "checkbox", checked: !!rec.bday_cal });
+    const calRow = h("label", { class: "check" }, calBox, "🎉 Put my birthday on the Events calendar");
     bMonth.value = bMo || ""; bDay.value = bDy || "";
     const syncBday = () => {
       const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][(+bMonth.value || 1) - 1];
       [...bDay.options].forEach((o) => { if (o.value) o.disabled = +o.value > max; });
       if (+bDay.value > max) bDay.value = "";
-      bYear.disabled = !bMonth.value; ageRow.hidden = !bYear.value.trim() || !bMonth.value;
+      bYear.disabled = !bMonth.value; ageRow.hidden = !bYear.value.trim() || !bMonth.value; calRow.hidden = !bMonth.value;
     };
     bMonth.addEventListener("change", syncBday); bYear.addEventListener("input", syncBday); syncBday();
     const bdayField = h("div", { class: "field" }, h("label", { for: "f_bmonth" }, "🎂 Birthday"),
-      h("div", { class: "bday-row" }, bMonth, bDay, bYear), ageRow,
-      h("span", { class: "hint" }, "Optional. Members see the month and day. The year is only used to show your age, and only if you tick the box."));
+      h("div", { class: "bday-row" }, bMonth, bDay, bYear), calRow, ageRow,
+      h("span", { class: "hint" }, "Optional. Members see the month and day on your page, and on the calendar if you tick that box. The year is only used to show your age, and only if you tick that box."));
     const readBday = () => {
       if (!bMonth.value && !bDay.value) return { birthday: "", year: "" };
       if (!bMonth.value || !bDay.value) throw new Error("Pick both a month and a day for your birthday, or leave both blank.");
@@ -2185,6 +2207,7 @@
         fd.append("birthday", bday.birthday);
         fd.append("birth_year", bday.year || "0");
         fd.append("show_age", bday.year && showAge.checked ? "true" : "false");
+        fd.append("bday_cal", bday.birthday && calBox.checked ? "true" : "false");
         fd.append("display_name", nameI.value.trim());
         fd.append("slug", slugI.value.trim());
         for (const k of ["pronouns", "dynamic", "location", "bio", "hobbies", "into", "limits"]) fd.append(k, document.getElementById("f_" + k).value.trim());
