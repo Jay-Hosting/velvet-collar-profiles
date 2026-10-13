@@ -375,8 +375,15 @@
   // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
   const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", edit: "edit", question: "question", vetting: "vetting", mod: "admin" };
   function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
-  setInterval(() => { if (document.visibilityState === "visible") seen(); }, 300000);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") seen(); });
+  // Every 2 minutes while the site is on screen (that also keeps the green "online" dot fresh).
+  setInterval(() => { if (document.visibilityState === "visible") seen(); }, 120000);
+  // Leaving or switching away takes the dot off straight away (keepalive lets it finish as the page closes).
+  function away() {
+    if (!me()) return;
+    try { fetch(pb.baseURL.replace(/\/+$/, "") + "/api/vc/seen", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", Authorization: pb.authStore.token }, body: JSON.stringify({ away: true }) }).catch(() => {}); } catch {}
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") seen(); else away(); });
+  window.addEventListener("pagehide", away);
   document.addEventListener("visibilitychange", () => { if (me() && document.visibilityState === "visible") drawNavBadge(true); });
 
   function renderNav() {
@@ -913,11 +920,15 @@
         : h("span", { class: "mono group-mono", "aria-hidden": "true" }, h("span", { class: "mark" }))),
       h("span", { class: "txt" }, h("b", {}, grp.page.name, h("span", { class: "new-pill group-pill" }, "💜 Group")), h("small", {}, grp.page.tagline || "Our group page: about us, links and the team")),
       h("span", { class: "arrow", "aria-hidden": "true" }, "→")) : null;
-    const FILTERS = [["all", "Everyone"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
+    // Who's on the site right now (green dot). Refreshed every minute while the list is open.
+    let onlineSet = new Set();
+    const loadOnline = () => pb.send("/api/vc/online", { requestKey: null }).then((d) => { onlineSet = new Set(d.online || []); }).catch(() => {});
+    await loadOnline();
+    const FILTERS = [["all", "Everyone"], ["online", "🟢 Online now"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
     const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
     const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
       h("button", { type: "button", class: "pill", "aria-pressed": String(filter === v), onclick: () => { filter = v; drawFilters(); draw(); } }, label)));
-    const matchesFilter = (m) => filter === "all" ? true : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
+    const matchesFilter = (m) => filter === "all" ? true : filter === "online" ? onlineSet.has(m.id) : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
     const draw = () => {
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
@@ -928,7 +939,8 @@
         const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
           h("span", { class: "mono-wrap" }, m.avatar
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
-            : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase())),
+            : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
+            onlineSet.has(m.id) ? h("span", { class: "dot", title: "Online now", "aria-label": "Online now" }) : null),
           h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null, daysToBday(m.birthday) === 0 ? h("span", { class: "new-pill bday", title: "Birthday today" }, "🎂 Birthday") : null), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
@@ -939,6 +951,12 @@
     const others = list.filter((m) => m.id !== user.id);
     const surprise = others.length ? h("button", { type: "button", class: "btn small gold", onclick: () => go("/" + others[Math.floor(Math.random() * others.length)].slug) }, "🎲 Surprise me") : null;
     drawFilters(); draw();
+    const onlineTimer = setInterval(async () => {
+      if (!rows.isConnected) return clearInterval(onlineTimer);
+      if (document.visibilityState !== "visible") return;
+      const before = [...onlineSet].sort().join(); await loadOnline();
+      if ([...onlineSet].sort().join() !== before) draw();
+    }, 60000);
     const twinsBtn = h("button", { type: "button", class: "btn small" }, "💞 Kink twins");
     const twinsHolder = h("div", {});
     twinsBtn.addEventListener("click", () => kinkTwins(list, twinsBtn, twinsHolder));
@@ -1695,7 +1713,8 @@
       h("div", { class: "profile-head" },
         avatarWithCharm(p, look.charm),
         h("h1", { class: "profile-name" }, p.display_name),
-        tgUser ? h("div", { class: "handle" }, "@" + tgUser) : null,
+        tgUser ? h("div", { class: "handle" }, "@" + tgUser, data.online ? h("span", { class: "online-now" }, h("span", { class: "dot", "aria-hidden": "true" }), "Online now") : null)
+          : data.online ? h("div", { class: "handle" }, h("span", { class: "online-now" }, h("span", { class: "dot", "aria-hidden": "true" }), "Online now")) : null,
         lookingBadges(p.looking_for),
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
@@ -2120,6 +2139,7 @@
     const matchBox = h("input", { type: "checkbox", checked: !rec.matches_off });
     const crushBox = h("input", { type: "checkbox", checked: !rec.crushes_off });
     const vouchBox = h("input", { type: "checkbox", checked: !rec.vouches_off });
+    const onlineBox = h("input", { type: "checkbox", checked: !rec.hide_online });
 
     // ---------- look settings (Settings tab) ----------
     let look = L.resolve(rec.style, rec.theme);
@@ -2265,7 +2285,8 @@
               h("label", { class: "check" }, notesBox, "Let members leave kind notes (you OK each one first)"),
               h("label", { class: "check" }, matchBox, "Show logged-in members what we have in common on Kink Jars (and include me in Kink twins)"),
               h("label", { class: "check" }, crushBox, "Let members send me secret crushes (you only find out if it's mutual)"),
-              h("label", { class: "check" }, vouchBox, "Let members who've met me vouch for me")))),
+              h("label", { class: "check" }, vouchBox, "Let members who've met me vouch for me"),
+              h("label", { class: "check" }, onlineBox, "Show a 🟢 green dot when I'm on the site")))),
         h("section", { class: "panel" }, h("h2", {}, "Account"),
           passwordForm(),
           h("div", { class: "actions", style: "margin:16px 0 0" },
@@ -2397,6 +2418,7 @@
         fd.append("matches_off", matchBox.checked ? "false" : "true");
         fd.append("crushes_off", crushBox.checked ? "false" : "true");
         fd.append("vouches_off", vouchBox.checked ? "false" : "true");
+        fd.append("hide_online", onlineBox.checked ? "false" : "true");
         fd.append("song", document.getElementById("f_song").value.trim());
         if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
         if (relSel.length) relSel.forEach((v) => fd.append("rel_style", v)); else fd.append("rel_style", "");
