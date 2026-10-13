@@ -1071,7 +1071,7 @@
   const isNew = (m) => { const t = parseDate(m.created); return t && Date.now() - t < 7 * 864e5; };
   function badgesFor(p, photoCount) {
     const out = [];
-    if (p.vetted) out.push(["✅", "Vetted", "Vetted by the group's owners for play parties"]);
+    if (p.vetted) out.push(["✅", "Vetted", "Vetted for play parties (only owners see this)"]);
     for (const b of p.badges || []) if (ADMIN_BADGES[b]) out.push(ADMIN_BADGES[b]);
     if (isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
     const plays = (p.play_links || []).map((l) => l.url || "");
@@ -1333,7 +1333,7 @@
     }
     const p = data.profile;
     const vet = data.vetting || {};
-    p.vetted = !!vet.vetted;
+    p.vetted = !!vet.vetted && !vet.self;   // the badge only ever shows for owners
     const photos = data.photos || [];
     const look = setLook(p.style, p.theme, true);
     document.title = `${p.display_name} · Velvet Collar`;
@@ -1347,10 +1347,10 @@
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
     const reactHolder = h("div", { class: "react-holder" });
-    // Staff (admins, owners, hosts) also see the private vetting status and note.
+    // Owners also see the private vetting status and note.
     const staffVet = vet.staff ? h("div", { class: "staff-vet" + (vet.status ? " s-" + vet.status : "") },
       h("b", {}, "🔒 Vetting: "), vet.label || "Not vetted", vet.note ? h("span", {}, " · " + vet.note) : null,
-      vet.by ? h("small", { class: "faint" }, ` · ${vet.by}`) : null, h("small", { class: "faint" }, " (only staff see this)")) : null;
+      vet.by ? h("small", { class: "faint" }, ` · ${vet.by}`) : null, h("small", { class: "faint" }, " (only owners see this)")) : null;
     const badgeHolder = h("div", { class: "hold" }, badgeRow(badgesFor(p, photos.length)), staffVet);
     const crushHolder = h("span", { class: "crush-holder" });
     const huntHolder = h("span", { class: "hunt-holder" });
@@ -1374,7 +1374,7 @@
         matchHolder,
         h("div", { class: "actions" },
           data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card"),
-            p.vetted ? null : h("a", { class: "btn ghost", href: "/vetting", "data-nav": "", title: "For play parties that need it" }, "✅ Get vetted")]
+            vet.vetted ? null : h("a", { class: "btn ghost", href: "/vetting", "data-nav": "", title: "For play parties that need it" }, "✅ Get vetted")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           data.isOwner ? null : crushHolder,
           data.isOwner ? null : huntHolder,

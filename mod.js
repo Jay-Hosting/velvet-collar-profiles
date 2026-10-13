@@ -19,7 +19,8 @@
       app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Admins only"), h("p", { class: "muted" }, "This page is for the group's admins and hosts."), h("a", { class: "btn", href: "/", "data-nav": "" }, "Back to members")));
       return;
     }
-    const tabs = sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "vetting");
+    // Vetting is owners only; hosts get Events.
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events")).filter((t) => t[0] !== "vetting" || sum.owner);
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
@@ -106,7 +107,7 @@
     load();
   }
 
-  // ---------- vetting: staff can see, only owners can change ----------
+  // ---------- vetting: owners only ----------
   async function vetting(body) {
     const { h, pb, toast, personChip, errMsg } = deps();
     const ORDER = ["needs", "renew", "hold", "vetted"];
@@ -122,8 +123,7 @@
       catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
       const L = data.labels;
       if (data.canEdit && !forms.dataset.loaded) { forms.dataset.loaded = "1"; vetForms(forms, L, load); }
-      intro.textContent = (data.canEdit ? "You're an owner, so you can change statuses. " : "Only owners can change statuses. ")
-        + "Everyone sees a ✅ Vetted badge on profiles; the other statuses and notes are only for admins, owners and hosts.";
+      intro.textContent = "Only owners can see this tab, the statuses and the notes. Admins, hosts and members don't see anyone's vetting status, and the ✅ Vetted badge on profiles only shows for owners.";
       const row = (m) => {
         const v = m.vetting;
         const el = h("div", { class: "mod-member vet-row" + (v.status ? " s-" + v.status : "") });
