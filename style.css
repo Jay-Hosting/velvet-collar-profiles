@@ -1117,3 +1117,20 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .vet-form { border-top: 1px solid var(--line); padding-top: 8px; }
 .vet-form summary { cursor: pointer; font-weight: 700; }
 .vet-noform { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* community guidelines */
+.gl-box { width: min(640px, 100%); max-height: calc(100vh - 32px); grid-template-rows: auto 1fr auto; }
+.gl-body { overflow-y: auto; padding-right: 6px; line-height: 1.55; font-size: .93rem; color: var(--muted); }
+.gl-body p { margin: 0 0 10px; }
+.gl-body h3 { margin: 16px 0 4px; color: var(--text); font-size: 1.05rem; text-transform: uppercase; letter-spacing: .06em; }
+.gl-body h4 { margin: 14px 0 4px; color: var(--name-color); font-size: .98rem; }
+.gl-body ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.gl-body ol ol { margin-top: 6px; }
+.gl-note { padding: 10px 12px; border-radius: 12px; background: var(--gold-soft); color: var(--text); border: 1px solid var(--line-strong); }
+.gl-agree .check { align-items: flex-start; font-weight: 600; color: var(--text); }
+.gl-agree .check input { margin-top: 2px; flex: none; }
+.gl-agree a { color: var(--gold); }
+.gl-agree.missing .check { color: var(--danger); }
+.warn-text { color: #ffd98a; font-size: .85rem; }
+.gl-head { flex-wrap: nowrap; align-items: center; }
+.gl-head h2 { font-size: 1.25rem; }
+.gl-head .btn { flex: none; }

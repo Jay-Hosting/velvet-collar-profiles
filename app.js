@@ -116,6 +116,29 @@
     go(isNew ? "/edit" : back || "/");
   }
 
+  // The community guidelines in a pop-up. onAgree (optional) adds an "I agree" button.
+  function openGuidelines(onAgree) {
+    const G = window.VCGuidelines;
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "gl_title" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", esc); };
+    const esc = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", esc);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const item = (x) => Array.isArray(x) ? h("li", {}, x[0], h("ol", { type: "a" }, x[1].map((y) => h("li", {}, y)))) : h("li", {}, x);
+    const scroller = h("div", { class: "gl-body", tabindex: "0" },
+      G.intro.map((p) => h("p", {}, p)),
+      h("p", { class: "gl-note" }, G.note),
+      h("h3", {}, "Ground rules"),
+      G.sections.flatMap(([title, list]) => [h("h4", {}, title), h("ol", {}, list.map(item))]));
+    const agree = onAgree ? h("button", { type: "button", class: "btn gold", onclick: () => { onAgree(); close(); } }, "I've read them and agree") : null;
+    modal.append(h("div", { class: "modal-box gl-box" },
+      h("div", { class: "toggle-row gl-head" }, h("h2", { id: "gl_title", style: "margin:0" }, "📜 Community guidelines"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+      scroller,
+      h("div", { class: "actions", style: "margin:0" }, agree, h("button", { type: "button", class: "btn ghost", onclick: close }, onAgree ? "Close" : "Done"))));
+    document.body.append(modal);
+    (agree || scroller).focus();
+  }
+
   function renderAuth(mode) {
     document.title = (mode === "join" ? "Make a profile" : "Log in") + " · Velvet Collar";
     const msg = h("p", { class: "status bad", role: "alert" });
@@ -129,6 +152,12 @@
     if (mode === "join") {
       const codeIn = h("input", { type: "text", id: "a_code", autocomplete: "off", autocapitalize: "off", spellcheck: "false", required: true });
       const pw2In = h("input", { type: "password", id: "a_pw2", autocomplete: "new-password", minlength: 8, maxlength: 72, required: true });
+      const glBox = h("input", { type: "checkbox", id: "a_gl" });
+      const glRow = h("div", { class: "field gl-agree" },
+        h("label", { class: "check", for: "a_gl" }, glBox, h("span", {}, "I've read and agree to the ",
+          h("a", { href: "#", onclick: (e) => { e.preventDefault(); openGuidelines(() => { glBox.checked = true; glRow.classList.remove("missing"); }); } }, "community guidelines"), ".")),
+        h("span", { class: "hint" }, "Tap the link to read them. This is for joining the group online; play parties have their own vetting."));
+      glBox.addEventListener("change", () => glRow.classList.remove("missing"));
       const slugStatus = h("span", { class: "status" });
       let t;
       slugIn.addEventListener("input", () => {
@@ -149,20 +178,22 @@
           slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
         field("Password", pwIn, "At least 8 characters."),
         field("Password again", pw2In),
+        glRow,
         msg, btn,
         h("p", { class: "faint" }, "Already have one? ", h("a", { href: "/login", "data-nav": "" }, "Log in")));
       form.addEventListener("submit", async (e) => {
         e.preventDefault(); msg.textContent = "";
         if (pwIn.value !== pw2In.value) { msg.textContent = "The passwords don't match."; return pw2In.focus(); }
+        if (!glBox.checked) { msg.textContent = "Please read and agree to the community guidelines first."; glRow.classList.add("missing"); return glBox.focus(); }
         btn.disabled = true; btn.textContent = "Making it…";
         try {
-          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: slugIn.value.charAt(0).toUpperCase() + slugIn.value.slice(1), slug: slugIn.value, password: pwIn.value } });
+          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: slugIn.value.charAt(0).toUpperCase() + slugIn.value.slice(1), slug: slugIn.value, password: pwIn.value, guidelines: window.VCGuidelines.VERSION } });
           pb.authStore.save(res.token, res.record);
           afterAuth(res.record, true);
         } catch (err) {
           const d = err.response || {};
           msg.textContent = d.message || errMsg(err);
-          const focus = { join_code: codeIn, display_name: slugIn, slug: slugIn, password: pwIn }[d.field];
+          const focus = { join_code: codeIn, display_name: slugIn, slug: slugIn, password: pwIn, guidelines: glBox }[d.field];
           if (focus) focus.focus();
           btn.disabled = false; btn.textContent = "Make my profile";
         }
