@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
   const REL_STYLES = [["single", "Single"], ["mono", "Monogamous"], ["monogamish", "Monogamish"], ["poly", "Polyamorous"], ["solo_poly", "Solo poly"],
@@ -280,6 +280,7 @@
     if (path === "admin" || path.startsWith("admin/")) return { name: "mod", tab: path.slice(6) };
     if (path === "question") return { name: "question" };
     if (path === "vetting" || path === "apply") return { name: "vetting" };
+    if (path === "velvetcollar" || path === "about" || path === "group") return { name: "group" };
     return { name: "profile", slug: path.split("/")[0] };
   }
   function go(path) { history.pushState(null, "", path); render(); window.scrollTo(0, 0); }
@@ -364,6 +365,7 @@
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       if (r.name === "vetting") return me() ? await renderVetting() : renderLogin("/vetting");
+      if (r.name === "group") return await renderGroup();
       return await renderProfile(r.slug);
     } catch (err) {
       // Busy for a moment: say so and try again by itself rather than showing an error.
@@ -642,6 +644,58 @@
         grid,
         h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine)),
       listHead, list);
+  }
+
+  // ---------- the group's own profile page (/velvetcollar). Admins and owners edit it on the Admin page. ----------
+  async function renderGroup() {
+    let d;
+    try { d = await pb.send("/api/vc/group", {}); }
+    catch (err) { if (err.status === 401) return renderLogin("/velvetcollar"); if (err.status === 404) return notFound(); throw err; }
+    const g = d.page, user = me();
+    document.title = g.name;
+    const pageUrl = location.origin + "/velvetcollar";
+    const paras = (text) => String(text || "").split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).map((t) => h("p", { class: "bio group-p" }, t));
+    const banner = h("div", { class: "banner group-banner" });
+    if (g.cover) banner.style.backgroundImage = `linear-gradient(180deg, transparent 40%, rgba(0,0,0,.35)), url("${fileUrl(g, g.cover, "1200x400")}")`;
+    const logo = g.logo ? h("img", { class: "avatar", src: fileUrl(g, g.logo, "400x400"), alt: "" })
+      : h("div", { class: "avatar group-mark", "aria-hidden": "true" }, h("span", { class: "mark" }));
+    const sharePost = () => copyText([`💜 ${g.name}`, g.tagline, g.location ? "📍 " + g.location : "", "", pageUrl].filter((x, i) => x || i === 3).join("\n"), "📣 Copied! Paste it in Telegram.");
+    const head = h("div", { class: "profile-card group-card" }, banner,
+      h("div", { class: "profile-head" }, logo,
+        h("h1", { class: "profile-name" }, g.name),
+        g.tagline ? h("div", { class: "handle group-tagline" }, g.tagline) : null,
+        h("div", { class: "chips" },
+          g.location ? h("span", { class: "chip" }, "📍 " + g.location) : null,
+          d.members ? h("span", { class: "chip gold" }, `👥 ${d.members} member${d.members === 1 ? "" : "s"}`) : null,
+          h("span", { class: "chip" }, "🔞 21+")),
+        h("div", { class: "actions" },
+          d.canEdit ? h("a", { class: "btn gold", href: "/admin/group", "data-nav": "" }, "✏️ Edit this page") : null,
+          h("button", { type: "button", class: "btn", onclick: sharePost }, "📣 Share in Telegram"),
+          h("button", { type: "button", class: "btn ghost", onclick: () => copyText(pageUrl, "🔗 Link copied") }, "Copy link"))));
+    const main = [], side = [];
+    if (g.about) main.push(h("section", { class: "panel" }, h("h2", {}, "About us"), paras(g.about)));
+    for (const sec of g.sections || []) main.push(h("section", { class: "panel" }, sec.title ? h("h2", {}, [sec.emoji, sec.title].filter(Boolean).join(" ")) : null, paras(sec.body)));
+    main.push(h("section", { class: "panel" }, h("h2", {}, "📜 Community guidelines"),
+      h("p", { class: "muted", style: "margin-top:0" }, "How we look after each other. Everyone agrees to these when they join."),
+      h("button", { type: "button", class: "btn", onclick: () => openGuidelines(null) }, "Read the guidelines")));
+    const links = (g.links || []).filter((l) => safeUrl(l.url));
+    if (links.length) side.push(h("section", { class: "keyring" }, h("h2", {}, "🔗 Links"),
+      h("div", { class: "link-list" }, links.map((l) => h("a", { class: "link", href: safeUrl(l.url), target: "_blank", rel: "noopener" },
+        h("span", { class: "mono emoji", "aria-hidden": "true" }, l.emoji || "🔗"),
+        h("span", { class: "txt" }, h("b", {}, l.title), h("small", {}, l.note || hostOf(l.url))),
+        h("span", { class: "ext", "aria-hidden": "true" }, "↗"))))));
+    if (d.events.length) side.push(h("section", { class: "panel" }, h("h2", {}, "💜 Our next events"),
+      h("div", { class: "group-events" }, d.events.map((ev) => h("a", { class: "group-ev", href: "/events", "data-nav": "" },
+        h("span", { class: "group-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"),
+        h("span", {}, h("b", {}, ev.title), h("small", { class: "faint" }, fmtWhen(ev.starts) + (ev.where ? " · " + ev.where : "") + (ev.vetting === "required" ? " · 🔒 vetted only" : ev.vetting === "offered" ? " · ✅ get vetted" : "")))))),
+      h("a", { class: "btn small ghost", href: "/events", "data-nav": "", style: "margin-top:10px" }, "See the calendar →")));
+    if (d.team.length) side.push(h("section", { class: "panel" }, h("h2", {}, "🛡️ The team"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Questions, worries or ideas? Any of us can help."),
+      h("div", { class: "group-team" }, d.team.map((m) => h("div", { class: "group-tm" }, personChip(m), h("small", { class: "faint" }, m.role))))));
+    if (!user) side.push(h("section", { class: "panel" }, h("h2", {}, "Join us"),
+      h("p", { class: "muted", style: "margin-top:0" }, "Members get a profile, the member list, events and games. You'll need the join code from the group chat."),
+      h("div", { class: "actions", style: "margin:0" }, h("a", { class: "btn gold", href: "/join", "data-nav": "" }, "Make your profile"), h("a", { class: "btn ghost", href: "/login", "data-nav": "" }, "Log in"))));
+    app.replaceChildren(head, h("div", { class: "profile-body" + (side.length ? "" : " no-side") }, h("div", { class: "main" }, main), side.length ? h("div", { class: "side" }, side) : null));
   }
 
   // ---------- vetting form (for play parties that need it; owners read it on the Admin page) ----------

@@ -1263,3 +1263,38 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   .att-x { grid-column: 3; grid-row: 1; }
   .att-add { grid-template-columns: 1fr; }
 }
+
+/* The group page */
+.group-banner { background-size: cover; background-position: center; height: 190px; }
+.group-mark { display: grid; place-items: center; }
+.group-mark .mark { width: 76px; height: 48px; }
+.group-tagline { font-family: var(--serif); font-style: italic; font-size: 1.05rem; color: var(--muted); }
+.group-events { display: grid; gap: 8px; }
+.group-ev { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); text-decoration: none; color: var(--text); border-left: 3px solid var(--k-hosted); }
+.group-ev:hover { border-color: var(--line-strong); }
+.group-ev b, .group-ev small { display: block; }
+.group-ev-e { font-size: 1.4rem; line-height: 1; }
+.group-team { display: grid; gap: 8px; }
+.group-tm { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.profile-body .main > .panel + .panel { margin-top: 0; }
+/* Admin: group page editor */
+.gp-img { border: 1px dashed var(--line-strong); border-radius: 12px; min-height: 90px; display: grid; place-items: center; overflow: hidden; background: rgba(0,0,0,.2); }
+.gp-img img { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+.gp-logo { width: 120px; height: 120px; min-height: 0; border-radius: 50%; }
+.gp-logo img { height: 100%; max-height: none; }
+.gp-list { display: grid; gap: 10px; }
+.gp-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.gp-item-btns { display: flex; gap: 4px; }
+.gp-item-btns .btn { padding: 4px 9px; }
+.gp-link { display: grid; grid-template-columns: 64px 1fr 1.3fr; gap: 8px; }
+.gp-link .gp-note { grid-column: 2 / -1; }
+.gp-sec { display: grid; gap: 8px; }
+.gp-sec-top { display: grid; grid-template-columns: 64px 1fr; gap: 8px; }
+.gp-emoji { text-align: center; }
+@media (max-width: 640px) {
+  .gp-item { grid-template-columns: 1fr; }
+  .gp-link { grid-template-columns: 64px 1fr; }
+  .gp-link input[type=url] { grid-column: 1 / -1; }
+  .gp-link .gp-note { grid-column: 1 / -1; }
+}
+.group-p + .group-p { margin-top: 12px; }

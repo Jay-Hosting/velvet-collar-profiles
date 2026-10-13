@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["activity", "📈 Activity"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -29,7 +29,7 @@
         id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, activity, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -303,6 +303,94 @@
         h("button", { type: "button", class: "btn small ghost", onclick: () => copyText(names(came.length ? came : going), came.length ? `Copied ${came.length} who came` : `Copied ${going.length} going`) }, came.length ? "📋 Copy who came" : "📋 Copy who's going"),
         P.length ? h("button", { type: "button", class: "btn small ghost", onclick: download }, "⬇️ Download list (CSV)") : null),
       h("p", { class: "faint", style: "margin:6px 0 0" }, "Tick “Came” as people arrive (or afterwards) to keep a record. Walk-ins are people who came without RSVPing. The CSV opens in Excel, Numbers or Google Sheets.")));
+  }
+
+  // ---------- the group's own page (/velvetcollar): admins and owners ----------
+  async function group(body) {
+    const { h, pb, toast, errMsg } = deps();
+    const d = await pb.send("/api/vc/group", {});
+    const g = d.page;
+    const field = (label, el, hint) => h("label", { class: "field" }, h("span", { class: "label" }, label), el, hint ? h("span", { class: "hint" }, hint) : null);
+    const inp = (v, attrs) => h("input", Object.assign({ type: "text", value: v || "" }, attrs));
+    const ta = (v, attrs) => { const t = h("textarea", attrs); t.value = v || ""; return t; };
+    const f = {
+      name: inp(g.name, { maxlength: 80 }), tagline: inp(g.tagline, { maxlength: 140, placeholder: "Curiosity, embodied" }),
+      location: inp(g.location, { maxlength: 80, placeholder: "Sacramento, CA" }),
+      about: ta(g.about, { maxlength: 6000, rows: 6, placeholder: "Who we are, what we do, who we're for…" }),
+      public: h("input", { type: "checkbox", checked: g.public }), show_team: h("input", { type: "checkbox", checked: g.show_team }), show_events: h("input", { type: "checkbox", checked: g.show_events }),
+    };
+    // Images: pick a new one, or remove the current one.
+    const imgs = {};
+    const imgField = (key, label, hint, thumb) => {
+      const st = imgs[key] = { file: null, remove: false };
+      const prev = h("div", { class: "gp-img gp-" + key });
+      const draw = () => {
+        const src = st.file ? URL.createObjectURL(st.file) : !st.remove && g[key] ? pb.files.getURL(g, g[key], { thumb }) : "";
+        prev.replaceChildren(src ? h("img", { src, alt: "" }) : h("span", { class: "faint" }, "No image"));
+      };
+      const pick = h("input", { type: "file", accept: "image/jpeg,image/png,image/webp,image/gif", hidden: true });
+      pick.addEventListener("change", () => { if (pick.files[0]) { if (pick.files[0].size > 10 * 1024 * 1024) return toast("That image is over 10 MB", true); st.file = pick.files[0]; st.remove = false; draw(); } });
+      draw();
+      return h("div", { class: "field" }, h("span", { class: "label" }, label), prev,
+        h("div", { class: "actions", style: "margin:6px 0 0" },
+          h("button", { type: "button", class: "btn small", onclick: () => pick.click() }, "Choose image"),
+          h("button", { type: "button", class: "btn small ghost", onclick: () => { st.file = null; st.remove = true; draw(); } }, "Remove")),
+        pick, h("span", { class: "hint" }, hint));
+    };
+    // A small list editor for links and sections.
+    const listEditor = (items, blank, render, max, addLabel) => {
+      const wrap = h("div", { class: "gp-list" });
+      const draw = () => {
+        wrap.replaceChildren(...items.map((it, i) => h("div", { class: "gp-item" }, render(it),
+          h("div", { class: "gp-item-btns" },
+            h("button", { type: "button", class: "btn small ghost", title: "Move up", disabled: i === 0, onclick: () => { items.splice(i - 1, 0, items.splice(i, 1)[0]); draw(); } }, "↑"),
+            h("button", { type: "button", class: "btn small ghost", title: "Move down", disabled: i === items.length - 1, onclick: () => { items.splice(i + 1, 0, items.splice(i, 1)[0]); draw(); } }, "↓"),
+            h("button", { type: "button", class: "btn small ghost", title: "Remove", onclick: () => { items.splice(i, 1); draw(); } }, "✕")))),
+          items.length < max ? h("button", { type: "button", class: "btn small", onclick: () => { items.push(blank()); draw(); } }, addLabel) : null);
+      };
+      draw();
+      return wrap;
+    };
+    const bind = (it, k, el) => { el.value = it[k] || ""; el.addEventListener("input", () => { it[k] = el.value; }); return el; };
+    const links = (g.links || []).map((l) => Object.assign({}, l));
+    const sections = (g.sections || []).map((x) => Object.assign({}, x));
+    const linksEd = listEditor(links, () => ({ emoji: "", title: "", url: "", note: "" }), (l) => h("div", { class: "gp-link" },
+      bind(l, "emoji", h("input", { type: "text", maxlength: 8, placeholder: "💬", "aria-label": "Emoji", class: "gp-emoji" })),
+      bind(l, "title", h("input", { type: "text", maxlength: 80, placeholder: "Title, like Telegram group", "aria-label": "Title" })),
+      bind(l, "url", h("input", { type: "url", maxlength: 500, placeholder: "https://…", "aria-label": "Link" })),
+      bind(l, "note", h("input", { type: "text", maxlength: 140, placeholder: "Short note (optional)", "aria-label": "Note", class: "gp-note" }))), 30, "➕ Add a link");
+    const sectionsEd = listEditor(sections, () => ({ emoji: "", title: "", body: "" }), (x) => h("div", { class: "gp-sec" },
+      h("div", { class: "gp-sec-top" },
+        bind(x, "emoji", h("input", { type: "text", maxlength: 8, placeholder: "✨", "aria-label": "Emoji", class: "gp-emoji" })),
+        bind(x, "title", h("input", { type: "text", maxlength: 80, placeholder: "Heading, like How to join", "aria-label": "Heading" }))),
+      bind(x, "body", h("textarea", { maxlength: 3000, rows: 4, placeholder: "Text. Leave a blank line between paragraphs.", "aria-label": "Text" }))), 12, "➕ Add a section");
+    const save = h("button", { type: "button", class: "btn gold" }, "Save group page");
+    save.addEventListener("click", async () => {
+      const bad = links.find((l) => (l.url || l.title) && !/^https:\/\/\S+$/i.test(String(l.url || "").trim()));
+      if (bad) return toast(`"${bad.title || bad.url || "A link"}" needs a link starting with https://`, true);
+      const fd = new FormData();
+      for (const k of ["name", "tagline", "location", "about"]) fd.append(k, f[k].value.trim());
+      for (const k of ["public", "show_team", "show_events"]) fd.append(k, f[k].checked ? "true" : "false");
+      fd.append("links", JSON.stringify(links)); fd.append("sections", JSON.stringify(sections));
+      for (const k of ["logo", "cover"]) { if (imgs[k].file) fd.append(k, imgs[k].file); if (imgs[k].remove) fd.append(k + "_remove", "true"); }
+      save.disabled = true; save.textContent = "Saving…";
+      try { await pb.send("/api/vc/mod/group", { method: "POST", body: fd }); toast("🏠 Group page saved"); group(body); }
+      catch (err) { toast(errMsg(err), true); save.disabled = false; save.textContent = "Save group page"; }
+    });
+    body.replaceChildren(
+      h("section", { class: "panel" }, h("h2", {}, "🏠 The Velvet Collar page"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "The group's own profile at ", h("a", { href: "/velvetcollar", "data-nav": "" }, location.origin + "/velvetcollar"),
+          ". Admins and owners can change it here.", g.updated_by ? ` Last saved by ${g.updated_by}, ${when(g.updated)}.` : ""),
+        h("div", { class: "form-grid" }, field("Name", f.name), field("Tagline", f.tagline), field("Location", f.location)),
+        field("About", f.about, "Leave a blank line between paragraphs."),
+        h("div", { class: "form-grid" }, imgField("logo", "Logo", "Square works best. Shown in the circle.", "400x400"), imgField("cover", "Cover image", "Wide, like 1200 × 400. Shown across the top.", "1200x400"))),
+      h("section", { class: "panel" }, h("h2", {}, "🔗 Links"), h("p", { class: "faint", style: "margin-top:-6px" }, "Telegram group, Discord, FetLife, Instagram, a donation page… They show in the Links box on the page, in this order."), linksEd),
+      h("section", { class: "panel" }, h("h2", {}, "📄 Extra sections"), h("p", { class: "faint", style: "margin-top:-6px" }, "Anything else: how to join, what a munch is like, FAQs, where to find us. They show under About, in this order. The community guidelines are added automatically."), sectionsEd),
+      h("section", { class: "panel" }, h("h2", {}, "⚙️ Settings"),
+        h("label", { class: "check" }, f.public, "Anyone with the link can see the page (turn off for members only)"),
+        h("label", { class: "check" }, f.show_team, "Show the team (owners, admins and hosts on the member list) to logged-in members"),
+        h("label", { class: "check" }, f.show_events, "Show upcoming Velvet Collar-hosted events to logged-in members"),
+        h("div", { class: "actions" }, save, h("a", { class: "btn ghost", href: "/velvetcollar", "data-nav": "" }, "View the page"))));
   }
 
   // ---------- question of the week ----------
