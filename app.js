@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
@@ -210,6 +210,7 @@
     if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };   // old address
     if (path === "admin" || path.startsWith("admin/")) return { name: "mod", tab: path.slice(6) };
     if (path === "question") return { name: "question" };
+    if (path === "vetting" || path === "apply") return { name: "vetting" };
     return { name: "profile", slug: path.split("/")[0] };
   }
   function go(path) { history.pushState(null, "", path); render(); window.scrollTo(0, 0); }
@@ -257,13 +258,13 @@
         h("a", { class: "btn small ghost", href: "/" + user.slug, "data-nav": "" }, "My profile"),
         h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Edit"),
       );
-      // Admins, owners and hosts get an Admin button (admins see how many reports are open).
+      // Admins, owners and hosts get an Admin button (with a count of open reports, and new vetting forms for owners).
       const badges = user.badges || [];
       const isAdmin = badges.includes("admin") || badges.includes("owner");
       if (isAdmin || badges.includes("host")) {
         const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        if (isAdmin) pb.send("/api/vc/mod/summary", {}).then((sm) => { if (sm.openReports) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${sm.openReports} open reports` }, String(sm.openReports))); }).catch(() => {});
+        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: open reports and new vetting forms` }, String(n))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }
@@ -287,6 +288,7 @@
       if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/admin");
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
+      if (r.name === "vetting") return me() ? await renderVetting() : renderLogin("/vetting");
       return await renderProfile(r.slug);
     } catch (err) {
       // Busy for a moment: say so and try again by itself rather than showing an error.
@@ -437,9 +439,115 @@
     data.upcoming.forEach((ev) => list.append(eventCard(ev, false)));
     app.replaceChildren(
       h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
-        h("p", { class: "muted" }, "Munches, game nights and get-togethers. Tap I'm going so people know who to look for. Only members on the member list are shown by name.")),
+        h("p", { class: "muted" }, "Munches, game nights and get-togethers. Tap I'm going so people know who to look for. Only members on the member list are shown by name."),
+        h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →"))),
       list,
       data.past.length ? h("details", { class: "past-events" }, h("summary", {}, "Past events"), h("div", { class: "events" }, data.past.map((ev) => eventCard(ev, true)))) : "");
+  }
+
+  // ---------- vetting form (for play parties that need it; owners read it on the Admin page) ----------
+  async function renderVetting() {
+    document.title = "Get vetted · Velvet Collar";
+    const data = await pb.send("/api/vc/vetting/form", {});
+    const A = data.answers || {};
+    const fmtDay = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric" }); };
+    const user = me();
+    const ctl = {};   // question id -> { get(), focus() }
+    const reqMark = (q) => (q.req ? h("span", { class: "vf-req", "aria-hidden": "true" }, " *") : null);
+    const block = (q, ...kids) => h("div", { class: "vf-q", id: "q_" + q.id }, ...kids);
+    const radios = (q, opts) => {
+      const name = "vf_" + q.id;
+      const els = opts.map(([v, label]) => { const r = h("input", { type: "radio", name, value: v }); if (String(A[q.id]) === String(v)) r.checked = true; return [r, label]; });
+      return { els, get: () => { const c = els.find(([r]) => r.checked); return c ? c[0].value : ""; }, focus: () => els[0][0].focus() };
+    };
+    const qs = data.questions.map((q) => {
+      const legend = h("span", { class: "label vf-label" }, q.q, reqMark(q));
+      if (q.type === "text" || q.type === "email") {
+        const inp = h("input", { type: q.type === "email" ? "email" : "text", id: "vf_" + q.id, maxlength: 200, value: A[q.id] || "", autocomplete: q.type === "email" ? "email" : "off" });
+        ctl[q.id] = { get: () => inp.value.trim(), focus: () => inp.focus() };
+        return block(q, h("label", { class: "field", for: "vf_" + q.id }, legend, inp));
+      }
+      if (q.type === "long") {
+        const ta = h("textarea", { id: "vf_" + q.id, rows: 3, maxlength: 3000 }); ta.value = A[q.id] || "";
+        ctl[q.id] = { get: () => ta.value.trim(), focus: () => ta.focus() };
+        return block(q, h("label", { class: "field", for: "vf_" + q.id }, legend, ta));
+      }
+      if (q.type === "yesno") {
+        const r = radios(q, [["yes", "Yes"], ["no", "No"]]); ctl[q.id] = r;
+        return block(q, h("fieldset", { class: "vf-set" }, h("legend", {}, legend), h("div", { class: "vf-opts row" }, r.els.map(([el, l]) => h("label", { class: "check" }, el, l)))));
+      }
+      if (q.type === "choice") {
+        const prev = String(A[q.id] || "");
+        const isOther = prev.startsWith("Other: ");
+        const r = radios(q, [...q.options.map((o) => [o, o]), ["other", "Other:"]]);
+        const other = h("input", { type: "text", maxlength: 300, placeholder: "Tell us", "aria-label": "Other", value: isOther ? prev.slice(7) : "" });
+        if (isOther) r.els[r.els.length - 1][0].checked = true;
+        other.addEventListener("input", () => { if (other.value) r.els[r.els.length - 1][0].checked = true; });
+        ctl[q.id] = { get: r.get, focus: r.focus, other: () => other.value.trim() };
+        return block(q, h("fieldset", { class: "vf-set" }, h("legend", {}, legend), h("div", { class: "vf-opts" },
+          r.els.map(([el, l], i) => h("label", { class: "check" }, el, l, i === r.els.length - 1 ? other : null)))));
+      }
+      if (q.type === "scale") {
+        const r = radios(q, [1, 2, 3, 4, 5].map((n) => [String(n), String(n)])); ctl[q.id] = r;
+        return block(q, h("fieldset", { class: "vf-set" }, h("legend", {}, legend),
+          h("div", { class: "vf-scale" }, h("span", { class: "faint" }, q.low), h("div", { class: "vf-nums" }, r.els.map(([el, l]) => h("label", {}, el, h("span", {}, l)))), h("span", { class: "faint" }, q.high))));
+      }
+      if (q.type === "agree") {
+        const cb = h("input", { type: "checkbox", id: "vf_" + q.id }); cb.checked = !!A[q.id];
+        ctl[q.id] = { get: () => cb.checked, focus: () => cb.focus() };
+        return block(q, h("fieldset", { class: "vf-set" }, h("legend", {}, legend), h("ul", { class: "vf-bullets" }, q.bullets.map((b) => h("li", {}, b))),
+          h("label", { class: "check" }, cb, h("b", {}, "Yes, I agree"))));
+      }
+      return null;
+    });
+
+    const send = h("button", { type: "submit", class: "btn gold", disabled: !data.hasPhoto }, data.sent && !data.sent.seen ? "Update my form" : "Send my form");
+    const form = h("form", { class: "panel vf-form", novalidate: true }, h("p", { class: "faint", style: "margin-top:0" }, h("span", { class: "vf-req" }, "*"), " Required"), qs,
+      h("div", { class: "actions" }, send, !data.hasPhoto ? h("span", { class: "faint" }, "Add a profile photo first (see above).") : null));
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const body = {};
+      for (const q of data.questions) { body[q.id] = ctl[q.id].get(); if (ctl[q.id].other) body[q.id + "_other"] = ctl[q.id].other(); }
+      const missing = data.questions.find((q) => q.req && !body[q.id]);
+      form.querySelectorAll(".vf-q.missing").forEach((el) => el.classList.remove("missing"));
+      if (missing) {
+        document.getElementById("q_" + missing.id).classList.add("missing");
+        document.getElementById("q_" + missing.id).scrollIntoView({ behavior: "smooth", block: "center" });
+        ctl[missing.id].focus();
+        return toast(missing.type === "agree" ? "Please agree to the event guidelines." : "That one's required.", true);
+      }
+      send.disabled = true;
+      try {
+        await pb.send("/api/vc/vetting/form", { method: "POST", body });
+        toast("Form sent 📨");
+        app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "📨 Thank you!"),
+          h("p", {}, "Your form is with the owners. Our team is small, so please be patient. We try to respond within 3 business days."),
+          h("p", { class: "muted" }, "We may ask for a copy of a government ID to finish vetting. Any copies are destroyed once your review is done."),
+          h("a", { class: "btn", href: "/" + user.slug, "data-nav": "" }, "Back to my profile")));
+        window.scrollTo(0, 0);
+      } catch (err) {
+        const f = err && err.response && err.response.field;
+        if (f && document.getElementById("q_" + f)) { document.getElementById("q_" + f).classList.add("missing"); document.getElementById("q_" + f).scrollIntoView({ behavior: "smooth", block: "center" }); }
+        toast(errMsg(err), true); send.disabled = !data.hasPhoto;
+      }
+    });
+
+    const status = data.vetted ? h("section", { class: "panel vf-status ok" }, h("b", {}, "✅ You're vetted."), " You don't need to send this again unless the team asks you to.")
+      : data.sent ? h("section", { class: "panel vf-status" }, h("b", {}, data.sent.seen ? "👀 The team has read your form" : "📨 Your form was sent"), ` on ${fmtDay(data.sent.updated || data.sent.created)}.`,
+        data.sent.seen ? " They'll be in touch. If they ask you to update it, change your answers below and send it again." : " You can still change your answers below and send it again.")
+      : null;
+    const photo = h("section", { class: "panel vf-photo" + (data.hasPhoto ? "" : " missing") },
+      avatarEl(user, "sm"),
+      data.hasPhoto ? h("div", {}, h("b", {}, "📷 Profile photo: ✓"), h("p", { class: "faint", style: "margin:2px 0 0" }, "This is the photo the team will see with your form."))
+        : h("div", {}, h("b", {}, "📷 A profile photo is required"), h("p", { class: "faint", style: "margin:2px 0 8px" }, "Add one to your profile so the team knows who to look for. Your answers here aren't saved until you send them."),
+          h("a", { class: "btn small gold", href: "/edit", "data-nav": "" }, "Add a profile photo")));
+    const formEl = data.vetted ? h("details", { class: "vf-again" }, h("summary", {}, "Send an updated form anyway"), form) : form;
+    app.replaceChildren(
+      h("section", { class: "playroom-head" }, h("h1", {}, "✅ Get vetted"),
+        h("p", {}, "Welcome to Velvet. We cultivate inclusive, consent-based, and sex-positive events. This form helps us get to know you, your desires, and your values to ensure a great fit for our community. Some play parties need you to be vetted first."),
+        h("p", { class: "muted" }, "After you send it, a member of our team will be in touch to discuss next steps. Our team is small, so please be patient. We try to respond within 3 business days."),
+        h("p", { class: "faint" }, "We respect your privacy: only the group's owners read these answers. We may ask for a copy of a government ID to complete your application; any copies are destroyed once your vetting review is done. Never send ID photos here.")),
+      status, photo, formEl);
   }
 
   // ---------- question of the week (set by admins in the dashboard) ----------
@@ -1265,7 +1373,8 @@
         badgeHolder,
         matchHolder,
         h("div", { class: "actions" },
-          data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card")]
+          data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card"),
+            p.vetted ? null : h("a", { class: "btn ghost", href: "/vetting", "data-nav": "", title: "For play parties that need it" }, "✅ Get vetted")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           data.isOwner ? null : crushHolder,
           data.isOwner ? null : huntHolder,

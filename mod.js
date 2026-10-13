@@ -24,7 +24,8 @@
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
-        label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null)));
+        label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
+        id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
     try { await ({ reports, members: (b) => members(b, sum), vetting, events, question, content })[tab](body); }
@@ -112,13 +113,15 @@
     const search = h("input", { type: "search", placeholder: "Find a member to set their status", "aria-label": "Search members" });
     const holder = h("div", {});
     const intro = h("p", { class: "faint", style: "margin-top:-6px" }, "");
-    body.replaceChildren(h("section", { class: "panel" }, h("h2", {}, "✅ Vetting for play parties"), intro, search, holder));
+    const forms = h("div", {});
+    body.replaceChildren(forms, h("section", { class: "panel" }, h("h2", {}, "✅ Vetting for play parties"), intro, search, holder));
     let timer;
     const load = async () => {
       let data;
       try { data = await pb.send("/api/vc/mod/vetting?q=" + encodeURIComponent(search.value.trim()), {}); }
       catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
       const L = data.labels;
+      if (data.canEdit && !forms.dataset.loaded) { forms.dataset.loaded = "1"; vetForms(forms, L, load); }
       intro.textContent = (data.canEdit ? "You're an owner, so you can change statuses. " : "Only owners can change statuses. ")
         + "Everyone sees a ✅ Vetted badge on profiles; the other statuses and notes are only for admins, owners and hosts.";
       const row = (m) => {
@@ -152,6 +155,48 @@
     };
     search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 300); });
     load();
+  }
+
+  // Vetting forms members sent from /vetting. Owners only.
+  async function vetForms(holder, L, reloadList) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    let data;
+    try { data = await pb.send("/api/vc/mod/vet-forms", {}); } catch (err) { holder.replaceChildren(h("section", { class: "panel" }, h("p", { class: "muted" }, errMsg(err)))); return; }
+    const refresh = () => { vetForms(holder, L, reloadList); reloadList(); };
+    const tab = document.querySelector('.mod-tabs a[href="/admin/vetting"]');
+    if (tab) { tab.querySelector(".nav-badge")?.remove(); if (data.fresh.length) tab.append(h("span", { class: "nav-badge" }, String(data.fresh.length))); }
+    const answer = (q, v) => {
+      if (q.type === "agree") return v ? "✅ Agreed to the event guidelines" : "❌ Didn't agree";
+      if (q.type === "yesno") return v === "yes" ? "Yes" : v === "no" ? "No" : "";
+      if (q.type === "scale") return v ? `${v} / 5${v >= 5 ? " (this is my tribe)" : v <= 1 ? " (extremely uncomfortable)" : ""}` : "";
+      return String(v || "");
+    };
+    const card = (f, open) => {
+      const m = f.member;
+      const status = (m && m.vetting.status) || "";
+      const photo = m && m.avatar ? h("a", { href: pb.files.getURL(m, m.avatar), target: "_blank", rel: "noopener", title: "Open full photo" }, h("img", { class: "avatar", src: pb.files.getURL(m, m.avatar, { thumb: "200x200" }), alt: "" })) : h("div", { class: "avatar" }, "?");
+      const setStatus = async (k, label) => {
+        try { await pb.send(`/api/vc/mod/vetting/${m.id}`, { method: "POST", body: { status: k } }); toast(`Set to ${label}`); refresh(); } catch (err) { toast(errMsg(err), true); }
+      };
+      const mark = async () => { try { await pb.send(`/api/vc/mod/vet-forms/${f.id}`, { method: "POST", body: { seen: !f.seen } }); toast(f.seen ? "Marked unread" : "Marked read"); refresh(); } catch (err) { toast(errMsg(err), true); } };
+      const inner = [
+        h("div", { class: "vf-head" }, photo, h("div", {}, m ? personChip(m) : h("i", {}, "member deleted"),
+          h("div", { class: "faint", style: "font-size:.85rem" }, m ? `@${m.slug} · ` : "", `sent ${when(f.updated || f.created)}`, f.seen && f.seen_by ? ` · read by ${f.seen_by}` : ""),
+          h("div", { style: "font-size:.9rem;margin-top:2px" }, h("b", {}, L[status] || "No status"))) ),
+        h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const v = answer(q, f.answers[q.id]); return [h("dt", {}, q.q), h("dd", { class: v ? "" : "empty" }, v || "(no answer)")]; })),
+        m ? h("div", { class: "mod-row2", style: "margin-top:12px" }, h("span", { class: "faint" }, "Set status:"),
+          h("div", { class: "pills" }, ["vetted", "needs", "renew", "hold"].map((k) => h("button", { type: "button", class: "pill", "aria-pressed": String(status === k), onclick: () => setStatus(k, L[k]) }, L[k])))) : null,
+        h("div", { class: "actions" }, h("button", { type: "button", class: "btn small " + (f.seen ? "ghost" : "gold"), onclick: mark }, f.seen ? "Mark unread" : "👀 Mark read")),
+      ];
+      if (open) return h("section", { class: "panel vf-admin" }, ...inner);
+      return h("details", { class: "panel vf-admin read" }, h("summary", {}, m ? m.display_name : "Deleted member", h("small", { class: "faint" }, ` · ${when(f.updated || f.created)} · ${L[status] || "No status"}`)), ...inner);
+    };
+    holder.replaceChildren(
+      h("section", { class: "panel" }, h("h2", { style: "margin-bottom:4px" }, `📋 Vetting forms${data.fresh.length ? ` (${data.fresh.length} new)` : ""}`),
+        h("p", { class: "faint", style: "margin:0" }, "Members send these from ", h("code", {}, location.origin + "/vetting"), ". Only owners can read them. Setting a status marks the form read.",
+          data.fresh.length ? "" : " No new forms right now.")),
+      ...data.fresh.map((f) => card(f, true)),
+      ...(data.read.length ? [h("details", { class: "vf-read" }, h("summary", { class: "faint", style: "cursor:pointer;margin:0 0 12px" }, `Read forms (${data.read.length})`), ...data.read.map((f) => card(f, false)))] : []));
   }
 
   // ---------- events ----------
