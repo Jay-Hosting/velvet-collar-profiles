@@ -963,6 +963,7 @@
   const isNew = (m) => { const t = parseDate(m.created); return t && Date.now() - t < 7 * 864e5; };
   function badgesFor(p, photoCount) {
     const out = [];
+    if (p.vetted) out.push(["✅", "Vetted", "Vetted by the group's owners for play parties"]);
     for (const b of p.badges || []) if (ADMIN_BADGES[b]) out.push(ADMIN_BADGES[b]);
     if (isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
     const plays = (p.play_links || []).map((l) => l.url || "");
@@ -1223,6 +1224,8 @@
       throw err;
     }
     const p = data.profile;
+    const vet = data.vetting || {};
+    p.vetted = !!vet.vetted;
     const photos = data.photos || [];
     const look = setLook(p.style, p.theme, true);
     document.title = `${p.display_name} · Velvet Collar`;
@@ -1236,7 +1239,11 @@
     const tgUser = p.tg_username ? p.tg_username.replace(/^@/, "") : "";
 
     const reactHolder = h("div", { class: "react-holder" });
-    const badgeHolder = h("div", { class: "hold" }, badgeRow(badgesFor(p, photos.length)));
+    // Staff (admins, owners, hosts) also see the private vetting status and note.
+    const staffVet = vet.staff ? h("div", { class: "staff-vet" + (vet.status ? " s-" + vet.status : "") },
+      h("b", {}, "🔒 Vetting: "), vet.label || "Not vetted", vet.note ? h("span", {}, " · " + vet.note) : null,
+      vet.by ? h("small", { class: "faint" }, ` · ${vet.by}`) : null, h("small", { class: "faint" }, " (only staff see this)")) : null;
+    const badgeHolder = h("div", { class: "hold" }, badgeRow(badgesFor(p, photos.length)), staffVet);
     const crushHolder = h("span", { class: "crush-holder" });
     const huntHolder = h("span", { class: "hunt-holder" });
     const matchHolder = h("div", { class: "hold" });

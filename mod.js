@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["events", "📅 Events"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -19,7 +19,7 @@
       app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "Admins only"), h("p", { class: "muted" }, "This page is for the group's admins and hosts."), h("a", { class: "btn", href: "/", "data-nav": "" }, "Back to members")));
       return;
     }
-    const tabs = sum.mod ? TABS : TABS.filter((t) => t[0] === "events");
+    const tabs = sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "vetting");
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
@@ -27,7 +27,7 @@
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), events, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -101,6 +101,55 @@
       draw();
       return el;
     }
+    search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 300); });
+    load();
+  }
+
+  // ---------- vetting: staff can see, only owners can change ----------
+  async function vetting(body) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    const ORDER = ["needs", "renew", "hold", "vetted"];
+    const search = h("input", { type: "search", placeholder: "Find a member to set their status", "aria-label": "Search members" });
+    const holder = h("div", {});
+    const intro = h("p", { class: "faint", style: "margin-top:-6px" }, "");
+    body.replaceChildren(h("section", { class: "panel" }, h("h2", {}, "✅ Vetting for play parties"), intro, search, holder));
+    let timer;
+    const load = async () => {
+      let data;
+      try { data = await pb.send("/api/vc/mod/vetting?q=" + encodeURIComponent(search.value.trim()), {}); }
+      catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+      const L = data.labels;
+      intro.textContent = (data.canEdit ? "You're an owner, so you can change statuses. " : "Only owners can change statuses. ")
+        + "Everyone sees a ✅ Vetted badge on profiles; the other statuses and notes are only for admins, owners and hosts.";
+      const row = (m) => {
+        const v = m.vetting;
+        const el = h("div", { class: "mod-member vet-row" + (v.status ? " s-" + v.status : "") });
+        const note = h("input", { type: "text", maxlength: 500, value: v.note || "", placeholder: "Private note (who vetted, when it expires, why it's on hold…)", "aria-label": "Vetting note" });
+        const save = async (payload, msg) => {
+          try { const r = await pb.send(`/api/vc/mod/vetting/${m.id}`, { method: "POST", body: payload }); Object.assign(m, r); toast(msg); draw(); }
+          catch (err) { toast(errMsg(err), true); }
+        };
+        const draw = () => {
+          const vv = m.vetting;
+          el.className = "mod-member vet-row" + (vv.status ? " s-" + vv.status : "");
+          el.replaceChildren(
+            h("div", { class: "toggle-row" }, personChip(m), h("small", { class: "faint" }, vv.by ? `Updated by ${vv.by}${vv.at ? " · " + day(vv.at) : ""}` : "No status yet")),
+            data.canEdit
+              ? h("div", { class: "pills" }, [["", "None"], ...["vetted", "needs", "renew", "hold"].map((k) => [k, L[k]])].map(([k, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String((vv.status || "") === k),
+                  onclick: () => save({ status: k }, k ? `Set to ${label}` : "Status cleared") }, label)))
+              : h("p", { style: "margin:0" }, h("b", {}, L[vv.status] || "Not vetted")),
+            data.canEdit
+              ? h("div", { class: "mod-row2" }, note, h("button", { type: "button", class: "btn small ghost", onclick: () => save({ note: note.value }, "Note saved") }, "Save note"))
+              : vv.note ? h("p", { class: "faint", style: "margin:0" }, "📝 " + vv.note) : null);
+        };
+        draw();
+        return el;
+      };
+      const ms = data.members.slice().sort((a, b) => (ORDER.indexOf(a.vetting.status) + 1 || 9) - (ORDER.indexOf(b.vetting.status) + 1 || 9));
+      if (!ms.length) { holder.replaceChildren(h("p", { class: "muted" }, search.value.trim() ? "Nobody by that name." : (data.canEdit ? "Nobody has a vetting status yet. Search for a member to set one." : "Nobody has a vetting status yet."))); return; }
+      if (search.value.trim()) { holder.replaceChildren(...ms.map(row)); return; }
+      holder.replaceChildren(...ORDER.map((k) => { const grp = ms.filter((m) => m.vetting.status === k); return grp.length ? h("div", {}, h("h3", { class: "vet-group" }, `${L[k]} (${grp.length})`), ...grp.map(row)) : null; }).filter(Boolean));
+    };
     search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 300); });
     load();
   }

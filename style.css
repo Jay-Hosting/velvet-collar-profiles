@@ -1007,3 +1007,14 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   background: #241f2b; border: 1px solid var(--line-strong); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
 .wpicker button { border: 0; background: none; font-size: 1.25rem; padding: 4px; border-radius: 50%; cursor: pointer; line-height: 1; }
 .wpicker button:hover, .wpicker button.on { background: var(--gold-soft); transform: scale(1.12); }
+
+/* Vetting */
+.staff-vet { margin-top: 8px; padding: 6px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); font-size: .85rem; text-align: left; }
+.staff-vet.s-vetted { border-color: rgba(120, 220, 150, .5); }
+.staff-vet.s-needs, .staff-vet.s-renew { border-color: rgba(255, 210, 120, .55); }
+.staff-vet.s-hold { border-color: rgba(255, 120, 140, .6); }
+.vet-group { margin: 16px 0 4px; font-size: .95rem; }
+.vet-row.s-vetted { border-color: rgba(120, 220, 150, .45); }
+.vet-row.s-needs, .vet-row.s-renew { border-color: rgba(255, 210, 120, .45); }
+.vet-row.s-hold { border-color: rgba(255, 120, 140, .5); }
+.vet-row .mod-row2 input { flex: 1; min-width: 200px; }
