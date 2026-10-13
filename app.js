@@ -2312,7 +2312,9 @@
       const add = (it = {}) => {
         if (rows.children.length >= max) return toast(`Up to ${max} items`, true);
         const t = h("input", { type: "text", placeholder: titlePh, value: it.title || "", maxlength: 80, "aria-label": "Name" });
-        const u = h("input", { type: "url", placeholder: urlPh, value: it.url || "", inputmode: "url", "aria-label": "Link" });
+        const u = h("input", { type: "url", placeholder: it.ph || urlPh, value: it.url || "", inputmode: "url", "aria-label": "Link" });
+        // Pasted without https:// (like fetlife.com/users/123)? Add it so the link works.
+        u.addEventListener("blur", () => { const v = u.value.trim(); if (v && !/^[a-z]+:\/\//i.test(v) && /^[^\s]+\.[a-z]{2,}(\/|$)/i.test(v)) u.value = "https://" + v; });
         const row = h("div", { class: "row" }, t, u, h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Remove", onclick: () => row.remove() }, "✕"));
         rows.append(row);
         return { t, u };
@@ -2320,8 +2322,8 @@
       (items || []).forEach(add);
       const wrap = h("div", {}, rows,
         h("button", { type: "button", class: "btn small", onclick: () => { const r = add(); r && r.t.focus(); } }, "+ Add"),
-        presets ? h("div", { class: "presets" }, presets.map(([label, url]) =>
-          h("button", { type: "button", class: "btn small ghost", onclick: () => { const r = add({ title: label, url }); if (r) { r.u.focus(); r.u.setSelectionRange(url.length, url.length); } } }, "+ " + label))) : null);
+        presets ? h("div", { class: "presets" }, presets.map(([label]) =>
+          h("button", { type: "button", class: "btn small ghost", onclick: () => { const r = add({ title: label, ph: `Paste your ${label} link here` }); if (r) r.u.focus(); } }, "+ " + label))) : null);
       wrap.add = add;
       wrap.read = () => [...rows.children].map((r) => {
         const [t, u] = r.querySelectorAll("input");
@@ -2329,7 +2331,7 @@
       }).filter((x) => x.url);
       return wrap;
     }
-    const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "https://…", 40, LINK_PRESETS);
+    const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "Paste the link here", 40, LINK_PRESETS);
     // ---------- Playroom: each hosted game gets a box for the member's own share link ----------
     const playOriginal = (rec.play_links || []).filter((l) => l && l.url);
     let gameRows = null;     // [{ title, input }] once the games have loaded
@@ -2564,7 +2566,7 @@
         }
         gameRows = rows;
         const others = playOriginal.filter((_, i) => !used.has(i));
-        otherEd = listEditor(others, "Game name", "https://…", 10);
+        otherEd = listEditor(others, "Game name", "Paste the link here", 10);
         otherHolder.replaceChildren(h("details", { class: "pg-other", open: others.length > 0 },
           h("summary", {}, "Links for other games"), otherEd));
       }).catch(() => grid.replaceChildren(h("p", { class: "faint" }, "Couldn't load the games right now. Your saved game links are kept.")));
