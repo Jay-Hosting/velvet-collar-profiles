@@ -513,6 +513,7 @@
           h("div", { class: "event-body" },
             h("div", { class: "event-tags" },
               ev.mine ? h("span", { class: "ev-tag going" }, past ? "✓ You went" : "✓ You're going") : null,
+              ev.interested ? h("span", { class: "ev-tag interested" }, "⭐ You're interested") : null,
               ev.hosted ? h("span", { class: "ev-tag hosted" }, "💜 Hosted by Velvet Collar") : null,
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
               ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
@@ -522,23 +523,31 @@
             h("div", { class: "event-people" },
               ev.people.slice(0, 12).map(personChip),
               ev.others ? h("span", { class: "faint" }, `+${ev.others} more`) : null,
-              !ev.going ? h("span", { class: "faint" }, past ? "Nobody signed up." : "Be the first to say you're going!") : null),
+              !ev.going && !ev.interestedCount ? h("span", { class: "faint" }, past ? "Nobody signed up." : "Be the first to say you're going!") : null),
+            ev.interestedCount ? h("div", { class: "event-people interested-row" },
+              h("span", { class: "faint" }, "⭐ Interested:"),
+              (ev.intPeople || []).slice(0, 12).map(personChip),
+              ev.intOthers ? h("span", { class: "faint" }, `+${ev.intOthers} more`) : null) : null,
             h("div", { class: "actions", style: "margin:10px 0 0" },
               past ? h("span", { class: "faint" }, `${ev.going} went`) : (() => {
-                const b = h("button", { type: "button", class: "btn small " + (ev.mine ? "gold" : ""), "aria-pressed": String(ev.mine) }, ev.mine ? "✓ I'm going" : "I'm going");
-                b.addEventListener("click", async () => {
-                  b.disabled = true;
+                // "I'm going" and "Interested" are one choice: tapping the one you picked clears it.
+                const set = async (status, btns) => {
+                  btns.forEach((x) => { x.disabled = true; });
                   try {
-                    const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id } });
+                    const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id, status } });
                     Object.assign(ev, upd); draw(ev); drawGrid();
-                    toast(upd.mine ? "🎉 See you there!" : "Taken off the list");
-                  } catch (err) { toast(errMsg(err), true); b.disabled = false; }
-                });
-                return b;
+                    toast(upd.mine ? "🎉 See you there!" : upd.interested ? "⭐ Marked as interested" : "Taken off the list");
+                  } catch (err) { toast(errMsg(err), true); btns.forEach((x) => { x.disabled = false; }); }
+                };
+                const go = h("button", { type: "button", class: "btn small " + (ev.mine ? "gold" : ""), "aria-pressed": String(!!ev.mine) }, ev.mine ? "✓ I'm going" : "I'm going");
+                const maybe = h("button", { type: "button", class: "btn small interested-btn" + (ev.interested ? " on" : ""), "aria-pressed": String(!!ev.interested) }, ev.interested ? "⭐ Interested" : "☆ Interested");
+                go.addEventListener("click", () => set(ev.mine ? "" : "going", [go, maybe]));
+                maybe.addEventListener("click", () => set(ev.interested ? "" : "interested", [go, maybe]));
+                return [go, maybe];
               })(),
               past ? null : addMenu(ev),
               ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
-              !past ? h("span", { class: "faint" }, `${ev.going} going`) : null)));
+              !past ? h("span", { class: "faint" }, `${ev.going} going` + (ev.interestedCount ? ` · ${ev.interestedCount} interested` : "")) : null)));
       };
       draw(ev);
       return card;
@@ -564,7 +573,7 @@
         const cls = "cal-day" + (key === today ? " today" : "") + (key < today ? " gone" : "") + (key === picked ? " picked" : "") + (evs.length ? " has" : "");
         cells.push(h(evs.length ? "button" : "div", Object.assign({ class: cls }, evs.length ? { type: "button", "aria-label": `${d}: ${evs.map((x) => x.title).join(", ")}`, onclick: () => { picked = picked === key ? "" : key; drawGrid(); drawList(); } } : {}),
           h("span", { class: "cal-num" }, d),
-          h("span", { class: "cal-evs" }, evs.slice(0, 3).map((ev) => h("span", { class: "cal-ev k-" + kind(ev) }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"), h("span", { class: "cal-ev-t" }, ev.title))),
+          h("span", { class: "cal-evs" }, evs.slice(0, 3).map((ev) => h("span", { class: "cal-ev k-" + kind(ev) + (ev.interested ? " int" : "") }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"), h("span", { class: "cal-ev-t" }, (ev.interested ? "☆ " : "") + ev.title))),
             evs.length > 3 ? h("span", { class: "cal-more" }, `+${evs.length - 3}`) : null)));
       }
       grid.replaceChildren(...cells);
@@ -578,9 +587,9 @@
       if (!evs.length) list.append(h("p", { class: "muted" }, picked ? "Nothing on this day." : "Nothing on the calendar this month yet. Keep an eye on the group chat!"));
     }
     const move = (n) => { vm += n; if (vm < 1) { vm = 12; vy--; } if (vm > 12) { vm = 1; vy++; } picked = ""; drawGrid(); drawList(); };
-    const mine = () => data.upcoming.filter((ev) => ev.mine);
-    const allMine = h("button", { type: "button", class: "btn small ghost", title: "One calendar file with every upcoming event you're going to", onclick: () => {
-      const list = mine(); if (!list.length) return toast("Tap I'm going on an event first.", true);
+    const mine = () => data.upcoming.filter((ev) => ev.mine || ev.interested);
+    const allMine = h("button", { type: "button", class: "btn small ghost", title: "One calendar file with every upcoming event you're going to or interested in", onclick: () => {
+      const list = mine(); if (!list.length) return toast("Tap I'm going or Interested on an event first.", true);
       downloadIcs(list, "velvet-collar-my-events.ics"); toast(`Calendar file with ${list.length} event${list.length === 1 ? "" : "s"} downloaded. Open it to add them.`);
     } }, "📅 Add all my events");
 
@@ -590,7 +599,7 @@
     if (next && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
     app.replaceChildren(
       h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
-        h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on, and I'm going so people know who to look for. Only members on the member list are shown by name."),
+        h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
         h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →"))),
       h("section", { class: "panel cal" },
         h("div", { class: "cal-bar" },
@@ -599,7 +608,7 @@
           h("button", { type: "button", class: "btn small ghost", "aria-label": "Next month", onclick: () => move(1) }, "›"),
           h("button", { type: "button", class: "btn small ghost cal-today", onclick: () => { [vy, vm] = today.split("-").map(Number); picked = ""; drawGrid(); drawList(); } }, "Today")),
         grid,
-        h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), allMine)),
+        h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine)),
       listHead, list);
   }
 

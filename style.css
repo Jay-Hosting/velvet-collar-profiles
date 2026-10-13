@@ -1150,3 +1150,10 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   textarea { min-height: 160px; }
   textarea.short { min-height: 80px; }
 }
+/* "Interested" on events */
+.ev-tag.interested { --kc: var(--k-going); border-style: dashed; }
+.interested-btn.on { border-color: var(--k-going); color: var(--k-going); background: color-mix(in srgb, var(--k-going) 14%, transparent); }
+.interested-row { margin-top: 6px; }
+.cal-ev.int { outline: 1px dashed var(--k-going); outline-offset: -1px; }
+@media (max-width: 640px) { .cal-ev.int { outline: 0; box-shadow: 0 0 0 2px var(--k-going); } }
+.cal-legend i.k-int { background: transparent; border: 1.5px dashed var(--k-going); box-sizing: border-box; }
