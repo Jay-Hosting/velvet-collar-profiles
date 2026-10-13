@@ -139,6 +139,20 @@
     (agree || scroller).focus();
   }
 
+  // Text boxes grow with what's typed, so long answers are easy to read and edit (especially on phones).
+  function autoGrow(t) {
+    if (!t || t.tagName !== "TEXTAREA" || !t.offsetParent) return;
+    t.style.height = "auto";
+    const max = Math.max(240, Math.round(window.innerHeight * 0.7));
+    t.style.height = Math.min(t.scrollHeight + 2, max) + "px";
+    t.style.overflowY = t.scrollHeight + 2 > max ? "auto" : "hidden";
+  }
+  const growAll = (root) => (root || document).querySelectorAll("textarea").forEach(autoGrow);
+  document.addEventListener("input", (e) => autoGrow(e.target));
+  document.addEventListener("focusin", (e) => autoGrow(e.target));
+  window.addEventListener("resize", () => growAll());
+  new MutationObserver(() => { clearTimeout(growAll._t); growAll._t = setTimeout(() => growAll(), 50); }).observe(document.getElementById("app"), { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+
   // A password box with a Show / Hide button.
   function pwToggle(input) {
     const btn = h("button", { type: "button", class: "pw-eye", "aria-pressed": "false", "aria-label": "Show password" }, "Show");
@@ -2269,7 +2283,7 @@
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
             field("Area", areaSelect(), "Roughly where you are, so people nearby can find you. Optional."),
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
-            field("Hobbies", input("hobbies", { maxlength: 1000, placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Comma-separated; they show as tags.", true),
+            field("Hobbies", area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Separate them with commas or new lines; they show as tags.", true),
             field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),

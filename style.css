@@ -214,7 +214,8 @@ input[type=text], input[type=url], input[type=email], input[type=password], inpu
   border: 1px solid var(--line-strong); background: rgba(0,0,0,.25); outline: none;
 }
 input:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
-textarea { min-height: 110px; resize: vertical; }
+textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+textarea.short { min-height: 64px; }
 .slug-row { display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(0,0,0,.25); overflow: hidden; }
 .slug-row span { padding: 0 2px 0 12px; color: var(--faint); white-space: nowrap; font-size: .9rem; }
 .slug-row input { border: 0; background: transparent; padding-left: 2px; min-width: 0; }
@@ -1141,3 +1142,11 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .pw-wrap input { width: 100%; padding-right: 68px; }
 .pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--gold); font: inherit; font-size: .82rem; font-weight: 700; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
 .pw-eye:hover, .pw-eye:focus-visible { background: var(--gold-soft); }
+
+/* bigger, easier fields on phones (16px text also stops iPhones zooming in) */
+@media (max-width: 640px) {
+  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=date], textarea, select { font-size: 16px; padding: 12px 14px; }
+  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], select { min-height: 48px; }
+  textarea { min-height: 160px; }
+  textarea.short { min-height: 80px; }
+}
