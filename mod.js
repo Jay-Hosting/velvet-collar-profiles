@@ -208,6 +208,7 @@
       starts_pacific: h("input", { type: "text", maxlength: 40, placeholder: "2026-10-31 7:00 PM" }), ends_pacific: h("input", { type: "text", maxlength: 40, placeholder: "2026-10-31 10:00 PM (optional)" }),
       where: h("input", { type: "text", maxlength: 120, placeholder: "Where (or 'DM for address')" }), description: h("textarea", { rows: 3, maxlength: 1000, placeholder: "What to expect, what to bring…" }),
       url: h("input", { type: "url", maxlength: 300, placeholder: "https://… (optional)" }), hidden: h("input", { type: "checkbox" }),
+      vetting: h("select", {}, h("option", { value: "" }, "No vetting"), h("option", { value: "offered" }, "✅ You can get vetted here"), h("option", { value: "required" }, "🔒 Vetted members only")),
     };
     let editing = null;
     const title = h("h2", {}, "Add an event");
@@ -229,7 +230,7 @@
     const field = (label, el, hint) => h("label", { class: "field" }, h("span", { class: "label" }, label), el, hint ? h("span", { class: "hint" }, hint) : null);
     const now = Date.now();
     const evRow = (ev) => h("div", { class: "mod-event" + (ev.hidden ? " is-hidden" : "") + (Date.parse(String(ev.starts).replace(" ", "T")) < now ? " past" : "") },
-      h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.hidden ? " · hidden" : ""}`)),
+      h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
       h("span", { class: "actions", style: "margin:0" },
         h("button", { type: "button", class: "btn small", onclick: () => fill(ev) }, "Edit"),
         h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm(`Delete "${ev.title}"? RSVPs go with it.`)) return; try { await pb.send(`/api/vc/mod/events/${ev.id}`, { method: "DELETE" }); toast("Deleted"); events(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete")));
@@ -239,7 +240,7 @@
       h("section", { class: "panel" }, title,
         h("div", { class: "form-grid" }, field("Title", f.title), field("Emoji", f.emoji),
           field("Starts (Pacific time)", f.starts_pacific, "Like 2026-10-31 7:00 PM"), field("Ends (Pacific time)", f.ends_pacific),
-          field("Where", f.where), field("Link", f.url)),
+          field("Where", f.where), field("Link", f.url), field("Vetting", f.vetting, "Shows as a colour on the Events calendar")),
         field("Description", f.description),
         h("label", { class: "check" }, f.hidden, "Hidden (save it as a draft)"),
         h("div", { class: "actions" }, saveBtn, cancel)),

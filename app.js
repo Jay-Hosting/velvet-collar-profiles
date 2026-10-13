@@ -404,14 +404,54 @@
   async function renderEvents() {
     document.title = "Events · Velvet Collar";
     const data = await pb.send("/api/vc/events", {});
-    const list = h("div", { class: "events" });
-    const eventCard = (ev, past) => {
-      const card = h("article", { class: "event" + (past ? " past" : "") });
+    const all = [...data.past.slice().reverse(), ...data.upcoming];
+    const now = Date.now();
+    const isPast = (ev) => { const end = parseDate(ev.ends) || (parseDate(ev.starts) + 6 * 3600e3); return end < now; };
+    // Pacific calendar day of a time, as "2026-10-24".
+    const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+    const dayKey = (t) => dayFmt.format(new Date(t));
+    const today = dayKey(now);
+    // Colour: going beats vetting tags.
+    const kind = (ev) => (ev.mine ? "going" : ev.vetting === "offered" ? "vet" : ev.vetting === "required" ? "vetonly" : "other");
+    const KINDS = [["going", "You're going"], ["vet", "Get vetted here"], ["vetonly", "Vetted members only"], ["other", "Other events"]];
+
+    // ---- add to calendar ----
+    const icsTime = (t) => new Date(t).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    const icsText = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/[,;]/g, (c) => "\\" + c);
+    const endOf = (ev) => parseDate(ev.ends) || parseDate(ev.starts) + 2 * 3600e3;
+    const detailsOf = (ev) => [ev.description, ev.url && safeUrl(ev.url) ? ev.url : "", `${location.origin}/events`].filter(Boolean).join("\n\n");
+    const icsEvent = (ev) => ["BEGIN:VEVENT", `UID:${ev.id}@${location.hostname}`, `DTSTAMP:${icsTime(now)}`, `DTSTART:${icsTime(parseDate(ev.starts))}`, `DTEND:${icsTime(endOf(ev))}`,
+      `SUMMARY:${icsText((ev.emoji ? ev.emoji + " " : "") + ev.title)}`, ev.where ? `LOCATION:${icsText(ev.where)}` : "", `DESCRIPTION:${icsText(detailsOf(ev))}`, `URL:${location.origin}/events`, "END:VEVENT"].filter(Boolean);
+    const downloadIcs = (list, name) => {
+      const body = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Velvet Collar//Events//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", ...list.flatMap(icsEvent), "END:VCALENDAR"].join("\r\n");
+      const a = h("a", { href: URL.createObjectURL(new Blob([body], { type: "text/calendar;charset=utf-8" })), download: name });
+      document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    };
+    const googleUrl = (ev) => "https://calendar.google.com/calendar/render?" + new URLSearchParams({ action: "TEMPLATE", text: (ev.emoji ? ev.emoji + " " : "") + ev.title,
+      dates: icsTime(parseDate(ev.starts)) + "/" + icsTime(endOf(ev)), details: detailsOf(ev), location: ev.where || "" }).toString();
+    const slug = (s) => String(s || "event").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "event";
+    const addMenu = (ev) => {
+      const menu = h("div", { class: "cal-add-menu", hidden: true },
+        h("a", { class: "btn small ghost", href: googleUrl(ev), target: "_blank", rel: "noopener" }, "Google Calendar ↗"),
+        h("button", { type: "button", class: "btn small ghost", onclick: () => { downloadIcs([ev], slug(ev.title) + ".ics"); toast("Calendar file downloaded. Open it to add the event."); } }, "Apple / Outlook (.ics)"));
+      const btn = h("button", { type: "button", class: "btn small ghost", "aria-expanded": "false", onclick: () => { menu.hidden = !menu.hidden; btn.setAttribute("aria-expanded", String(!menu.hidden)); } }, "📅 Add to my calendar");
+      return [btn, menu];
+    };
+
+    // ---- one event ----
+    const eventCard = (ev) => {
+      const card = h("article", { class: "event", id: "ev_" + ev.id });
       const draw = (ev) => {
+        const past = isPast(ev);
         const ends = ev.ends ? parseDate(ev.ends) : null;
+        card.className = "event k-" + kind(ev) + (past ? " past" : "");
         card.replaceChildren(
           h("div", { class: "event-emoji", "aria-hidden": "true" }, ev.emoji || "📅"),
           h("div", { class: "event-body" },
+            h("div", { class: "event-tags" },
+              ev.mine ? h("span", { class: "ev-tag going" }, past ? "✓ You went" : "✓ You're going") : null,
+              ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
+              ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
             h("h2", {}, ev.title),
             h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
             ev.description ? h("p", { class: "event-desc" }, ev.description) : null,
@@ -424,25 +464,79 @@
                 const b = h("button", { type: "button", class: "btn small " + (ev.mine ? "gold" : ""), "aria-pressed": String(ev.mine) }, ev.mine ? "✓ I'm going" : "I'm going");
                 b.addEventListener("click", async () => {
                   b.disabled = true;
-                  try { const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id } }); draw(upd); toast(upd.mine ? "🎉 See you there!" : "Taken off the list"); }
-                  catch (err) { toast(errMsg(err), true); b.disabled = false; }
+                  try {
+                    const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id } });
+                    Object.assign(ev, upd); draw(ev); drawGrid();
+                    toast(upd.mine ? "🎉 See you there!" : "Taken off the list");
+                  } catch (err) { toast(errMsg(err), true); b.disabled = false; }
                 });
                 return b;
               })(),
+              past ? null : addMenu(ev),
               ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
               !past ? h("span", { class: "faint" }, `${ev.going} going`) : null)));
       };
       draw(ev);
       return card;
     };
-    if (!data.upcoming.length) list.append(h("p", { class: "muted" }, "Nothing planned right now. Keep an eye on the group chat!"));
-    data.upcoming.forEach((ev) => list.append(eventCard(ev, false)));
+
+    // ---- the month grid ----
+    let [vy, vm] = today.split("-").map(Number);   // shown year and month (1–12)
+    let picked = "";                                // a picked day, or "" for the whole month
+    const title = h("h2", { class: "cal-title" });
+    const grid = h("div", { class: "cal-grid", role: "grid" });
+    const listHead = h("div", { class: "toggle-row cal-list-head" });
+    const list = h("div", { class: "events" });
+    const monthKey = () => `${vy}-${String(vm).padStart(2, "0")}`;
+    const evsOn = (key) => all.filter((ev) => dayKey(parseDate(ev.starts)) === key);
+    function drawGrid() {
+      title.textContent = new Date(Date.UTC(vy, vm - 1, 15)).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+      const first = new Date(Date.UTC(vy, vm - 1, 1)).getUTCDay(), days = new Date(Date.UTC(vy, vm, 0)).getUTCDate();
+      const cells = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => h("div", { class: "cal-dow", role: "columnheader" }, d));
+      for (let i = 0; i < first; i++) cells.push(h("div", { class: "cal-day empty" }));
+      for (let d = 1; d <= days; d++) {
+        const key = `${monthKey()}-${String(d).padStart(2, "0")}`;
+        const evs = evsOn(key);
+        const cls = "cal-day" + (key === today ? " today" : "") + (key < today ? " gone" : "") + (key === picked ? " picked" : "") + (evs.length ? " has" : "");
+        cells.push(h(evs.length ? "button" : "div", Object.assign({ class: cls }, evs.length ? { type: "button", "aria-label": `${d}: ${evs.map((x) => x.title).join(", ")}`, onclick: () => { picked = picked === key ? "" : key; drawGrid(); drawList(); } } : {}),
+          h("span", { class: "cal-num" }, d),
+          h("span", { class: "cal-evs" }, evs.slice(0, 3).map((ev) => h("span", { class: "cal-ev k-" + kind(ev) }, h("span", { class: "cal-ev-e", "aria-hidden": "true" }, ev.emoji || "📅"), h("span", { class: "cal-ev-t" }, ev.title))),
+            evs.length > 3 ? h("span", { class: "cal-more" }, `+${evs.length - 3}`) : null)));
+      }
+      grid.replaceChildren(...cells);
+    }
+    function drawList() {
+      const evs = picked ? evsOn(picked) : all.filter((ev) => dayKey(parseDate(ev.starts)).startsWith(monthKey()));
+      const upcoming = evs.filter((ev) => !isPast(ev)), past = evs.filter(isPast).reverse();
+      const label = picked ? new Date(picked + "T12:00:00Z").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }) : `All of ${title.textContent}`;
+      listHead.replaceChildren(...[h("h2", { style: "margin:0" }, label), picked ? h("button", { type: "button", class: "btn small ghost", onclick: () => { picked = ""; drawGrid(); drawList(); } }, "Show the whole month") : null].filter(Boolean));
+      list.replaceChildren(...upcoming.map(eventCard), ...past.map(eventCard));
+      if (!evs.length) list.append(h("p", { class: "muted" }, picked ? "Nothing on this day." : "Nothing on the calendar this month yet. Keep an eye on the group chat!"));
+    }
+    const move = (n) => { vm += n; if (vm < 1) { vm = 12; vy--; } if (vm > 12) { vm = 1; vy++; } picked = ""; drawGrid(); drawList(); };
+    const mine = () => data.upcoming.filter((ev) => ev.mine);
+    const allMine = h("button", { type: "button", class: "btn small ghost", title: "One calendar file with every upcoming event you're going to", onclick: () => {
+      const list = mine(); if (!list.length) return toast("Tap I'm going on an event first.", true);
+      downloadIcs(list, "velvet-collar-my-events.ics"); toast(`Calendar file with ${list.length} event${list.length === 1 ? "" : "s"} downloaded. Open it to add them.`);
+    } }, "📅 Add all my events");
+
+    drawGrid(); drawList();
+    // Start on the month of the next event if this month has nothing coming up.
+    const next = data.upcoming[0];
+    if (next && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
     app.replaceChildren(
       h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
-        h("p", { class: "muted" }, "Munches, game nights and get-togethers. Tap I'm going so people know who to look for. Only members on the member list are shown by name."),
+        h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on, and I'm going so people know who to look for. Only members on the member list are shown by name."),
         h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →"))),
-      list,
-      data.past.length ? h("details", { class: "past-events" }, h("summary", {}, "Past events"), h("div", { class: "events" }, data.past.map((ev) => eventCard(ev, true)))) : "");
+      h("section", { class: "panel cal" },
+        h("div", { class: "cal-bar" },
+          h("button", { type: "button", class: "btn small ghost", "aria-label": "Previous month", onclick: () => move(-1) }, "‹"),
+          title,
+          h("button", { type: "button", class: "btn small ghost", "aria-label": "Next month", onclick: () => move(1) }, "›"),
+          h("button", { type: "button", class: "btn small ghost cal-today", onclick: () => { [vy, vm] = today.split("-").map(Number); picked = ""; drawGrid(); drawList(); } }, "Today")),
+        grid,
+        h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), allMine)),
+      listHead, list);
   }
 
   // ---------- vetting form (for play parties that need it; owners read it on the Admin page) ----------
