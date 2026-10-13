@@ -182,10 +182,48 @@
   }
   document.addEventListener("click", (e) => { const a = e.target.closest("[data-howto]"); if (a) { e.preventDefault(); openHowTo(false); } });
 
+  // Members who joined before the 21+ check and the guidelines (or before the guidelines changed) confirm both once.
+  // The box can't be dismissed: agree, or log out.
+  let consentOk = false, consentOpen = false;
+  async function checkConsent() {
+    if (consentOk || consentOpen || !me()) return;
+    const G = window.VCGuidelines;
+    let st; try { st = await pb.send("/api/vc/consent?v=" + encodeURIComponent(G.VERSION), { requestKey: null }); } catch { return; }
+    if (!st.needs21 && !st.needsGuidelines) { consentOk = true; return; }
+    consentOpen = true;
+    const age = h("input", { type: "checkbox", id: "cs_age", checked: !st.needs21 });
+    const gl = h("input", { type: "checkbox", id: "cs_gl" });
+    const msg = h("p", { class: "form-msg", role: "alert" });
+    const btn = h("button", { type: "submit", class: "btn gold" }, "Agree and continue");
+    const modal = h("div", { class: "modal consent-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "cs_title" });
+    const form = h("form", { class: "modal-box consent-box" },
+      h("div", { class: "consent-e", "aria-hidden": "true" }, "💜"),
+      h("h2", { id: "cs_title", style: "margin:0;text-align:center" }, "One quick thing before you carry on"),
+      h("p", { class: "muted", style: "margin:0" }, st.needs21 ? "Velvet Collar now asks every member to confirm their age and agree to our community guidelines. It only takes a moment, and you'll only be asked once."
+        : "Our community guidelines have been updated. Please have a read and agree to keep using the site."),
+      st.needs21 ? h("label", { class: "check", for: "cs_age" }, age, h("span", {}, "I'm 21 or older.")) : null,
+      h("label", { class: "check", for: "cs_gl" }, gl, h("span", {}, "I've read and agree to the ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); openGuidelines(() => { gl.checked = true; }); } }, "community guidelines"), ".")),
+      msg,
+      h("div", { class: "actions", style: "margin:0;justify-content:space-between" },
+        h("button", { type: "button", class: "btn ghost", onclick: () => { modal.remove(); consentOpen = false; pb.authStore.clear(); go("/"); } }, "Log out"), btn));
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault(); msg.textContent = "";
+      if (!age.checked) { msg.textContent = "Velvet Collar is for members 21 and older. Please confirm your age."; return age.focus(); }
+      if (!gl.checked) { msg.textContent = "Please read and agree to the community guidelines first."; return gl.focus(); }
+      btn.disabled = true;
+      try {
+        await pb.send("/api/vc/consent", { method: "POST", body: { age21: true, guidelines: G.VERSION } });
+        consentOk = true; consentOpen = false; modal.remove(); toast("Thank you 💜 Enjoy the site.");
+      } catch (err) { msg.textContent = errMsg(err); btn.disabled = false; }
+    });
+    modal.append(form); document.body.append(modal);
+    setTimeout(() => (st.needs21 ? age : gl).focus(), 50);
+  }
+
   // The community guidelines in a pop-up. onAgree (optional) adds an "I agree" button.
   function openGuidelines(onAgree) {
     const G = window.VCGuidelines;
-    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "gl_title" });
+    const modal = h("div", { class: "modal gl-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "gl_title" });
     const close = () => { modal.remove(); document.removeEventListener("keydown", esc); };
     const esc = (e) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", esc);
@@ -423,6 +461,7 @@
     try {
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
+      checkConsent();
       if (r.name === "home") return me() ? await renderDirectory() : await renderGroup(renderLanding);
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);

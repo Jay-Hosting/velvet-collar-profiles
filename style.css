@@ -1424,3 +1424,9 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .hunt-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 620px; margin: 0 auto 14px; }
 .hunt-facts span { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.04); font-size: .82rem; font-weight: 600; }
 .hunt-facts span:nth-child(2) { border: 0; background: none; color: var(--muted); padding: 4px 0; }
+
+/* One-time 21+ and guidelines check for older accounts */
+.consent-modal { z-index: 80; }
+.consent-box { width: min(460px, 100%); gap: 12px; }
+.consent-e { font-size: 2.4rem; text-align: center; }
+.modal.gl-modal { z-index: 90; }
