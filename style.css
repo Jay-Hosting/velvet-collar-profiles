@@ -1107,3 +1107,13 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   .cal-more { padding: 0; font-size: .62rem; }
   .cal-legend .btn { margin-left: 0; }
 }
+/* owner vetting tab */
+.vet-tabs { margin: 4px 0 12px; }
+.vet-row { display: flex; flex-direction: column; gap: 10px; }
+.vet-row .vf-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.vet-row .vf-head img.avatar, .vet-row .vf-head .avatar { width: 72px; height: 72px; flex: none; }
+.vet-row.has-new { border-color: rgba(255, 210, 120, .7); box-shadow: 0 0 0 1px rgba(255, 210, 120, .25); }
+.vet-new { margin-left: 8px; font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255, 210, 120, .18); color: #ffd98a; border: 1px solid rgba(255, 210, 120, .5); }
+.vet-form { border-top: 1px solid var(--line); padding-top: 8px; }
+.vet-form summary { cursor: pointer; font-weight: 700; }
+.vet-noform { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
