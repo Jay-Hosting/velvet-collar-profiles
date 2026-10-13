@@ -524,7 +524,7 @@
       h("span", { class: "game-go" }, "Open"));
     const huntTile = h("a", { class: "game hunt-game", href: "/hunt", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🏹"),
-      h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "A midnight chase, right here on the site. One hides, one hunts. Opt in to play.")),
+      h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "🐺 Hunter vs 🐇 prey: a turn-based kink chase for two. Each turn is one hour of the night. Catch them before dawn, or escape. Opt in to play.")),
       h("span", { class: "game-go" }, "Play"));
     const confessTile = h("a", { class: "game hunt-game", href: "/confessions", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "💌"),

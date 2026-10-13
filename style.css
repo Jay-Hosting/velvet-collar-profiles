@@ -1418,3 +1418,9 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .glow-target { animation: glow-target 2.4s ease-out; border-radius: 14px; }
 @keyframes glow-target { 0%, 35% { box-shadow: 0 0 0 3px var(--gold), 0 0 24px var(--gold-soft); } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .glow-target { animation: none; outline: 2px solid var(--gold); outline-offset: 4px; } }
+
+/* The Hunt: what kind of game it is, at a glance */
+.hunt-hero .hunt-tagline { font-family: var(--serif); font-size: 1.15rem; color: var(--text); margin-bottom: 12px; }
+.hunt-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 620px; margin: 0 auto 14px; }
+.hunt-facts span { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.04); font-size: .82rem; font-weight: 600; }
+.hunt-facts span:nth-child(2) { border: 0; background: none; color: var(--muted); padding: 4px 0; }
