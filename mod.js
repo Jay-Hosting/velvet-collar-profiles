@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["activity", "📈 Activity"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -29,7 +29,7 @@
         id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, activity, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -297,6 +297,133 @@
     else holder.replaceChildren(...data.items.map((it) => h("div", { class: "mod-event" },
       h("div", {}, h("small", { class: "faint" }, it.question), h("p", { style: "margin:2px 0 4px" }, it.text), who(it.by), h("small", { class: "faint" }, ` · ${day(it.created)}`)),
       del(it, "answer"))));
+  }
+
+  // ---------- activity: busy times, who's most active, what gets used (admins and owners) ----------
+  let actRange = 30, actHeat = "online", actSort = "overall", actAll = false;
+  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers",
+    edit: "✏️ Editing their profile", question: "❓ Question of the week", vetting: "📝 Vetting form", admin: "🛡️ Admin" };
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const DOW_LONG = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+  const hr = (x) => { x = ((x % 24) + 24) % 24; return (x % 12 || 12) + (x < 12 ? " AM" : " PM"); };
+  const hrShort = (x) => (x % 12 || 12) + (x < 12 ? "a" : "p");
+  const span = (a, n) => hr(a) + "–" + hr(a + n);
+  const mins = (m) => m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? " " + (m % 60) + "m" : ""}`;
+  const ago = (d) => {
+    const t = Date.parse(String(d || "").replace(" ", "T")); if (isNaN(t)) return "";
+    const s = (Date.now() - t) / 1000;
+    if (s < 600) return "online now"; if (s < 3600) return Math.round(s / 60) + " min ago";
+    if (s < 86400) return Math.round(s / 3600) + "h ago"; const dd = Math.round(s / 86400); return dd === 1 ? "yesterday" : dd + " days ago";
+  };
+  const keyDay = (k, opts) => new Date(k + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", ...(opts || { month: "short", day: "numeric" }) });
+
+  async function activity(body) {
+    const { h, pb, personChip } = deps();
+    if (!body.firstChild) body.append(h("p", { class: "muted" }, "Loading…"));
+    const d = await pb.send("/api/vc/mod/activity?days=" + actRange, {});
+    const T = d.totals, redraw = () => activity(body).catch(() => {});
+    const pill = (on, label, fn) => h("button", { type: "button", class: "pill", "aria-pressed": String(on), onclick: fn }, label);
+    const range = h("div", { class: "pills" }, [7, 30, 90].map((n) => pill(actRange === n, `Last ${n} days`, () => { actRange = n; redraw(); })));
+    const freshTracking = !d.trackingSince || d.trackingSince > d.from;
+
+    // Up or down against the period before.
+    const trend = (now, prev) => {
+      if (!prev) return null;
+      const pct = Math.round((now - prev) / prev * 100);
+      return h("small", { class: "act-trend " + (pct > 0 ? "up" : pct < 0 ? "down" : "") }, pct === 0 ? "same as before" : `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}% vs the ${actRange} days before`);
+    };
+    const stat = (num, label, extra) => h("div", { class: "act-stat" }, h("b", {}, String(num)), h("span", {}, label), extra || null);
+    const stats = h("div", { class: "act-stats" },
+      stat(T.active, `active members (${T.members ? Math.round(T.active / T.members * 100) : 0}% of ${T.members})`, trend(T.active, T.activePrev)),
+      stat(T.today, "on the site today"),
+      stat(T.actions, "things done", trend(T.actions, T.actionsPrev)),
+      stat(T.newMembers, "new members", trend(T.newMembers, T.newPrev)),
+      stat(T.hours, "hours on the site, all together"));
+
+    // ---- busy times: 24 hours down, 7 days across ----
+    const grid = d.heat[actHeat];
+    const max = Math.max(1, ...grid.flat());
+    const total = grid.flat().reduce((a, b) => a + b, 0);
+    const byHour = Array.from({ length: 24 }, (_, x) => grid.reduce((a, row) => a + row[x], 0));
+    const byDay = grid.map((row) => row.reduce((a, b) => a + b, 0));
+    const win = (n, best) => { let pick = 0, val = best ? -1 : Infinity; for (let x = 0; x < 24; x++) { let v = 0; for (let k = 0; k < n; k++) v += byHour[(x + k) % 24]; if (best ? v > val : v < val) { val = v; pick = x; } } return pick; };
+    const topCells = [];
+    grid.forEach((row, dw) => row.forEach((v, x) => { if (v) topCells.push([v, dw, x]); }));
+    topCells.sort((a, b) => b[0] - a[0]);
+    const dayMax = byDay.indexOf(Math.max(...byDay)), dayMin = byDay.indexOf(Math.min(...byDay));
+    const heatSum = total ? h("ul", { class: "act-sum" },
+      h("li", {}, "🔥 Busiest hours: ", h("b", {}, span(win(2, true), 2))),
+      h("li", {}, "📆 Busiest day: ", h("b", {}, DOW_LONG[dayMax]), " · quietest: ", DOW_LONG[dayMin]),
+      h("li", {}, "⭐ Peak times: ", topCells.slice(0, 3).map((c) => `${DOW[c[1]]} ${hr(c[2])}`).join(" · ")),
+      h("li", {}, "🌙 Quietest stretch: ", span(win(4, false), 4)),
+      h("li", { class: "faint" }, "Good time for announcements: just before ", span(win(2, true), 2), "."))
+      : h("p", { class: "faint" }, actHeat === "online" ? "Nothing yet. This fills in as members use the site." : "Nothing done in this stretch yet.");
+    const heat = h("div", { class: "act-heat", role: "table", "aria-label": "Activity by day and hour, Pacific time" },
+      h("div", { class: "act-hrow head", role: "row" }, h("span", {}), DOW.map((x) => h("span", { role: "columnheader" }, x))),
+      Array.from({ length: 24 }, (_, x) => h("div", { class: "act-hrow", role: "row" },
+        h("span", { class: "act-hlabel", role: "rowheader" }, x % 3 === 0 ? hrShort(x) : ""),
+        grid.map((row, dw) => { const v = row[x]; return h("span", { class: "act-cell", role: "cell", title: `${DOW[dw]} ${hr(x)}: ${v}`, style: v ? `--a:${(0.15 + 0.85 * v / max).toFixed(2)}` : "" }); }))));
+    const heatPanel = h("section", { class: "panel" },
+      h("h2", {}, "⏰ Busy times"),
+      h("div", { class: "pills" }, pill(actHeat === "online", "🟢 On the site", () => { actHeat = "online"; redraw(); }), pill(actHeat === "doing", "⚡ Doing things", () => { actHeat = "doing"; redraw(); })),
+      h("p", { class: "faint" }, actHeat === "online" ? "How many members had the site open, per hour (Pacific time). Darker is busier." : "Reactions, notes, RSVPs, answers, hunts, photos, whispers and so on, per hour (Pacific time)."),
+      h("div", { class: "act-heatwrap" }, heat, heatSum));
+
+    // ---- day by day ----
+    const bars = (key, label) => {
+      const mx = Math.max(1, ...d.series.map((s) => s[key]));
+      return h("div", { class: "act-bars-wrap" }, h("p", { class: "act-bars-label" }, label, h("small", { class: "faint" }, ` · most in a day: ${mx === 1 && !d.series.some((s) => s[key]) ? 0 : mx}`)),
+        h("div", { class: "act-bars" }, d.series.map((s) => h("span", { title: `${keyDay(s.day, { weekday: "short", month: "short", day: "numeric" })}: ${s[key]}`, style: `height:${Math.max(s[key] ? 4 : 1, Math.round(s[key] / mx * 100))}%` + (s.day === d.today ? ";opacity:1" : "") }))),
+        h("div", { class: "act-bars-axis faint" }, h("span", {}, keyDay(d.series[0].day)), h("span", {}, "today")));
+    };
+    const dailyPanel = h("section", { class: "panel" }, h("h2", {}, "📊 Day by day"), bars("active", "Members on the site"), bars("actions", "Things done"));
+
+    // ---- what gets used ----
+    const meter = (label, n, mx, extra) => h("div", { class: "act-meter" }, h("span", {}, label), h("i", {}, h("em", { style: `width:${Math.round(n / Math.max(1, mx) * 100)}%` })), h("b", {}, String(n)), extra || null);
+    const pMax = Math.max(1, ...d.pages.map((p) => p.count)), aMax = Math.max(1, ...d.actions.map((a) => a.count));
+    const usePanel = h("section", { class: "panel" }, h("h2", {}, "🧭 What gets used"),
+      h("div", { class: "act-two" },
+        h("div", {}, h("h3", {}, "Sections opened"), d.pages.length ? d.pages.map((p) => meter(PAGE_LABEL[p.key] || p.key, p.count, pMax)) : h("p", { class: "faint" }, "Nothing yet.")),
+        h("div", {}, h("h3", {}, "Things done"), d.actions.slice().sort((a, b) => b.count - a.count).map((a) => meter(`${a.emoji} ${a.label}`, a.count, aMax,
+          a.prev ? h("small", { class: "faint", title: `The ${actRange} days before` }, `was ${a.prev}`) : null)))),
+      h("p", { class: "faint" }, "Whispers and crushes only ever count as totals. Nobody's whispers or crushes are shown by name."));
+
+    // ---- most active members ----
+    const SORTS = { overall: ["Overall", (m) => m.days * 3 + m.actions + m.minutes / 30], days: ["Days on", (m) => m.days], minutes: ["Time on site", (m) => m.minutes], actions: ["Things done", (m) => m.actions] };
+    const ranked = d.top.slice().sort((a, b) => SORTS[actSort][1](b) - SORTS[actSort][1](a));
+    const shown = actAll ? ranked : ranked.slice(0, 15);
+    const DID = { reactions: "🔥", notes: "💌", vouches: "🤝", rsvps: "📅", answers: "❓", hunts: "🏹", photos: "📷", vetforms: "📝" };
+    const topPanel = h("section", { class: "panel" }, h("h2", {}, "🏆 Most active members"),
+      h("div", { class: "pills" }, Object.entries(SORTS).map(([k, [label]]) => pill(actSort === k, label, () => { actSort = k; redraw(); }))),
+      ranked.length ? h("div", { class: "act-table", role: "table" },
+        h("div", { class: "act-tr head", role: "row" }, h("span", {}, "#"), h("span", {}, "Member"), h("span", {}, "Days on"), h("span", {}, "Time"), h("span", {}, "Did"), h("span", {}, "Last seen")),
+        shown.map((m, i) => h("div", { class: "act-tr", role: "row" },
+          h("span", { class: "act-rank" }, i < 3 ? ["🥇", "🥈", "🥉"][i] : String(i + 1)),
+          h("span", { class: "act-who" }, personChip(m.member), h("small", { class: "faint act-did" }, Object.entries(m.did || {}).map(([k, n]) => `${DID[k] || ""}${n}`).join(" "))),
+          h("span", { "data-l": "Days on" }, String(m.days)),
+          h("span", { "data-l": "Time" }, m.minutes ? mins(m.minutes) : "–"),
+          h("span", { "data-l": "Did" }, String(m.actions)),
+          h("span", { "data-l": "Last seen", class: "faint" }, m.last ? ago(m.last) : "–"))))
+        : h("p", { class: "faint" }, "No one yet."),
+      ranked.length > 15 ? h("button", { type: "button", class: "btn small ghost", onclick: () => { actAll = !actAll; redraw(); } }, actAll ? "Show top 15" : `Show all ${ranked.length}`) : null,
+      h("p", { class: "faint" }, "“Did” counts reactions, kind notes, vouches, RSVPs, answers, hunts started, photos and vetting forms. Time is how long they had the site open, in 5-minute steps."));
+
+    // ---- new and quiet ----
+    const newPanel = h("section", { class: "panel" }, h("h2", {}, `🌱 New in the last ${actRange} days (${d.newcomers.length})`),
+      d.newcomers.length ? h("div", { class: "act-people" }, d.newcomers.map((n) => h("div", { class: "act-person" }, personChip(n.member),
+        h("small", { class: "faint" }, `joined ${day(n.joined)} · ${n.last ? "last seen " + ago(n.last) : "not seen since"}${n.actions ? ` · did ${n.actions}` : ""}`))))
+        : h("p", { class: "faint" }, "No new members in this stretch."));
+    const quietPanel = h("details", { class: "panel act-quiet" }, h("summary", {}, h("b", {}, `😴 Quiet for 30+ days (${d.quiet.length})`), h("small", { class: "faint" }, " · tap to open")),
+      freshTracking ? h("p", { class: "faint" }, `Visits have been counted since ${d.trackingSince ? keyDay(d.trackingSince, { month: "long", day: "numeric" }) : "today"}, so for now this lists everyone who hasn't opened the site since then. It gets accurate after 30 days.`) : null,
+      d.quiet.length ? h("div", { class: "act-people" }, d.quiet.map((q) => h("div", { class: "act-person" }, personChip(q.member),
+        h("small", { class: "faint" }, q.last ? `last seen ${ago(q.last)}` : "not seen yet")))) : h("p", { class: "faint" }, "Everyone's been around. 🎉"),
+      h("p", { class: "faint" }, "Good people to check in on with a friendly hello."));
+
+    body.replaceChildren(
+      h("section", { class: "panel" }, h("h2", {}, "📈 Activity"), range,
+        h("p", { class: "faint", style: "margin-bottom:0" }, "Times are Pacific. Only admins and owners can see this. ",
+          freshTracking ? `Time on the site has been counted since ${d.trackingSince ? keyDay(d.trackingSince, { month: "long", day: "numeric" }) : "today"}; “things done” goes back further.` : "")),
+      stats, heatPanel, topPanel, dailyPanel, usePanel, newPanel, quietPanel);
   }
 
   window.VCMod = { render, deps: null };

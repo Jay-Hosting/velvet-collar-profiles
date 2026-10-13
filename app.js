@@ -304,6 +304,11 @@
     if (p && p.total) btn.append(h("span", { class: "nav-badge", "aria-label": `${p.total} waiting for you` }, String(p.total)));
   }
   setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
+  // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
+  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", edit: "edit", question: "question", vetting: "vetting", mod: "admin" };
+  function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
+  setInterval(() => { if (document.visibilityState === "visible") seen(); }, 300000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") seen(); });
   document.addEventListener("visibilitychange", () => { if (me() && document.visibilityState === "visible") drawNavBadge(true); });
 
   function renderNav() {
@@ -340,6 +345,7 @@
     app.replaceChildren(h("p", { class: "center-msg muted" }, "Loading…"));
     try {
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
+      seen(PAGE_OF[r.name]);
       if (r.name === "home") return me() ? await renderDirectory() : renderLanding();
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);

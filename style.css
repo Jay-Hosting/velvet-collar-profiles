@@ -1157,3 +1157,52 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .cal-ev.int { outline: 1px dashed var(--k-going); outline-offset: -1px; }
 @media (max-width: 640px) { .cal-ev.int { outline: 0; box-shadow: 0 0 0 2px var(--k-going); } }
 .cal-legend i.k-int { background: transparent; border: 1.5px dashed var(--k-going); box-sizing: border-box; }
+
+/* ---------- Admin: Activity tab ---------- */
+.act-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.act-stat { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.act-stat b { font-family: var(--serif); font-size: 2rem; line-height: 1.1; color: var(--gold); }
+.act-stat span { color: var(--muted); font-size: .9rem; }
+.act-trend { font-size: .78rem; color: var(--muted); }
+.act-trend.up { color: #7fdca6; }
+.act-trend.down { color: #ff9fb0; }
+.act-heatwrap { display: grid; grid-template-columns: minmax(0, 340px) 1fr; gap: 20px; align-items: start; margin-top: 10px; }
+.act-heat { display: grid; gap: 2px; }
+.act-hrow { display: grid; grid-template-columns: 34px repeat(7, 1fr); gap: 2px; align-items: center; }
+.act-hrow.head span { font-size: .72rem; color: var(--muted); text-align: center; }
+.act-hlabel { font-size: .7rem; color: var(--muted); text-align: right; padding-right: 4px; }
+.act-cell { height: 14px; border-radius: 3px; background: rgba(255,255,255,.04); }
+.act-cell[style] { background: color-mix(in srgb, var(--gold) calc(var(--a) * 100%), transparent); }
+.act-sum { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.act-bars-wrap { margin: 6px 0 16px; }
+.act-bars-label { margin: 0 0 6px; font-size: .92rem; }
+.act-bars { display: flex; align-items: flex-end; gap: 2px; height: 90px; border-bottom: 1px solid var(--line); }
+.act-bars span { flex: 1; min-width: 2px; background: var(--gold); opacity: .75; border-radius: 3px 3px 0 0; }
+.act-bars-axis { display: flex; justify-content: space-between; font-size: .75rem; margin-top: 4px; }
+.act-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.act-two h3 { margin: 0 0 8px; font-size: 1rem; }
+.act-meter { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr auto; gap: 8px; align-items: center; margin: 6px 0; font-size: .9rem; }
+.act-meter > small { grid-column: 2 / -1; margin-top: -6px; font-size: .75rem; }
+.act-meter i { height: 10px; border-radius: 6px; background: rgba(255,255,255,.06); overflow: hidden; }
+.act-meter em { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+.act-meter b { min-width: 2ch; text-align: right; }
+.act-table { display: grid; margin-top: 8px; }
+.act-tr { display: grid; grid-template-columns: 36px minmax(0, 2.4fr) repeat(3, minmax(56px, .7fr)) minmax(90px, 1fr); gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .92rem; }
+.act-tr.head { font-size: .78rem; color: var(--muted); padding-top: 0; }
+.act-tr:last-child { border-bottom: 0; }
+.act-rank { text-align: center; font-weight: 600; }
+.act-who { display: grid; gap: 2px; justify-items: start; min-width: 0; }
+.act-did { font-size: .75rem; }
+.act-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
+.act-person { display: grid; gap: 2px; justify-items: start; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.act-quiet summary { cursor: pointer; }
+@media (max-width: 720px) {
+  .act-heatwrap, .act-two { grid-template-columns: 1fr; }
+  .act-tr.head { display: none; }
+  .act-tr { grid-template-columns: 30px 1fr 1fr 1fr; row-gap: 4px; }
+  .act-tr .act-who { grid-column: 2 / -1; }
+  .act-tr > span[data-l] { font-size: .82rem; }
+  .act-tr > span[data-l]::before { content: attr(data-l) ": "; color: var(--muted); }
+  .act-tr > span[data-l]:nth-child(3) { grid-column: 2; }
+  .act-tr > span[data-l="Last seen"] { grid-column: 2 / -1; }
+}
