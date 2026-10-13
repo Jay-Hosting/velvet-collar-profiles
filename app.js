@@ -237,8 +237,10 @@
     document.title = (mode === "join" ? "Make a profile" : "Log in") + " · Velvet Collar";
     const msg = h("p", { class: "status bad", role: "alert" });
     const field = (label, input, hint) => h("div", { class: "field" }, h("label", { for: (input.tagName === "INPUT" ? input : input.querySelector("input")).id }, label), input, hint ? h("span", { class: "hint" }, hint) : null);
-    const slugIn = h("input", { type: "text", id: "a_slug", autocomplete: "username", autocapitalize: "off", spellcheck: "false", maxlength: 32, required: true });
-    slugIn.addEventListener("input", () => { slugIn.value = slugIn.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""); });
+    const slugIn = h("input", { type: "text", id: "a_slug", autocomplete: "username", autocapitalize: "off", spellcheck: "false", maxlength: 200, required: true, placeholder: mode === "join" ? "Pick a profile name, like velvet_kitten" : "Your profile name" });
+    // Just the name. If someone pastes their whole link (or @name), keep only the name part.
+    slugIn.addEventListener("input", () => { slugIn.value = slugIn.value.trim().toLowerCase().replace(/\/+$/, "").replace(/^.*\//, "").replace(/^@/, "").replace(/[^a-z0-9_-]/g, "").slice(0, 32); slugLink.textContent = slugIn.value ? `Your page: ${location.host}/${slugIn.value}` : ""; });
+    const slugLink = h("span", { class: "hint slug-link" });
     const pwIn = h("input", { type: "password", id: "a_pw", autocomplete: mode === "join" ? "new-password" : "current-password", minlength: 8, maxlength: 72, required: true });
     const btn = h("button", { class: "btn gold", type: "submit" }, mode === "join" ? "Make my profile" : "Log in");
     let form;
@@ -271,8 +273,8 @@
       form = h("form", { class: "auth-form panel" },
         field("Join code", codeIn, "Shared in the group chat."),
         h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
-          h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn),
-          slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
+          slugIn,
+          slugStatus, slugLink, h("span", { class: "hint" }, "What you log in with, and your page's address. It's also your display name to start with; you can change how your name shows in Edit.")),
         field("Password", pwToggle(pwIn), "At least 8 characters."),
         field("Password again", pwToggle(pw2In)),
         ageRow, glRow,
@@ -298,8 +300,7 @@
       });
     } else {
       form = h("form", { class: "auth-form panel" },
-        h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
-          h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn)),
+        field("Profile name", slugIn),
         field("Password", pwToggle(pwIn)),
         msg, btn,
         h("p", { class: "faint" }, "New here? ", h("a", { href: "/join", "data-nav": "" }, "Make a profile"), " · Forgot your password? Ask an admin to reset it."));
