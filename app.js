@@ -1510,6 +1510,8 @@
       h("p", { class: "faint", style: "text-align:center;margin:0" }, "Tip: paste the image in Telegram, then paste the post text as its caption."));
   }
 
+  const canShareOthers = () => { const b = (me() && me().badges) || []; return b.includes("admin") || b.includes("owner"); };
+
   // ---------- profile view ----------
   async function renderProfile(slug) {
     if (!slug || RESERVED.includes(slug)) return notFound();
@@ -1568,8 +1570,10 @@
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           data.isOwner ? null : crushHolder,
           data.isOwner ? null : huntHolder,
-          h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
-          h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
+          // Sharing: your own page, or anyone's if you're an admin or owner.
+          data.isOwner || canShareOthers() ? [
+            h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
+            h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")] : null),
         reactHolder));
 
     const blocks = [];
