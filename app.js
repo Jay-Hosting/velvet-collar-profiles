@@ -744,7 +744,7 @@
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
             : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
             chatOn(m) ? h("span", { class: "dot", title: "Up for a chat" }) : null),
-          h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null), h("small", {}, profileUrl(m.slug).replace(/^https?:\/\//, "")), lookingBadges(m.looking_for, true)),
+          h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
         rows.append(row);
