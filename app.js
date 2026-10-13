@@ -774,25 +774,24 @@
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,chat_until,play_links,matches_off,birthday" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,play_links,matches_off,birthday" });
     const rows = h("div", { class: "link-list" });
     let term = "", filter = "all";
-    const FILTERS = [["all", "Everyone"], ["chat", "🟢 Up for a chat"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
+    const FILTERS = [["all", "Everyone"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
     const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
     const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
       h("button", { type: "button", class: "pill", "aria-pressed": String(filter === v), onclick: () => { filter = v; drawFilters(); draw(); } }, label)));
-    const matchesFilter = (m) => filter === "all" ? true : filter === "chat" ? chatOn(m) : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
+    const matchesFilter = (m) => filter === "all" ? true : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
     const draw = () => {
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
       const items = list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m));
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
-        const row = h("a", { class: "link" + (chatOn(m) ? " chatting" : ""), href: "/" + m.slug, "data-nav": "" },
+        const row = h("a", { class: "link", href: "/" + m.slug, "data-nav": "" },
           h("span", { class: "mono-wrap" }, m.avatar
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
-            : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
-            chatOn(m) ? h("span", { class: "dot", title: "Up for a chat" }) : null),
+            : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase())),
           h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null, daysToBday(m.birthday) === 0 ? h("span", { class: "new-pill bday", title: "Birthday today" }, "🎂 Birthday") : null), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
@@ -814,7 +813,6 @@
         h("a", { href: "/edit#settings", "data-nav": "" }, "Join it in Settings.")),
       weekHolder,
       crushHolder,
-      h("section", { class: "panel chat-panel" }, chatControl(user, () => { const self = list.find((m) => m.id === user.id); if (self) self.chat_until = user.chat_until; draw(); })),
       twinsHolder,
       h("section", { class: "panel" },
         h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), h("span", { class: "actions", style: "margin:0" }, twinsBtn, surprise)),
@@ -1293,7 +1291,6 @@
   const badgeRow = (list) => list.length ? h("div", { class: "badges", "aria-label": "Badges" },
     list.map(([e, label, why]) => h("span", { class: "badge", title: why }, h("span", { "aria-hidden": "true" }, e), " " + label))) : null;
 
-  // ---------- "up for a chat" status ----------
   // ---------- birthdays ("MM-DD", optional year), in Pacific time ----------
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const ptToday = () => { const s = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" }); return { y: +s.slice(0, 4), md: s.slice(5, 10) }; };
@@ -1307,34 +1304,9 @@
     let d = at(t.y); if (d < base) d = at(t.y + 1);
     return Math.round((d - base) / 864e5);
   };
-  const chatOn = (m) => { const t = parseDate(m && m.chat_until); return !!t && t > Date.now(); };
   // All times show in the group's time zone (Pacific), whoever is looking.
   const TZ = CFG.TIME_ZONE || "America/Los_Angeles", TZ_LABEL = CFG.TIME_ZONE_LABEL || "PT";
   const timeShort = (t) => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: TZ }) + " " + TZ_LABEL;
-  const chatLine = (m) => chatOn(m) ? h("div", { class: "chat-status" }, h("span", { class: "dot", "aria-hidden": "true" }), `Up for a chat until ${timeShort(parseDate(m.chat_until))}`) : null;
-  // A small control for your own status: off, or on for a few hours.
-  function chatControl(rec, onChange) {
-    const wrap = h("div", { class: "chat-control" });
-    const draw = () => {
-      const on = chatOn(rec);
-      const set = async (hours) => {
-        const until = hours ? new Date(Date.now() + hours * 3600e3).toISOString().replace("T", " ") : "";
-        try {
-          const upd = await pb.collection("members").update(rec.id, { chat_until: until });
-          rec.chat_until = upd.chat_until; pb.authStore.save(pb.authStore.token, upd);
-          toast(hours ? `🟢 You're up for a chat for ${hours} hours` : "Status off");
-          draw(); if (onChange) onChange();
-        } catch (err) { toast(errMsg(err), true); }
-      };
-      wrap.replaceChildren(on
-        ? h("div", { class: "chat-on" }, h("span", { class: "dot", "aria-hidden": "true" }), h("span", {}, `Up for a chat until ${timeShort(parseDate(rec.chat_until))}`),
-            h("button", { type: "button", class: "btn small ghost", onclick: () => set(0) }, "Turn off"))
-        : h("div", { class: "chat-off" }, h("span", { class: "muted" }, "🟢 Up for a chat?"),
-            [2, 4, 8].map((n) => h("button", { type: "button", class: "btn small", onclick: () => set(n) }, `${n} hours`))));
-    };
-    draw();
-    return wrap;
-  }
 
   // ---------- profile glow-up meter ----------
   function glowUp(p, photoCount) {
@@ -1572,14 +1544,12 @@
     const crushHolder = h("span", { class: "crush-holder" });
     const huntHolder = h("span", { class: "hunt-holder" });
     const matchHolder = h("div", { class: "hold" });
-    const chatHolder = h("div", { class: "hold" }, data.isOwner ? null : chatLine(p));
     const head = h("div", { class: "profile-card" },
       h("div", { class: "banner" }),
       h("div", { class: "profile-head" },
         avatarWithCharm(p, look.charm),
         h("h1", { class: "profile-name" }, p.display_name),
         tgUser ? h("div", { class: "handle" }, "@" + tgUser) : null,
-        chatHolder,
         lookingBadges(p.looking_for),
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
@@ -1600,7 +1570,6 @@
           data.isOwner ? null : huntHolder,
           h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
           h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")),
-        data.isOwner ? chatControl(p) : null,
         reactHolder));
 
     const blocks = [];

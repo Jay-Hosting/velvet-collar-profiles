@@ -724,11 +724,6 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 
 /* up for a chat */
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 3px rgba(61, 220, 132, .22); flex: none; }
-.chat-status { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: .88rem; color: #b8f5d0; }
-.chat-control { margin-top: 12px; }
-.chat-on, .chat-off { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: .9rem; }
-.chat-panel { padding-top: 12px; padding-bottom: 12px; }
-.chat-panel .chat-control { margin: 0; }
 .mono-wrap { position: relative; display: inline-flex; flex: none; }
 .mono-wrap .dot { position: absolute; right: -2px; bottom: -2px; border: 2px solid var(--bg-2); box-shadow: none; }
 
@@ -815,15 +810,12 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 @media (min-width: 761px) {
   .profile-card .profile-head > .avatar,
   .profile-card .profile-head > .avatar-wrap { grid-row: 1 / span 6; }
-  .profile-card .profile-head .chat-status { grid-column: 2; grid-row: 3; justify-self: start; }
   .profile-card .profile-head > .actions { grid-row: 1 / span 5; }
   .profile-card .profile-head > .looking { grid-row: 4; }
   .profile-card .profile-head > .mood { grid-row: 5; }
   .profile-card .profile-head > .chips { grid-row: 6; }
   .profile-card .profile-head .badges { grid-column: 2 / span 2; grid-row: 7; }
   .profile-card .profile-head .match-banner { grid-column: 2 / span 2; grid-row: 8; justify-self: start; margin-left: 0; }
-  .profile-card .profile-head > .chat-control { grid-column: 2 / span 2; grid-row: 9; }
-  .profile-card .profile-head > .chat-control .chat-on, .profile-card .profile-head > .chat-control .chat-off { justify-content: flex-start; }
   .profile-card .profile-head > .react-holder { grid-column: 2 / span 2; grid-row: 10; }
 }
 
