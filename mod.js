@@ -480,7 +480,7 @@
 
   // ---------- activity: busy times, who's most active, what gets used (admins and owners) ----------
   let actRange = 30, actHeat = "online", actSort = "overall", actAll = false;
-  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box",
+  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box", network: "🤝 Networking",
     edit: "✏️ Editing their profile", question: "❓ Question of the week", vetting: "📝 Vetting form", admin: "🛡️ Admin" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
