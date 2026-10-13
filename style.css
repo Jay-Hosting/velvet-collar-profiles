@@ -209,7 +209,7 @@ img { display: block; max-width: 100%; }
 .field.full { grid-column: 1 / -1; }
 .field label, .label { font-weight: 700; font-size: .85rem; color: var(--muted); }
 .field .hint { font-size: .8rem; color: var(--faint); }
-input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=date], textarea, select {
+input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=date], input[type=number], textarea, select {
   width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px;
   border: 1px solid var(--line-strong); background: rgba(0,0,0,.25); outline: none;
 }
@@ -1145,8 +1145,8 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 
 /* bigger, easier fields on phones (16px text also stops iPhones zooming in) */
 @media (max-width: 640px) {
-  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=date], textarea, select { font-size: 16px; padding: 12px 14px; }
-  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], select { min-height: 48px; }
+  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=date], input[type=number], textarea, select { font-size: 16px; padding: 12px 14px; }
+  input[type=text], input[type=url], input[type=email], input[type=password], input[type=search], input[type=number], select { min-height: 48px; }
   textarea { min-height: 160px; }
   textarea.short { min-height: 80px; }
 }
@@ -1206,3 +1206,9 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   .act-tr > span[data-l]:nth-child(3) { grid-column: 2; }
   .act-tr > span[data-l="Last seen"] { grid-column: 2 / -1; }
 }
+
+/* Birthday */
+.bday-row { display: grid; grid-template-columns: 1.4fr 1fr 1.3fr; gap: 8px; }
+.bday-row select, .bday-row input { min-width: 0; }
+.field .check { margin-top: 8px; }
+.new-pill.bday { background: var(--gold-soft); color: var(--gold); }

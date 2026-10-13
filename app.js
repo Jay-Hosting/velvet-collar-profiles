@@ -754,7 +754,7 @@
   async function renderDirectory() {
     document.title = "Member list · Velvet Collar";
     const user = me();
-    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,chat_until,play_links,matches_off" });
+    const list = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "id,collectionId,collectionName,slug,display_name,avatar,style,theme,looking_for,created,chat_until,play_links,matches_off,birthday" });
     const rows = h("div", { class: "link-list" });
     let term = "", filter = "all";
     const FILTERS = [["all", "Everyone"], ["chat", "🟢 Up for a chat"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
@@ -773,7 +773,7 @@
             ? h("img", { class: "mono photo", src: fileUrl(m, m.avatar, "200x200"), alt: "", loading: "lazy" })
             : h("span", { class: "mono", "aria-hidden": "true" }, (m.display_name || "?").slice(0, 2).toUpperCase()),
             chatOn(m) ? h("span", { class: "dot", title: "Up for a chat" }) : null),
-          h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null), lookingBadges(m.looking_for, true)),
+          h("span", { class: "txt" }, h("b", {}, m.display_name, isNew(m) ? h("span", { class: "new-pill" }, "New") : null, daysToBday(m.birthday) === 0 ? h("span", { class: "new-pill bday", title: "Birthday today" }, "🎂 Birthday") : null), lookingBadges(m.looking_for, true)),
           h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
         L.apply(L.resolve(m.style, m.theme), row);
         rows.append(row);
@@ -801,11 +801,11 @@
         h("p", { class: "faint", style: "margin-top:4px" }, "Only logged-in members can see this list, and only people who opted in are on it. Open-to-anything members show up under every filter."),
         search, filterBar, rows),
     );
-    drawThisWeek(weekHolder);
+    drawThisWeek(weekHolder, list);
     drawCrushes(crushHolder);
   }
 
-  async function drawThisWeek(holder) {
+  async function drawThisWeek(holder, list) {
     const [ev, q, hu, wh] = await Promise.all([
       pb.send("/api/vc/events", {}).catch(() => null),
       pb.send("/api/vc/question", {}).catch(() => null),
@@ -832,6 +832,17 @@
       h("span", { class: "pq" }, "🏹 The Hunt"),
       h("b", {}, hot.length === 1 ? (hot[0].invitedMe ? `${hot[0].other ? hot[0].other.display_name : "Someone"} invited you to a hunt` : `Your move against ${hot[0].other ? hot[0].other.display_name : "them"}`) : `${hot.length} hunts need you`),
       h("small", {}, "Tap to play")));
+    // Birthdays in the next week, soonest first.
+    const bdays = (list || []).map((m) => ({ m, d: daysToBday(m.birthday) })).filter((x) => x.d !== null && x.d <= 7).sort((a, b) => a.d - b.d);
+    if (bdays.length) {
+      const today = bdays.filter((x) => x.d === 0);
+      const when = (x) => x.d === 0 ? "today" : x.d === 1 ? "tomorrow" : new Date(Date.now() + x.d * 864e5).toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short" });
+      const card = h("a", { class: "week-card" + (today.length ? " hot" : ""), href: "/" + bdays[0].m.slug, "data-nav": "" },
+        h("span", { class: "pq" }, "🎂 Birthdays"),
+        h("b", {}, today.length ? `${today.map((x) => x.m.display_name).join(" & ")}'s birthday today! 🎉` : bdays.slice(0, 3).map((x) => `${x.m.display_name} (${when(x)})`).join(", ")),
+        h("small", {}, today.length ? "Say happy birthday 💜" + (bdays.length > today.length ? ` · ${bdays.length - today.length} more this week` : "") : bdays.length > 3 ? `+${bdays.length - 3} more this week` : "Coming up this week"));
+      cards.splice(today.length ? 0 : cards.length, 0, card);
+    }
     holder.replaceChildren(...cards);
   }
 
@@ -1263,6 +1274,19 @@
     list.map(([e, label, why]) => h("span", { class: "badge", title: why }, h("span", { "aria-hidden": "true" }, e), " " + label))) : null;
 
   // ---------- "up for a chat" status ----------
+  // ---------- birthdays ("MM-DD", optional year), in Pacific time ----------
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const ptToday = () => { const s = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" }); return { y: +s.slice(0, 4), md: s.slice(5, 10) }; };
+  const bdayText = (md) => { const [mo, dy] = String(md).split("-").map(Number); return MONTHS[mo - 1] ? `${MONTHS[mo - 1].slice(0, 3)} ${dy}` : ""; };
+  const ageOf = (p) => { if (!p || !p.birthday || !p.birth_year || !p.show_age) return null; const t = ptToday(); return t.y - p.birth_year - (t.md >= p.birthday ? 0 : 1); };
+  // Days until their next birthday (0 = today). Feb 29 birthdays land on Feb 28 in other years.
+  const daysToBday = (md) => {
+    if (!md) return null;
+    const t = ptToday(), base = Date.UTC(t.y, +t.md.slice(0, 2) - 1, +t.md.slice(3));
+    const at = (y) => { const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; const [mo, dy] = md === "02-29" && !leap ? [2, 28] : md.split("-").map(Number); return Date.UTC(y, mo - 1, dy); };
+    let d = at(t.y); if (d < base) d = at(t.y + 1);
+    return Math.round((d - base) / 864e5);
+  };
   const chatOn = (m) => { const t = parseDate(m && m.chat_until); return !!t && t > Date.now(); };
   // All times show in the group's time zone (Pacific), whoever is looking.
   const TZ = CFG.TIME_ZONE || "America/Los_Angeles", TZ_LABEL = CFG.TIME_ZONE_LABEL || "PT";
@@ -1540,6 +1564,9 @@
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
           p.pronouns ? h("span", { class: "chip" }, p.pronouns) : null,
+          p.birthday ? (daysToBday(p.birthday) === 0
+            ? h("span", { class: "chip gold bday-today" }, "🎉 Birthday today!" + (ageOf(p) ? ` · ${ageOf(p)}` : ""))
+            : h("span", { class: "chip", title: "Birthday" }, "🎂 " + bdayText(p.birthday) + (ageOf(p) ? ` · ${ageOf(p)}` : ""))) : null,
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
           p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
           null),
@@ -1797,6 +1824,31 @@
       return sel;
     };
     const input = (name, attrs = {}) => h("input", Object.assign({ type: "text", id: "f_" + name, name, value: rec[name] || "" }, attrs));
+    // Birthday: month and day, plus an optional year (only used to show your age, if you want).
+    const [bMo, bDy] = (rec.birthday || "").split("-");
+    const bMonth = h("select", { id: "f_bmonth", "aria-label": "Birthday month" }, h("option", { value: "" }, "Month"), MONTHS.map((m, i) => h("option", { value: String(i + 1).padStart(2, "0") }, m)));
+    const bDay = h("select", { id: "f_bday", "aria-label": "Birthday day" }, h("option", { value: "" }, "Day"), Array.from({ length: 31 }, (_, i) => h("option", { value: String(i + 1).padStart(2, "0") }, String(i + 1))));
+    const bYear = h("input", { type: "number", id: "f_byear", inputmode: "numeric", min: "1900", max: String(new Date().getFullYear() - 21), placeholder: "Year (optional)", "aria-label": "Birth year (optional)", value: rec.birth_year || "" });
+    const showAge = h("input", { type: "checkbox", checked: rec.birth_year ? !!rec.show_age : true });
+    const ageRow = h("label", { class: "check" }, showAge, "Show my age on my page");
+    bMonth.value = bMo || ""; bDay.value = bDy || "";
+    const syncBday = () => {
+      const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][(+bMonth.value || 1) - 1];
+      [...bDay.options].forEach((o) => { if (o.value) o.disabled = +o.value > max; });
+      if (+bDay.value > max) bDay.value = "";
+      bYear.disabled = !bMonth.value; ageRow.hidden = !bYear.value.trim() || !bMonth.value;
+    };
+    bMonth.addEventListener("change", syncBday); bYear.addEventListener("input", syncBday); syncBday();
+    const bdayField = h("div", { class: "field" }, h("label", { for: "f_bmonth" }, "🎂 Birthday"),
+      h("div", { class: "bday-row" }, bMonth, bDay, bYear), ageRow,
+      h("span", { class: "hint" }, "Optional. Members see the month and day. The year is only used to show your age, and only if you tick the box."));
+    const readBday = () => {
+      if (!bMonth.value && !bDay.value) return { birthday: "", year: "" };
+      if (!bMonth.value || !bDay.value) throw new Error("Pick both a month and a day for your birthday, or leave both blank.");
+      const y = bYear.value.trim();
+      if (y && !/^(19|20)\d\d$/.test(y)) throw new Error("Birth year should look like 1990, or leave it blank.");
+      return { birthday: `${bMonth.value}-${bDay.value}`, year: y };
+    };
     const area = (name, attrs = {}) => { const t = h("textarea", Object.assign({ id: "f_" + name, name }, attrs)); t.value = rec[name] || ""; return t; };
     const field = (label, control, hint, full) => h("div", { class: "field" + (full ? " full" : "") }, h("label", { for: control.id }, label), control, hint ? h("span", { class: "hint" }, hint) : null);
 
@@ -2126,9 +2178,13 @@
       if (!slugOk) return toast("Pick a different profile name", true);
       const bad = [...linksEd.read(), ...readPlayLinks()].find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
+      let bday; try { bday = readBday(); } catch (err) { return toast(err.message, true); }
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
       try {
         const fd = new FormData();
+        fd.append("birthday", bday.birthday);
+        fd.append("birth_year", bday.year || "0");
+        fd.append("show_age", bday.year && showAge.checked ? "true" : "false");
         fd.append("display_name", nameI.value.trim());
         fd.append("slug", slugI.value.trim());
         for (const k of ["pronouns", "dynamic", "location", "bio", "hobbies", "into", "limits"]) fd.append(k, document.getElementById("f_" + k).value.trim());
@@ -2297,6 +2353,7 @@
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
             field("Area", areaSelect(), "Roughly where you are, so people nearby can find you. Optional."),
+            bdayField,
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
             field("Hobbies", area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Separate them with commas or new lines; they show as tags.", true),
             field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
