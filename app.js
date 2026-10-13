@@ -10,6 +10,12 @@
   const nav = document.getElementById("nav");
   const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
+  // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
+  const REL_STYLES = [["single", "Single"], ["mono", "Monogamous"], ["monogamish", "Monogamish"], ["poly", "Polyamorous"], ["solo_poly", "Solo poly"],
+    ["open", "Open relationship"], ["swinger", "Swinger"], ["ra", "Relationship anarchy"], ["exploring", "Still figuring it out"]];
+  const REL_TYPES = [["partner", "💞", "Partner"], ["spouse", "💍", "Spouse"], ["nesting", "🏡", "Nesting partner"], ["dating", "🌹", "Dating"], ["play", "🔥", "Play partner"],
+    ["dom", "⛓️", "Dominant"], ["sub", "🎀", "submissive"], ["owner", "🗝️", "Owner"], ["pet", "🐾", "Pet"], ["caregiver", "🧸", "Caregiver"], ["little", "🍭", "Little"], ["friend", "🤝", "Close friend"]];
+  const relType = (t) => REL_TYPES.find((x) => x[0] === t) || ["", "🔗", t];
   const LOOKING = [["friends", "🤝", "Friends"], ["partners", "💞", "Partners"], ["play", "🔥", "Play"], ["open", "✨", "Open to anything"], ["nothing", "🌙", "Not looking right now"]];
   const SOLO = ["open", "nothing"];
   function lookingBadges(values, compact) {
@@ -824,11 +830,12 @@
   }
 
   async function drawThisWeek(holder, list) {
-    const [ev, q, hu, wh] = await Promise.all([
+    const [ev, q, hu, wh, rl] = await Promise.all([
       pb.send("/api/vc/events", {}).catch(() => null),
       pb.send("/api/vc/question", {}).catch(() => null),
       pb.send("/api/vc/hunts", {}).catch(() => null),
       pb.send("/api/vc/whispers", {}).catch(() => null),
+      pb.send("/api/vc/relationships", {}).catch(() => null),
     ]);
     const cards = [];
     const next = ev && ev.upcoming[0];
@@ -850,6 +857,12 @@
       h("span", { class: "pq" }, "🏹 The Hunt"),
       h("b", {}, hot.length === 1 ? (hot[0].invitedMe ? `${hot[0].other ? hot[0].other.display_name : "Someone"} invited you to a hunt` : `Your move against ${hot[0].other ? hot[0].other.display_name : "them"}`) : `${hot.length} hunts need you`),
       h("small", {}, "Tap to play")));
+    // Someone asked to link profiles with you.
+    const asks = rl ? rl.relationships.filter((r) => r.status === "pending" && r.direction === "received") : [];
+    if (asks.length) cards.unshift(h("a", { class: "week-card hot", href: "/edit#people", "data-nav": "" },
+      h("span", { class: "pq" }, "💞 Relationship request"),
+      h("b", {}, asks.length === 1 ? `${asks[0].other.display_name} wants to link your pages` : `${asks.length} people want to link your pages`),
+      h("small", {}, "Tap to accept or decline")));
     // Birthdays in the next week, soonest first.
     const bdays = (list || []).map((m) => ({ m, d: daysToBday(m.birthday) })).filter((x) => x.d !== null && x.d <= 7).sort((a, b) => a.d - b.d);
     if (bdays.length) {
@@ -1560,9 +1573,14 @@
             ? h("span", { class: "chip gold bday-today" }, "🎉 Birthday today!" + (ageOf(p) ? ` · ${ageOf(p)}` : ""))
             : h("span", { class: "chip", title: "Birthday" }, "🎂 " + bdayText(p.birthday) + (ageOf(p) ? ` · ${ageOf(p)}` : ""))) : null,
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
+          (p.rel_style || []).map((v) => h("span", { class: "chip", title: "Relationship style" }, "💞 " + ((REL_STYLES.find((x) => x[0] === v) || [])[1] || v))),
           p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
           null),
         badgeHolder,
+        (data.relationships || []).length ? h("div", { class: "rel-row", "aria-label": "Relationships" }, data.relationships.map((r) => {
+          const [, e, l] = relType(r.type);
+          return h("span", { class: "rel-link", title: `${r.other.display_name} is ${p.display_name}'s ${l.toLowerCase()}` }, h("span", { class: "rel-lbl" }, `${e} ${l}`), personChip(r.other));
+        })) : null,
         matchHolder,
         h("div", { class: "actions" },
           data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card"),
@@ -1903,6 +1921,62 @@
         } }, h("span", { "aria-hidden": "true" }, e), label)));
     }
     drawLooking();
+    // Relationship style picker (up to 3)
+    let relSel = (rec.rel_style || []).slice();
+    const relPills = h("div", { class: "pills", role: "group", "aria-label": "Relationship style" });
+    const drawRelStyle = () => relPills.replaceChildren(...REL_STYLES.map(([v, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(relSel.includes(v)), onclick: () => {
+      if (relSel.includes(v)) relSel = relSel.filter((x) => x !== v);
+      else if (relSel.length >= 3) return toast("Pick up to 3", true);
+      else relSel = relSel.concat(v);
+      drawRelStyle();
+    } }, label)));
+    drawRelStyle();
+    const relStyleField = h("div", { class: "field full" }, h("span", { class: "label" }, "💞 Relationship style"), relPills,
+      h("span", { class: "hint" }, "Optional. Pick up to 3. Shown on your page."));
+
+    // My people: relationships with other members. They only show once the other person accepts.
+    const peoplePanel = h("section", { class: "panel", id: "people" });
+    let memberNames = null;
+    async function drawPeople() {
+      let d;
+      try { d = await pb.send("/api/vc/relationships", {}); } catch (err) { peoplePanel.replaceChildren(h("h2", {}, "💞 My people"), h("p", { class: "muted" }, errMsg(err))); return; }
+      if (!memberNames) { try { memberNames = await pb.collection("members").getFullList({ filter: "listed = true", sort: "display_name", fields: "slug,display_name" }); } catch { memberNames = []; } }
+      const act = async (r, action, msg) => { try { await pb.send(`/api/vc/relationships/${r.id}`, { method: "POST", body: { action } }); toast(msg); drawPeople(); } catch (err) { toast(errMsg(err), true); } };
+      const label = (t) => { const [, e, l] = relType(t); return `${e} ${l}`; };
+      const incoming = d.relationships.filter((r) => r.status === "pending" && r.direction === "received");
+      const linked = d.relationships.filter((r) => r.status === "accepted");
+      const waiting = d.relationships.filter((r) => r.status === "pending" && r.direction === "sent");
+      const row = (r, text, ...btns) => h("div", { class: "rel-item" + (r.status === "pending" ? " pending" : "") }, personChip(r.other), h("span", { class: "rel-what" }, text), h("span", { class: "rel-btns" }, ...btns));
+      const who = h("input", { type: "text", id: "rel_who", list: "rel_members", placeholder: "Their name or profile link", autocomplete: "off", "aria-label": "Who" });
+      const what = h("select", { id: "rel_type", "aria-label": "What they are to you" }, h("option", { value: "" }, "They are my…"), REL_TYPES.map(([v, e, l]) => h("option", { value: v }, `${e} ${l}`)));
+      const send = h("button", { type: "button", class: "btn small gold" }, "Send request");
+      send.addEventListener("click", async () => {
+        let v = who.value.trim();
+        const byName = memberNames.find((m) => m.display_name.toLowerCase() === v.toLowerCase());
+        if (byName) v = byName.slug;
+        v = v.replace(/^https?:\/\/[^/]+\//i, "").replace(/[/?#].*$/, "").replace(/^@/, "");
+        if (!v) return toast("Who is it? Type their name or profile link.", true);
+        if (!what.value) return toast("Pick what they are to you.", true);
+        send.disabled = true;
+        try { const res = await pb.send("/api/vc/relationships", { method: "POST", body: { to: v, type: what.value } }); toast(`💌 Request sent to ${res.other.display_name}`); drawPeople(); }
+        catch (err) { toast(errMsg(err), true); send.disabled = false; }
+      });
+      peoplePanel.replaceChildren(...[
+        h("h2", {}, "💞 My people"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Link your page to someone else's: a partner, spouse, your Dom, your pet… They get a request, and it only shows on both pages once they say yes. Only logged-in members see these, and either of you can remove it any time."),
+        incoming.length ? h("div", { class: "rel-group" }, h("h3", {}, "💌 Waiting for your answer"), incoming.map((r) => row(r, `wants to show as your ${label(r.type)}`,
+          h("button", { type: "button", class: "btn small gold", onclick: () => act(r, "accept", "💞 Linked! It's on both your pages now.") }, "Accept"),
+          h("button", { type: "button", class: "btn small ghost", onclick: () => act(r, "decline", "Declined") }, "Decline")))) : null,
+        linked.length ? h("div", { class: "rel-group" }, h("h3", {}, "On your page"), linked.map((r) => row(r, label(r.type),
+          h("button", { type: "button", class: "btn small ghost", onclick: () => confirm(`Remove ${r.other.display_name} from your page? It comes off theirs too.`) && act(r, "remove", "Removed") }, "Remove")))) : null,
+        waiting.length ? h("div", { class: "rel-group" }, h("h3", {}, "⏳ Waiting for them"), waiting.map((r) => row(r, label(r.type),
+          h("button", { type: "button", class: "btn small ghost", onclick: () => act(r, "remove", "Request cancelled") }, "Cancel")))) : null,
+        h("div", { class: "rel-add" }, who, what, send),
+        h("datalist", { id: "rel_members" }, memberNames.filter((m) => m.slug !== rec.slug).map((m) => h("option", { value: m.display_name }))),
+        h("p", { class: "faint", style: "margin:6px 0 0" }, "Not on the member list? Use their profile link name (the part after velvetcollarsac.com/).")].filter(Boolean));
+    }
+    drawPeople();
+
     const lookingField = h("div", { class: "field full" },
       h("span", { class: "label" }, "What you're looking for right now"),
       lookingPills,
@@ -2194,6 +2268,7 @@
         fd.append("vouches_off", vouchBox.checked ? "false" : "true");
         fd.append("song", document.getElementById("f_song").value.trim());
         if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
+        if (relSel.length) relSel.forEach((v) => fd.append("rel_style", v)); else fd.append("rel_style", "");
         fd.append("jars", "[]"); // jars now live in links
         fd.append("links", JSON.stringify(linksEd.read()));
         fd.append("play_links", JSON.stringify(readPlayLinks()));
@@ -2345,6 +2420,7 @@
           h("div", { class: "form-grid" },
             h("div", { class: "field full" }, h("span", { class: "label" }, "Profile photo"), avatarBox),
             lookingField,
+            relStyleField,
             field("Display name", nameI),
             field("Pronouns", input("pronouns", { maxlength: 40, placeholder: "she/her, he/him, they/them…" })),
             field("Dynamic / role", input("dynamic", { maxlength: 80, placeholder: "Switch, Dom, sub, pet, brat…" })),
@@ -2353,6 +2429,7 @@
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
             field("Hobbies", area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Separate them with commas or new lines; they show as tags.", true),
             field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
+        peoplePanel,
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
           h("div", { class: "form-grid" },
@@ -2429,7 +2506,9 @@
       h("div", { class: "savebar" }, h("a", { class: "btn ghost", href: "/" + rec.slug, "data-nav": "" }, "Cancel"), saveBtn),
     );
     nameI.addEventListener("input", refreshLook);
-    showTab(location.hash.slice(1));
+    const startHash = location.hash.slice(1);
+    showTab(startHash);
+    if (startHash === "people") setTimeout(() => peoplePanel.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
     refreshLook();
   }
 

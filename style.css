@@ -1219,3 +1219,18 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
   .cal-ev.k-bday { background: conic-gradient(#ff7eb3, #ffe46e, #7fdca6, #7ec8ff, #c49bff, #ff7eb3); }
 }
 .check[hidden] { display: none; }
+
+/* Relationships */
+.rel-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.rel-link { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255, 159, 210, .07); }
+.rel-lbl { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+@media (min-width: 761px) { .profile-card .profile-head > .rel-row { grid-column: 2 / span 2; grid-row: 9; } }
+.rel-group { margin: 10px 0 14px; }
+.rel-group h3 { margin: 0 0 6px; font-size: .95rem; }
+.rel-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.rel-item:last-child { border-bottom: 0; }
+.rel-item.pending .rel-what { color: var(--muted); }
+.rel-what { flex: 1; min-width: 140px; font-size: .92rem; }
+.rel-btns { display: flex; gap: 6px; }
+.rel-add { display: grid; grid-template-columns: 1.3fr 1fr auto; gap: 8px; align-items: center; margin-top: 8px; }
+@media (max-width: 640px) { .rel-add { grid-template-columns: 1fr; } }
