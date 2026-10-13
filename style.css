@@ -1234,3 +1234,32 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .rel-btns { display: flex; gap: 6px; }
 .rel-add { display: grid; grid-template-columns: 1.3fr 1fr auto; gap: 8px; align-items: center; margin-top: 8px; }
 @media (max-width: 640px) { .rel-add { grid-template-columns: 1fr; } }
+
+/* Admin: event attendance */
+.mod-event-wrap { border-bottom: 1px solid var(--line); }
+.mod-event-wrap:last-child { border-bottom: 0; }
+.mod-event-wrap > .mod-event { border-bottom: 0; }
+.att-holder[hidden] { display: none; }
+.att-panel { background: rgba(0, 0, 0, .18); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; }
+.att-sum { margin-bottom: 8px; font-size: .92rem; color: var(--muted); }
+.att-sum b { color: var(--text); }
+.att-list { display: grid; }
+.att-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.att-row:last-child { border-bottom: 0; }
+.att-row > .person { justify-self: start; }
+.att-row.came { background: linear-gradient(90deg, rgba(127, 220, 166, .10), transparent 60%); }
+.att-came { margin: 0; font-size: .85rem; white-space: nowrap; }
+.att-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.att-tag { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); white-space: nowrap; }
+.att-tag.going { color: var(--k-going); border-color: color-mix(in srgb, var(--k-going) 45%, transparent); }
+.att-tag.walkin { color: var(--k-vet); border-color: color-mix(in srgb, var(--k-vet) 45%, transparent); }
+.att-meta { white-space: nowrap; }
+.att-x { padding: 4px 9px; }
+.att-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+@media (max-width: 640px) {
+  .att-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 4px; }
+  .att-tags { grid-column: 2; }
+  .att-meta { grid-column: 2; white-space: normal; }
+  .att-x { grid-column: 3; grid-row: 1; }
+  .att-add { grid-template-columns: 1fr; }
+}

@@ -222,11 +222,21 @@
     });
     const field = (label, el, hint) => h("label", { class: "field" }, h("span", { class: "label" }, label), el, hint ? h("span", { class: "hint" }, hint) : null);
     const now = Date.now();
-    const evRow = (ev) => h("div", { class: "mod-event" + (ev.hidden ? " is-hidden" : "") + (Date.parse(String(ev.starts).replace(" ", "T")) < now ? " past" : "") },
-      h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.interested ? ` · ${ev.interested} interested` : ""}${ev.hosted ? " · 💜 hosted" : ""}${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
-      h("span", { class: "actions", style: "margin:0" },
-        h("button", { type: "button", class: "btn small", onclick: () => fill(ev) }, "Edit"),
-        h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm(`Delete "${ev.title}"? RSVPs go with it.`)) return; try { await pb.send(`/api/vc/mod/events/${ev.id}`, { method: "DELETE" }); toast("Deleted"); events(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete")));
+    const evRow = (ev) => {
+      const holder = h("div", { class: "att-holder", hidden: true });
+      const peopleBtn = h("button", { type: "button", class: "btn small", "aria-expanded": "false" }, `👥 People (${ev.going + (ev.interested || 0)})`);
+      peopleBtn.addEventListener("click", () => {
+        holder.hidden = !holder.hidden; peopleBtn.setAttribute("aria-expanded", String(!holder.hidden));
+        if (!holder.hidden) attendance(holder, ev);
+      });
+      return h("div", { class: "mod-event-wrap" }, h("div", { class: "mod-event" + (ev.hidden ? " is-hidden" : "") + (Date.parse(String(ev.starts).replace(" ", "T")) < now ? " past" : "") },
+        h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.interested ? ` · ${ev.interested} interested` : ""}${ev.attended ? ` · ✅ ${ev.attended} came` : ""}${ev.hosted ? " · 💜 hosted" : ""}${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
+        h("span", { class: "actions", style: "margin:0" },
+          peopleBtn,
+          h("button", { type: "button", class: "btn small", onclick: () => fill(ev) }, "Edit"),
+          h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm(`Delete "${ev.title}"? Its RSVPs and attendance record are deleted with it. To keep the record, tick Hidden instead.`)) return; try { await pb.send(`/api/vc/mod/events/${ev.id}`, { method: "DELETE" }); toast("Deleted"); events(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete"))),
+        holder);
+    };
     const upcoming = data.events.filter((ev) => Date.parse(String(ev.starts).replace(" ", "T")) >= now).reverse();
     const past = data.events.filter((ev) => Date.parse(String(ev.starts).replace(" ", "T")) < now);
     body.replaceChildren(
@@ -240,6 +250,59 @@
         h("div", { class: "actions" }, saveBtn, cancel)),
       h("section", { class: "panel" }, h("h2", {}, "Coming up"), upcoming.length ? upcoming.map(evRow) : h("p", { class: "muted" }, "Nothing planned yet."),
         past.length ? h("details", {}, h("summary", { class: "faint" }, `Past events (${past.length})`), past.map(evRow)) : null));
+  }
+
+  // ---------- one event's people: RSVPs, who came, walk-ins, copy and download ----------
+  async function attendance(holder, ev) {
+    const { h, pb, toast, errMsg, personChip, copyText } = deps();
+    holder.replaceChildren(h("p", { class: "faint" }, "Loading…"));
+    let d;
+    try { d = await pb.send(`/api/vc/mod/events/${ev.id}/people`, {}); } catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+    const reload = () => attendance(holder, ev);
+    const P = d.people;
+    const going = P.filter((x) => x.status === "going"), interested = P.filter((x) => x.status === "interested"), came = P.filter((x) => x.attended);
+    const tick = async (x, on) => { try { await pb.send(`/api/vc/mod/rsvps/${x.id}`, { method: "POST", body: { attended: on } }); x.attended = on; reload(); } catch (err) { toast(errMsg(err), true); } };
+    const row = (x) => {
+      const box = h("input", { type: "checkbox", checked: x.attended, "aria-label": `${x.member.display_name} came` });
+      box.addEventListener("change", () => tick(x, box.checked));
+      return h("div", { class: "att-row" + (x.attended ? " came" : "") },
+        h("label", { class: "check att-came", title: x.attended && x.attended_by ? `Checked in by ${x.attended_by}` : "Tick when they show up" }, box, "Came"),
+        personChip(x.member),
+        h("span", { class: "att-tags" },
+          x.added_by ? h("span", { class: "att-tag walkin", title: `Added by ${x.added_by}` }, "➕ Walk-in") : h("span", { class: "att-tag " + x.status }, x.status === "going" ? "✓ Going" : "⭐ Interested"),
+          x.member.hidden ? h("span", { class: "att-tag" }, "hidden profile") : !x.member.listed ? h("span", { class: "att-tag" }, "not on list") : null),
+        h("small", { class: "faint att-meta" }, [x.member.tg_username ? "@" + x.member.tg_username : "", x.added_by ? "" : "RSVP'd " + day(x.created)].filter(Boolean).join(" · ")),
+        h("button", { type: "button", class: "btn small ghost att-x", title: "Remove this RSVP", onclick: () => confirm(`Remove ${x.member.display_name} from this event?`) && pb.send(`/api/vc/mod/rsvps/${x.id}`, { method: "POST", body: { remove: true } }).then(reload, (err) => toast(errMsg(err), true)) }, "✕"));
+    };
+    // Walk-ins: someone who came without tapping I'm going.
+    const who = h("input", { type: "text", placeholder: "Name or profile link of someone who came", "aria-label": "Add someone who came" });
+    const add = h("button", { type: "button", class: "btn small gold" }, "➕ Add walk-in");
+    const addIt = async () => {
+      if (!who.value.trim()) return toast("Type their name or profile link.", true);
+      add.disabled = true;
+      try { const res = await pb.send(`/api/vc/mod/events/${ev.id}/people`, { method: "POST", body: { member: who.value.trim() } }); toast(`✅ ${res.name} marked as came`); reload(); }
+      catch (err) { toast(errMsg(err), true); add.disabled = false; }
+    };
+    add.addEventListener("click", addIt); who.addEventListener("keydown", (e) => { if (e.key === "Enter") addIt(); });
+    // Copy and download.
+    const label = (x) => x.added_by ? "Walk-in" : x.status === "going" ? "Going" : "Interested";
+    const names = (list) => list.map((x) => x.member.display_name + (x.member.tg_username ? ` (@${x.member.tg_username})` : "")).join("\n");
+    const csvCell = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const download = () => {
+      const rows = [["Event", "Date", "Name", "Profile", "Telegram", "RSVP", "Came", "Checked in by", "RSVP'd at"],
+        ...P.map((x) => [d.event.title, when(d.event.starts), x.member.display_name, location.origin + "/" + x.member.slug, x.member.tg_username ? "@" + x.member.tg_username : "", label(x), x.attended ? "Yes" : "No", x.attended_by, when(x.created)])];
+      const a = h("a", { href: URL.createObjectURL(new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" })),
+        download: `${(d.event.title || "event").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-attendance.csv` });
+      document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    };
+    holder.replaceChildren(h("div", { class: "att-panel" },
+      h("div", { class: "att-sum" }, h("b", {}, `${going.filter((x) => !x.added_by).length} going`), ` · ${interested.length} interested`, going.some((x) => x.added_by) ? ` · ${going.filter((x) => x.added_by).length} walk-in${going.filter((x) => x.added_by).length === 1 ? "" : "s"}` : "", " · ", h("b", {}, `✅ ${came.length} came`)),
+      P.length ? h("div", { class: "att-list" }, P.map(row)) : h("p", { class: "faint" }, "Nobody has RSVP'd yet."),
+      h("div", { class: "att-add" }, who, add),
+      h("div", { class: "actions", style: "margin:8px 0 0" },
+        h("button", { type: "button", class: "btn small ghost", onclick: () => copyText(names(came.length ? came : going), came.length ? `Copied ${came.length} who came` : `Copied ${going.length} going`) }, came.length ? "📋 Copy who came" : "📋 Copy who's going"),
+        P.length ? h("button", { type: "button", class: "btn small ghost", onclick: download }, "⬇️ Download list (CSV)") : null),
+      h("p", { class: "faint", style: "margin:6px 0 0" }, "Tick “Came” as people arrive (or afterwards) to keep a record. Walk-ins are people who came without RSVPing. The CSV opens in Excel, Numbers or Google Sheets.")));
   }
 
   // ---------- question of the week ----------
