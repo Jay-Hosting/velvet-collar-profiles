@@ -60,7 +60,7 @@
       spicy: ["{h} pins {p} against the {s}. No more running. Caught, claimed, and very much theirs."],
     },
     escaped: {
-      flirty: ["The sky turns pink. {p} skips out of the {w} without a scratch. {h} owes up!"],
+      flirty: ["The sky turns pink. {p} skips out of the {w} without a scratch, and the prize is theirs!"],
       teasing: ["Dawn breaks. {p} slips free into the morning light, leaving {h} empty-handed and wanting."],
       spicy: ["First light. {p} escapes, breathless and smug, while {h} is left aching for next time."],
     },
@@ -643,7 +643,7 @@
         themeRow.replaceChildren(...THEME_PICKS.map(([v, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(theme === v), onclick: () => { theme = v; drawRows(); } }, l)));
       };
       drawRows();
-      const forfeit = h("input", { type: "text", maxlength: 140, placeholder: "e.g. A cheeky selfie", list: "hunt-forfeits", "aria-label": "Forfeit" });
+      const forfeit = h("input", { type: "text", maxlength: 140, placeholder: "e.g. A cheeky selfie", list: "hunt-forfeits", "aria-label": "Prize" });
       const msg = h("input", { type: "text", maxlength: 200, placeholder: "Optional: a little message with the invite", "aria-label": "Message" });
       const send = h("button", { type: "button", class: "btn gold" }, "🏹 Send the invite");
       send.addEventListener("click", async () => {
@@ -656,7 +656,7 @@
         h("span", { class: "label" }, "Who's chasing who"), roleRow,
         h("span", { class: "label" }, "Heat"), heatRow,
         h("span", { class: "label" }, "Where", h("small", { class: "faint" }, " (the places are shuffled every game)")), themeRow,
-        h("span", { class: "label" }, "The forfeit", h("small", { class: "faint" }, " (whoever loses owes it)")), forfeit,
+        h("span", { class: "label" }, "🏆 The prize", h("small", { class: "faint" }, " (whoever wins claims it)")), forfeit,
         h("datalist", { id: "hunt-forfeits" }, FORFEITS.map((f) => h("option", { value: f }))),
         h("span", { class: "label" }, "Message"), msg,
         h("p", { class: "faint" }, "They'll need to accept before it starts. Either of you can call 🛑 Red at any moment."),
@@ -742,7 +742,7 @@
         h("div", { class: "hunt-facts" },
           h("span", {}, "🐺 Hunter"), h("span", {}, "vs"), h("span", {}, "🐇 Prey"),
           h("span", {}, "⏳ Turn-based"), h("span", {}, "🕛 1 turn = 1 hour of the night"), h("span", {}, "🌅 Midnight to 5 AM"), h("span", {}, "🔥 You pick the heat")),
-        h("p", {}, "One of you is the prey, one is the hunter. The night plays out one hour at a time: each turn the prey creeps one or two steps along the paths, then the hunter searches one spot. Catch them before dawn and they're yours. Survive until 5 AM and the prey wins, and the loser owes the forfeit."),
+        h("p", {}, "One of you is the prey, one is the hunter. The night plays out one hour at a time: each turn the prey creeps one or two steps along the paths, then the hunter searches one spot. Catch them before dawn and they're yours. Survive until 5 AM and the prey wins. Whoever wins claims the prize."),
         h("p", { class: "faint" }, "No need to be online together: take your turn whenever you're ready, and we'll show you when it's your move. The forest, an old manor or the city after dark, with a new map every game."),
         st.played ? h("p", { class: "faint" }, `Your record: 🐺 ${st.catches} caught · 🌅 ${st.escapes} escaped`) : null),
       h("section", { class: "panel" }, h("h2", {}, "Are you playing?"),
@@ -754,13 +754,13 @@
       startHolder,
       h("section", { class: "panel hunt-rules" }, h("h2", {}, "How it works"),
         h("ol", {},
-          h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a forfeit. Invites need a yes (passing is fine, no hard feelings)."),
+          h("li", {}, "Join a 🎲 Random hunt to be paired with someone from the other side, or invite someone and pick the heat and a prize for the winner. Invites need a yes (passing is fine, no hard feelings)."),
           h("li", {}, "Every game gets a new map: the forest, an old manor or the city after dark, with 12 places picked at random and the two shortcuts in new spots. The prey starts anywhere, then each hour must move one or two steps along the paths."),
           h("li", {}, "The hunter searches one spot each hour. If the prey is one step away, the hunter hears them, and can start tracking."),
           h("li", {}, "⏳ It's turn-based: each turn is one hour of the night, and you take it whenever you're ready. You'll see a badge on the Playroom when it's your move."),
           h("li", {}, "Catch them before dawn (five hours, midnight to 5 AM) and the hunter claims them. Otherwise the prey escapes."),
-          h("li", {}, "The winner gets the last word, and the loser owes the forfeit."),
-          h("li", {}, "🛑 Red stops the game instantly for either of you. No winner, no forfeit, no questions.")))].filter(Boolean));
+          h("li", {}, "The winner gets the last word and claims the prize."),
+          h("li", {}, "🛑 Red stops the game instantly for either of you. No winner, no prize, no questions.")))].filter(Boolean));
     if (startSlug) { const p = players.players.find((x) => x.slug === startSlug); if (p) openStart(p); }
   }
 
@@ -900,7 +900,7 @@
         h("h2", {}, `${other.display_name} wants to ${g.role === "prey" ? "hunt you" : "be hunted by you"}`),
         g.message ? h("p", { class: "say" }, `“${g.message}”`) : null,
         h("p", {}, `Heat: ${heat[1]} (${heat[2].toLowerCase()})`),
-        g.forfeit ? h("p", {}, `Loser owes: ${g.forfeit}`) : null,
+        g.forfeit ? h("p", {}, `🏆 Prize: ${g.forfeit}`) : null,
         h("div", { class: "actions" }, accept, red));
     } else if (g.status === "invited") {
       action = h("section", { class: "panel hunt-action" }, h("h2", {}, `Waiting for ${other.display_name} to accept`),
@@ -927,11 +927,11 @@
       const won = winner === g.role;
       const banner = {
         caught: won ? "🐺 You caught them!" : "🪤 You've been caught", escaped: won ? "🌅 You escaped!" : "💨 They escaped at dawn",
-        red: `🛑 ${g.redBy === "you" ? "You" : other.display_name} called red. No winner, no forfeit. Check in with each other 💜`,
+        red: `🛑 ${g.redBy === "you" ? "You" : other.display_name} called red. No winner, no prize. Check in with each other 💜`,
         declined: "This hunt was passed on. No hard feelings.", cancelled: "This invite was cancelled.",
       }[g.status];
       const parts = [h("h2", {}, banner)];
-      if (winner && g.forfeit) parts.push(h("p", {}, won ? `${other.display_name} owes you: ` : "You owe: ", h("b", {}, g.forfeit)));
+      if (winner && g.forfeit) parts.push(h("p", {}, won ? `🏆 You claim your prize from ${other.display_name}: ` : `🏆 ${other.display_name} claims their prize: `, h("b", {}, g.forfeit)));
       if (g.final_words) parts.push(h("p", { class: "final" }, `${winner === g.role ? "You" : other.display_name}: “${g.final_words}”`));
       else if (won) {
         const ta = h("textarea", { maxlength: 280, rows: 2, placeholder: g.role === "hunter" ? "Your claim: what happens to your catch now?" : "Your victory taunt", "aria-label": "Last word" });
@@ -959,7 +959,7 @@
           h("div", { class: "side" }, h("span", { class: "role" }, "🐺 Hunter"), g.role === "hunter" ? h("b", {}, "You") : personChip(other)),
           h("span", { class: "vs-x", "aria-hidden": "true" }, "vs"),
           h("div", { class: "side" }, h("span", { class: "role" }, "🐇 Prey"), g.role === "prey" ? h("b", {}, "You") : personChip(other))),
-        h("p", { class: "hunt-meta" }, g.random ? "🎲 Random match · " : "", g.map ? `${g.map.e} ${g.map.label} · ` : "", heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · Loser owes: ${g.forfeit}` : "")),
+        h("p", { class: "hunt-meta" }, g.random ? "🎲 Random match · " : "", g.map ? `${g.map.e} ${g.map.label} · ` : "", heat[1], g.status === "active" ? ` · ${HOURS[g.round - 1]} (hour ${g.round} of ${g.rounds})` : "", g.forfeit ? ` · 🏆 Prize: ${g.forfeit}` : "")),
       action,
       over && g.log.length ? h("section", { class: "panel" }, h("h2", {}, "Where everyone was"), map) : null,
       g.log.length ? h("section", { class: "panel" }, h("h2", {}, "The night so far"), story) : null,
