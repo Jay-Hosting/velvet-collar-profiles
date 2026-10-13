@@ -152,6 +152,9 @@
     if (mode === "join") {
       const codeIn = h("input", { type: "text", id: "a_code", autocomplete: "off", autocapitalize: "off", spellcheck: "false", required: true });
       const pw2In = h("input", { type: "password", id: "a_pw2", autocomplete: "new-password", minlength: 8, maxlength: 72, required: true });
+      const ageBox = h("input", { type: "checkbox", id: "a_age" });
+      const ageRow = h("div", { class: "field gl-agree" }, h("label", { class: "check", for: "a_age" }, ageBox, h("span", {}, "I'm 21 or older.")));
+      ageBox.addEventListener("change", () => ageRow.classList.remove("missing"));
       const glBox = h("input", { type: "checkbox", id: "a_gl" });
       const glRow = h("div", { class: "field gl-agree" },
         h("label", { class: "check", for: "a_gl" }, glBox, h("span", {}, "I've read and agree to the ",
@@ -178,22 +181,23 @@
           slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
         field("Password", pwIn, "At least 8 characters."),
         field("Password again", pw2In),
-        glRow,
+        ageRow, glRow,
         msg, btn,
         h("p", { class: "faint" }, "Already have one? ", h("a", { href: "/login", "data-nav": "" }, "Log in")));
       form.addEventListener("submit", async (e) => {
         e.preventDefault(); msg.textContent = "";
         if (pwIn.value !== pw2In.value) { msg.textContent = "The passwords don't match."; return pw2In.focus(); }
+        if (!ageBox.checked) { msg.textContent = "Velvet Collar is for members 21 and older. Please confirm your age."; ageRow.classList.add("missing"); return ageBox.focus(); }
         if (!glBox.checked) { msg.textContent = "Please read and agree to the community guidelines first."; glRow.classList.add("missing"); return glBox.focus(); }
         btn.disabled = true; btn.textContent = "Making it…";
         try {
-          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: slugIn.value.charAt(0).toUpperCase() + slugIn.value.slice(1), slug: slugIn.value, password: pwIn.value, guidelines: window.VCGuidelines.VERSION } });
+          const res = await pb.send("/api/vc/signup", { method: "POST", body: { join_code: codeIn.value, display_name: slugIn.value.charAt(0).toUpperCase() + slugIn.value.slice(1), slug: slugIn.value, password: pwIn.value, age21: ageBox.checked, guidelines: window.VCGuidelines.VERSION } });
           pb.authStore.save(res.token, res.record);
           afterAuth(res.record, true);
         } catch (err) {
           const d = err.response || {};
           msg.textContent = d.message || errMsg(err);
-          const focus = { join_code: codeIn, display_name: slugIn, slug: slugIn, password: pwIn, guidelines: glBox }[d.field];
+          const focus = { join_code: codeIn, display_name: slugIn, slug: slugIn, password: pwIn, age21: ageBox, guidelines: glBox }[d.field];
           if (focus) focus.focus();
           btn.disabled = false; btn.textContent = "Make my profile";
         }

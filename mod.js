@@ -96,7 +96,8 @@
                 } catch (err) { toast(errMsg(err), true); }
               } }, "🔑 Reset password"))),
           h("div", { class: "mod-row2" }, h("span", { class: "faint" }, "Badges:"), badgeRow),
-          h("div", { class: "mod-row2" }, h("span", { class: m.guidelines_at ? "faint" : "warn-text" }, m.guidelines_at ? `📜 Agreed to the community guidelines ${day(m.guidelines_at)}` : "📜 Hasn't agreed to the community guidelines (joined before the checkbox)")),
+          h("div", { class: "mod-row2" }, h("span", { class: m.guidelines_at ? "faint" : "warn-text" }, m.guidelines_at ? `📜 Agreed to the community guidelines ${day(m.guidelines_at)}` : "📜 Hasn't agreed to the community guidelines (joined before the checkbox)"),
+            h("span", { class: m.age21_at ? "faint" : "warn-text" }, m.age21_at ? `🔞 Confirmed 21+ ${day(m.age21_at)}` : "🔞 Hasn't confirmed 21+")),
           h("div", { class: "mod-row2" }, h("span", { class: "faint" }, `Whispers: ${m.whisper_opt ? "on" : "off"} · Hunt: ${m.hunt_opt}`),
             m.whisper_opt ? h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (await save(m, { whisper_opt: false }, "Whispers off")) draw(); } }, "Turn off Whispers") : null,
             m.hunt_opt !== "off" ? h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (await save(m, { hunt_opt: "off" }, "Hunt off")) draw(); } }, "Turn off Hunt") : null));
