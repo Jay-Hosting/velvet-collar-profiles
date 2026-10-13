@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
   const REL_STYLES = [["single", "Single"], ["mono", "Monogamous"], ["monogamish", "Monogamish"], ["poly", "Polyamorous"], ["solo_poly", "Solo poly"],
@@ -335,6 +335,7 @@
     if (path === "hunt") return { name: "hunt", start: (q.get("start") || "").toLowerCase() };
     if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
     if (path === "whispers") return { name: "whispers" };
+    if (path === "confessions" || path === "confess") return { name: "confessions" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
     if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };   // old address
     if (path === "admin" || path.startsWith("admin/")) return { name: "mod", tab: path.slice(6) };
@@ -372,7 +373,7 @@
   }
   setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
   // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
-  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", edit: "edit", question: "question", vetting: "vetting", mod: "admin" };
+  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", edit: "edit", question: "question", vetting: "vetting", mod: "admin" };
   function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
   setInterval(() => { if (document.visibilityState === "visible") seen(); }, 300000);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") seen(); });
@@ -399,7 +400,7 @@
       if (isAdmin || badges.includes("host")) {
         const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: open reports and new vetting forms` }, String(n))); }).catch(() => {});
+        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }
@@ -420,6 +421,7 @@
       if (r.name === "events") return me() ? await renderEvents() : renderLogin("/events");
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
+      if (r.name === "confessions") return me() ? await window.VCConfess.render(app) : renderLogin("/confessions");
       if (r.name === "whisper") return me() ? await window.VCWhisper.renderChat(app, r.id) : renderLogin("/whispers/" + r.id);
       if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/admin");
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
@@ -514,7 +516,11 @@
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🏹"),
       h("span", { class: "game-txt" }, h("b", {}, "The Hunt"), h("span", {}, "A midnight chase, right here on the site. One hides, one hunts. Opt in to play.")),
       h("span", { class: "game-go" }, "Play"));
-    grid.prepend(huntTile, whisperTile);
+    const confessTile = h("a", { class: "game hunt-game", href: "/confessions", "data-nav": "" },
+      h("span", { class: "game-emoji", "aria-hidden": "true" }, "💌"),
+      h("span", { class: "game-txt" }, h("b", {}, "The Confession Box"), h("span", {}, "Slip a secret through the screen. Anonymous confessions, approved by the hosts, and the group reacts.")),
+      h("span", { class: "game-go" }, "Open"));
+    grid.prepend(huntTile, whisperTile, confessTile);
     // Flag the tiles when something is waiting on you.
     getPending(true).then((p) => {
       if (!p) return;
@@ -2642,6 +2648,7 @@
     catch { prompt("Copy this:", text); }
   }
   if (window.VCWhisper) window.VCWhisper.deps = { h, pb, toast, go, me, errMsg, personChip };
+  if (window.VCConfess) window.VCConfess.deps = { h, pb, toast, go, me, errMsg };
   if (window.VCMod) window.VCMod.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, copyText };
   if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText, limitsBody };
 

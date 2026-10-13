@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -20,16 +20,17 @@
       return;
     }
     // Vetting is owners only; hosts get Events.
-    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events")).filter((t) => t[0] !== "vetting" || sum.owner);
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => t[0] !== "vetting" || sum.owner);
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
-        id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null)));
+        id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null,
+        id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -305,6 +306,33 @@
       h("p", { class: "faint", style: "margin:6px 0 0" }, "Tick “Came” as people arrive (or afterwards) to keep a record. Walk-ins are people who came without RSVPing. The CSV opens in Excel, Numbers or Google Sheets.")));
   }
 
+  // ---------- confessions: hosts, admins and owners approve or hide them. Nobody sees who wrote them. ----------
+  let cbView = "pending";
+  async function confessions(body) {
+    const { h, pb, toast, errMsg } = deps();
+    const d = await pb.send("/api/vc/mod/confessions?status=" + cbView, {});
+    const HEAT = { mild: "🌸 Mild", spicy: "🌶️ Spicy", fire: "🔥 Scorching" };
+    const set = async (c, status, msg) => { try { await pb.send(`/api/vc/mod/confessions/${c.id}`, { method: "POST", body: { status } }); toast(msg); confessions(body); } catch (err) { toast(errMsg(err), true); } };
+    const tab = document.querySelector('.mod-tabs a[href="/admin/confessions"]');
+    if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.pending) tab.append(h("span", { class: "nav-badge" }, String(d.counts.pending))); }
+    const VIEWS = [["pending", "⏳ To review"], ["approved", "✅ On the wall"], ["hidden", "🙈 Hidden"]];
+    const row = (c) => h("div", { class: "mod-cb" },
+      h("div", { class: "mod-cb-meta" }, h("b", {}, HEAT[c.heat] || c.heat), c.cw ? h("span", { class: "att-tag" }, "⚠️ " + c.cw) : null,
+        h("small", { class: "faint" }, ` · sent ${when(c.created)}${c.reviewed_by && cbView !== "pending" ? ` · ${cbView === "approved" ? "approved" : "hidden"} by ${c.reviewed_by}` : ""}${cbView === "approved" ? ` · ${c.total} reaction${c.total === 1 ? "" : "s"}` : ""}`)),
+      c.prompt ? h("p", { class: "faint", style: "margin:4px 0 0" }, "💭 " + c.prompt) : null,
+      h("p", { class: "mod-cb-text" }, c.text),
+      h("div", { class: "actions", style: "margin:6px 0 0" },
+        cbView !== "approved" ? h("button", { type: "button", class: "btn small gold", onclick: () => set(c, "approved", "✅ On the wall") }, "✅ Approve") : null,
+        cbView !== "hidden" ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(c, "hidden", "🙈 Hidden") }, cbView === "approved" ? "🙈 Take down" : "🙈 Don't post") : null,
+        cbView === "hidden" ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(c, "pending", "Back in the queue") }, "↩️ Back to review") : null));
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "💌 Confession Box"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "New confessions wait here until a host approves them. Nobody, including admins, can see who wrote what. Take down anything mean, coercive or that points to a real person. Members find the box at ",
+        h("a", { href: "/confessions", "data-nav": "" }, location.origin + "/confessions"), "."),
+      h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(cbView === k), onclick: () => { cbView = k; confessions(body); } }, `${l} (${d.counts[k]})`))),
+      d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
+  }
+
   // ---------- the group's own page (/velvetcollar): admins and owners ----------
   async function group(body) {
     const { h, pb, toast, errMsg } = deps();
@@ -452,7 +480,7 @@
 
   // ---------- activity: busy times, who's most active, what gets used (admins and owners) ----------
   let actRange = 30, actHeat = "online", actSort = "overall", actAll = false;
-  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers",
+  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box",
     edit: "✏️ Editing their profile", question: "❓ Question of the week", vetting: "📝 Vetting form", admin: "🛡️ Admin" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
