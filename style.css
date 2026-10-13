@@ -1316,3 +1316,13 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .ht-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: var(--line-strong); cursor: pointer; }
 .ht-dot.on { background: var(--gold); transform: scale(1.25); }
 .ht-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+
+/* One Share button: the menu */
+.share-sheet { width: min(420px, 100%); }
+.share-choices { display: grid; gap: 8px; }
+.share-choice { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; border-radius: 14px;
+  border: 1px solid var(--line-strong); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.share-choice:hover, .share-choice:focus-visible { border-color: var(--gold); outline: none; }
+.share-choice-e { font-size: 1.4rem; line-height: 1.2; }
+.share-choice b { display: block; }
+.share-choice small { display: block; color: var(--muted); font-size: .84rem; margin-top: 2px; }

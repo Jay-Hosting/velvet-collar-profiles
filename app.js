@@ -76,6 +76,30 @@
     toast._t = setTimeout(() => t.classList.remove("show"), 2600);
   }
 
+  // One "📣 Share" button that opens a small menu: copy the link, a ready-made post (or the photo share window),
+  // and the phone's own share sheet where there is one. opts: { url, title, label, cls, extra: [[emoji, title, hint, fn]] }
+  function shareButton(opts) {
+    const open = () => {
+      const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": "Share" });
+      const close = () => { modal.remove(); document.removeEventListener("keydown", esc); };
+      const esc = (e) => { if (e.key === "Escape") close(); };
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+      const opt = (e, t, hint, fn) => h("button", { type: "button", class: "share-choice", onclick: () => { close(); fn(); } },
+        h("span", { class: "share-choice-e", "aria-hidden": "true" }, e), h("span", {}, h("b", {}, t), h("small", {}, hint)));
+      const items = [
+        opt("🔗", "Copy link", "Paste it on its own in Telegram and it turns into a preview card.", () => copyText(opts.url, "🔗 Link copied")),
+        ...(opts.extra || []).map(([e, t, hint, fn]) => opt(e, t, hint, fn)),
+      ];
+      if (navigator.share) items.push(opt("📤", "Share to an app", "Opens your phone's share menu: Telegram, Messages and so on.", () => navigator.share({ title: opts.title || "", url: opts.url }).catch(() => {})));
+      modal.append(h("div", { class: "modal-box share-sheet" },
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "📣 Share"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+        h("div", { class: "share-choices" }, items)));
+      document.body.append(modal); document.addEventListener("keydown", esc);
+      modal.querySelector(".share-choice").focus();
+    };
+    return h("button", { type: "button", class: opts.cls || "btn", onclick: open }, opts.label || "📣 Share");
+  }
+
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); toast("Link copied"); }
     catch { prompt("Copy your link:", text); }
@@ -128,7 +152,7 @@
     { e: "👋", t: "Welcome to Velvet Collar", p: ["This is where members of the group have a profile, find each other, see events and play games.", "Here's a 1-minute tour. You can open it again any time from “How it works” at the bottom of the page."] },
     { e: "✏️", t: "Fill in your profile", p: ["You're on your Edit page now. Add a photo, a little about you, what you're looking for, your relationship style, and your interests and limits.", "Everything is optional, so share as much or as little as you like. Tap Save profile at the bottom when you're done."], tip: "The glow-up meter at the top shows what's left to fill in." },
     { e: "🎨", t: "Make it look like you", p: ["The 🎨 Settings tab changes your colours, pattern, font, charm and mood.", "📸 Photos adds a gallery, 🔗 Links adds your other pages, and 🎲 Playroom holds your game links."] },
-    { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Share it in Telegram with 📣 Share in Telegram on your page." },
+    { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Tap 📣 Share on your page to copy it or post it in Telegram." },
     { e: "📅", t: "Events", p: ["The Events calendar shows munches, game nights and play parties. Tap I'm going or ☆ Interested, and add them to your own calendar.", "Some play parties need you to be vetted first. Fill in the vetting form from the Events page."] },
     { e: "🎲", t: "The Playroom", p: ["Games to play with other members: 🏹 The Hunt, 🤫 Whispers (anonymous chats) and more.", "React to profiles, leave kind notes, vouch for people, and send secret crushes. They're only revealed if it's mutual."] },
     { e: "💜", t: "Look after each other", p: ["Ask first, respect limits, and keep what's shared here inside the group.", "If anything feels off, use Report inside a Whisper chat, or tell one of the team. You'll find them on the Velvet Collar page."], tip: "Don't want crushes, vouches, reactions or kind notes? Switch each one off in 🎨 Settings any time." },
@@ -710,8 +734,7 @@
           h("span", { class: "chip" }, "🔞 21+")),
         h("div", { class: "actions" },
           d.canEdit ? h("a", { class: "btn gold", href: "/admin/group", "data-nav": "" }, "✏️ Edit this page") : null,
-          h("button", { type: "button", class: "btn", onclick: sharePost }, "📣 Share in Telegram"),
-          h("button", { type: "button", class: "btn ghost", onclick: () => copyText(pageUrl, "🔗 Link copied") }, "Copy link"))));
+          shareButton({ url: pageUrl, title: g.name, extra: [["📝", "Copy a ready-made post", "The group name, tagline and link, ready to paste in Telegram.", sharePost]] }))));
     const main = [], side = [];
     if (g.about) main.push(h("section", { class: "panel" }, h("h2", {}, "About us"), paras(g.about)));
     for (const sec of g.sections || []) main.push(h("section", { class: "panel" }, sec.title ? h("h2", {}, [sec.emoji, sec.title].filter(Boolean).join(" ")) : null, paras(sec.body)));
@@ -1355,7 +1378,7 @@
     });
 
     modal.append(h("div", { class: "modal-box share-box" },
-      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "📣 Share in Telegram"),
+      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "📸 Post with photos"),
         h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Close", onclick: close }, "✕")),
       h("div", {}, h("h3", { class: "tag-label" }, "What to include"), opts),
       pics.length ? h("div", {}, h("h3", { class: "tag-label" }, `Photos (pick up to ${MAX_SHARE_PHOTOS})`), grid, nsfwNote) : null,
@@ -1692,8 +1715,9 @@
           data.isOwner ? null : huntHolder,
           // Sharing: your own page, or anyone's if you're an admin or owner.
           data.isOwner || canShareOthers() ? [
-            h("button", { class: "btn", onclick: () => (data.isOwner ? openShare(p, photos) : copyPost(p, false)), title: data.isOwner ? "Share your profile, with photos, in Telegram" : "Copies a fun post with their link, ready to paste in Telegram" }, "📣 Share in Telegram"),
-            h("button", { class: "btn ghost", onclick: () => copy(profileUrl(p.slug)) }, "Copy link")] : null),
+            shareButton({ url: profileUrl(p.slug), title: p.display_name, extra: [data.isOwner
+              ? ["📸", "Post with photos", "Write a post, pick which bits to include and add photos from your gallery.", () => openShare(p, photos)]
+              : ["📝", "Copy a ready-made post", "A fun post about them with their link, ready to paste in Telegram.", () => copyPost(p, false)]] })] : null),
         reactHolder));
 
     const blocks = [];
@@ -2005,8 +2029,7 @@
       slugStatus,
       h("span", { class: "hint" }, "This is also your login name. If you change it, log in with the new one."),
       h("div", { class: "actions", style: "margin-top:6px" },
-        h("button", { class: "btn small", type: "button", onclick: () => copy(profileUrl(rec.slug)) }, "Copy my link"),
-        h("button", { class: "btn small", type: "button", onclick: () => openShare(rec, photos) }, "📣 Share in Telegram"),
+        shareButton({ url: profileUrl(rec.slug), title: rec.display_name, cls: "btn small", extra: [["📸", "Post with photos", "Write a post, pick which bits to include and add photos from your gallery.", () => openShare(rec, photos)]] }),
         h("button", { class: "btn small", type: "button", onclick: () => openCard(rec) }, "🖼️ Profile card"),
         h("a", { class: "btn small ghost", href: "/" + rec.slug, "data-nav": "" }, "View my page")),
       h("span", { class: "hint" }, "Paste your link into your Telegram bio so people can find your page."));
