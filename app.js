@@ -139,10 +139,24 @@
     (agree || scroller).focus();
   }
 
+  // A password box with a Show / Hide button.
+  function pwToggle(input) {
+    const btn = h("button", { type: "button", class: "pw-eye", "aria-pressed": "false", "aria-label": "Show password" }, "Show");
+    btn.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "Hide" : "Show";
+      btn.setAttribute("aria-pressed", String(show));
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      input.focus();
+    });
+    return h("div", { class: "pw-wrap" }, input, btn);
+  }
+
   function renderAuth(mode) {
     document.title = (mode === "join" ? "Make a profile" : "Log in") + " · Velvet Collar";
     const msg = h("p", { class: "status bad", role: "alert" });
-    const field = (label, input, hint) => h("div", { class: "field" }, h("label", { for: input.id }, label), input, hint ? h("span", { class: "hint" }, hint) : null);
+    const field = (label, input, hint) => h("div", { class: "field" }, h("label", { for: (input.tagName === "INPUT" ? input : input.querySelector("input")).id }, label), input, hint ? h("span", { class: "hint" }, hint) : null);
     const slugIn = h("input", { type: "text", id: "a_slug", autocomplete: "username", autocapitalize: "off", spellcheck: "false", maxlength: 32, required: true });
     slugIn.addEventListener("input", () => { slugIn.value = slugIn.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""); });
     const pwIn = h("input", { type: "password", id: "a_pw", autocomplete: mode === "join" ? "new-password" : "current-password", minlength: 8, maxlength: 72, required: true });
@@ -179,8 +193,8 @@
         h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn),
           slugStatus, h("span", { class: "hint" }, "Your page's address and what you log in with. It's also your display name to start with; you can change how your name shows in Edit.")),
-        field("Password", pwIn, "At least 8 characters."),
-        field("Password again", pw2In),
+        field("Password", pwToggle(pwIn), "At least 8 characters."),
+        field("Password again", pwToggle(pw2In)),
         ageRow, glRow,
         msg, btn,
         h("p", { class: "faint" }, "Already have one? ", h("a", { href: "/login", "data-nav": "" }, "Log in")));
@@ -206,7 +220,7 @@
       form = h("form", { class: "auth-form panel" },
         h("div", { class: "field" }, h("label", { for: "a_slug" }, "Profile name"),
           h("div", { class: "slug-row" }, h("span", {}, location.host + "/"), slugIn)),
-        field("Password", pwIn),
+        field("Password", pwToggle(pwIn)),
         msg, btn,
         h("p", { class: "faint" }, "New here? ", h("a", { href: "/join", "data-nav": "" }, "Make a profile"), " · Forgot your password? Ask an admin to reset it."));
       form.addEventListener("submit", async (e) => {
@@ -1916,7 +1930,7 @@
       const oldIn = h("input", { type: "password", autocomplete: "current-password", "aria-label": "Current password", placeholder: "Current password" });
       const newIn = h("input", { type: "password", autocomplete: "new-password", minlength: 8, "aria-label": "New password", placeholder: "New password (8+ characters)" });
       const btn = h("button", { class: "btn small", type: "submit" }, "Change password");
-      const f = h("form", { class: "pw-form" }, h("span", { class: "label" }, "Password"), oldIn, newIn, btn);
+      const f = h("form", { class: "pw-form" }, h("span", { class: "label" }, "Password"), pwToggle(oldIn), pwToggle(newIn), btn);
       f.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (newIn.value.length < 8) return toast("New password needs 8+ characters", true);
