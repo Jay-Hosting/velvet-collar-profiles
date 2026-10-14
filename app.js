@@ -512,7 +512,7 @@
       if (isAdmin || badges.includes("host")) {
         const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0) + (sm.newFeedback || 0) + (sm.newVolunteers || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
+        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0) + (sm.newFeedback || 0) + (sm.newVolunteers || 0) + (sm.vetMatches || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }

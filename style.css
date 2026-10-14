@@ -1488,3 +1488,12 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .vo-qa p { margin: 0; white-space: pre-wrap; }
 .vo-decide { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .vo-roles { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+/* ---------- vetting: possible matches with the old application sheet ---------- */
+.vm-member { display: grid; gap: 10px; }
+.vm-cand { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.vm-cand.strong { border-color: rgba(120, 220, 150, .45); }
+.vm-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.att-tag.hit { border-color: rgba(120, 220, 150, .6); }
+.att-tag.weak { border-color: rgba(255, 190, 90, .6); }
+.vm-ans summary { cursor: pointer; margin-top: 6px; }

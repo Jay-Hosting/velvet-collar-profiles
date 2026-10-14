@@ -8,6 +8,7 @@
   const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
+  const dayY = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, month: "short", day: "numeric", year: "numeric" }); };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
 
   async function render(app, tab) {
@@ -26,7 +27,7 @@
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
-        id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null,
+        id === "vetting" && (sum.newForms || sum.vetMatches) ? h("span", { class: "nav-badge" }, String((sum.newForms || 0) + (sum.vetMatches || 0))) : null,
         id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null,
         id === "volunteers" && sum.newVolunteers ? h("span", { class: "nav-badge" }, String(sum.newVolunteers)) : null,
         id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
@@ -152,7 +153,7 @@
             try { await pb.send(`/api/vc/mod/vet-forms/${f.id}`, { method: "POST", body: { seen: !f.seen } }); toast(f.seen ? "Marked unread" : "Marked read"); load(); } catch (err) { toast(errMsg(err), true); }
           } }, f.seen ? "Mark unread" : "👀 Mark read");
           formEl = h("details", { class: "vet-form", open: !f.seen },
-            h("summary", {}, f.seen ? "📋 Vetting form" : "📋 New vetting form", h("small", { class: "faint" }, ` · sent ${when(f.updated || f.created)}${f.seen && f.seen_by ? " · read by " + f.seen_by : ""}`)),
+            h("summary", {}, f.seen ? "📋 Vetting form" : "📋 New vetting form", h("small", { class: "faint" }, f.answers._applied ? ` · applied ${dayY(f.answers._applied)} · from the application sheet` : ` · sent ${when(f.updated || f.created)}${f.seen && f.seen_by ? " · read by " + f.seen_by : ""}`)),
             h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, f.answers[q.id]); return [h("dt", {}, q.q), h("dd", { class: a ? "" : "empty" }, a || "(no answer)")]; })),
             h("div", { class: "actions" }, mark));
         } else {
@@ -171,22 +172,58 @@
       draw();
       return el;
     };
-    const VIEWS = [["review", "📋 To review"], ["hold", "⏸️ On hold"], ["vetted", "✅ Vetted"], ["denied", "🚫 Denied"]];
+    const VIEWS = [["review", "📋 To review"], ["matches", "🔗 Possible matches"], ["hold", "⏸️ On hold"], ["vetted", "✅ Vetted"], ["denied", "🚫 Denied"]];
     const draw = () => {
       const q = search.value.trim();
-      const counts = {}; VIEWS.forEach(([k]) => { counts[k] = q ? 0 : data.members.filter((m) => group(m) === k).length; });
+      const counts = {}; VIEWS.forEach(([k]) => { counts[k] = q ? 0 : k === "matches" ? (mt ? mt.items.length : 0) : data.members.filter((m) => group(m) === k).length; });
       const fresh = data.members.filter((m) => m.form && !m.form.seen).length;
       pills.replaceChildren(...VIEWS.map(([k, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(!q && vetView === k), onclick: () => { search.value = ""; vetView = k; load(); } },
-        `${label} (${counts[k]})`, k === "review" && fresh ? h("span", { class: "nav-badge" }, String(fresh)) : null)));
+        `${label} (${counts[k]})`, k === "review" && fresh ? h("span", { class: "nav-badge" }, String(fresh)) : null, k === "matches" && counts[k] ? h("span", { class: "nav-badge" }, String(counts[k])) : null)));
+      if (!q && vetView === "matches") return drawMatches();
       const tab = document.querySelector('.mod-tabs a[href="/admin/vetting"]');
-      if (tab && !q) { tab.querySelector(".nav-badge")?.remove(); if (fresh) tab.append(h("span", { class: "nav-badge" }, String(fresh))); }
+      const nb = fresh + (mt ? mt.items.length : 0);
+      if (tab && !q) { tab.querySelector(".nav-badge")?.remove(); if (nb) tab.append(h("span", { class: "nav-badge" }, String(nb))); }
       let ms = q ? data.members : data.members.filter((m) => group(m) === vetView);
       // To review: new forms first (oldest first, so nobody waits too long), then everyone else by name.
       if (!q && vetView === "review") ms = ms.slice().sort((a, b) => { const an = a.form && !a.form.seen, bn = b.form && !b.form.seen; return an !== bn ? (an ? -1 : 1) : an ? String(a.form.created).localeCompare(String(b.form.created)) : a.display_name.localeCompare(b.display_name); });
       const empty = q ? "Nobody by that name." : vetView === "review" ? "Nothing to review. 🌙 All caught up." : vetView === "hold" ? "Nobody is on hold." : vetView === "denied" ? "Nobody is denied." : "Nobody is vetted yet.";
       holder.replaceChildren(...(ms.length ? ms.map(row) : [h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, empty))]));
     };
+    // ---- possible matches with the old application sheet ----
+    let mt = null;
+    const ANS = { experience: "Experience with sex-positive spaces", interest: "What interests them", consent: "What consent looks and feels like", referred: "Referred by" };
+    const drawMatches = () => {
+      const L = data.labels;
+      const cand = (m, c) => h("div", { class: "vm-cand" + (c.strong ? " strong" : "") },
+        h("div", { class: "toggle-row" }, h("div", {},
+          h("b", {}, c.name || "(no name)"), h("small", { class: "faint" }, ` · applied ${dayY(c.applied)} · sheet row ${c.row}`),
+          h("div", { class: "vm-tags" },
+            h("span", { class: "att-tag" }, "Sheet: " + (c.status_raw || "no status") + (c.status ? " → " + (L[c.status] || c.status) : "")),
+            c.telegram ? h("span", { class: "att-tag" + (c.how.includes("telegram") ? " hit" : "") }, "✈️ " + c.telegram) : null,
+            c.fetlife ? h("span", { class: "att-tag" + (c.how.includes("fetlife") ? " hit" : "") }, "FetLife: " + c.fetlife) : null,
+            h("span", { class: "att-tag " + (c.strong ? "hit" : "weak") }, c.strong ? "Matched on " + c.how.filter((x) => x !== "name").join(" & ") : "Name only")))),
+        c.notes ? h("p", { class: "faint", style: "margin:6px 0 0" }, "📝 " + c.notes) : null,
+        h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "Read their application"),
+          h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, c.answers[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; }))),
+        h("div", { class: "actions", style: "margin:8px 0 0" },
+          h("button", { type: "button", class: "btn small gold", onclick: async () => {
+            try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "link" } }); toast(`Linked. ${m.display_name} is now ${L[c.status] || "updated"}.`); load(); } catch (err) { toast(errMsg(err), true); }
+          } }, "✅ Yes, this is them"),
+          h("button", { type: "button", class: "btn small ghost", onclick: async () => {
+            try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "dismiss" } }); toast("Dismissed"); load(); } catch (err) { toast(errMsg(err), true); }
+          } }, "✕ Not them")));
+      holder.replaceChildren(
+        h("section", { class: "panel" }, h("p", { class: "faint", style: "margin:0" },
+          `Members who might match an application in the old Google Form sheet (${mt.linked} of ${mt.total} applications are linked to a profile so far). Confirming sets their status from the sheet, adds a note, and attaches their answers to their vetting form. New members are checked automatically when they join.`)),
+        ...(mt.items.length ? mt.items.map(({ member: m, candidates }) => h("section", { class: "panel vm-member" },
+          h("div", {},
+            h("div", {}, personChip(m), h("div", { class: "faint", style: "font-size:.85rem" }, `@${m.slug}${m.tg ? " · ✈️ " + m.tg : ""} · now: ${L[m.vetting.status] || "no status"}`),
+              h("div", { style: "font-size:.92rem;margin-top:2px" }, h("b", {}, candidates.length === 1 ? "1 possible application" : `${candidates.length} possible applications`)))),
+          candidates.map((c) => cand(m, c))))
+          : [h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, "No possible matches to review. 🌙"))]));
+    };
     const load = async () => {
+      try { mt = await pb.send("/api/vc/mod/vet-matches", {}); } catch (_) { mt = { items: [], total: 0, linked: 0 }; }
       try { data = await pb.send("/api/vc/mod/vetting?q=" + encodeURIComponent(search.value.trim()), {}); }
       catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
       draw();
