@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -31,7 +31,7 @@
         id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, feedback, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -355,7 +355,9 @@
         h("p", { class: "mod-cb-text" }, f.text),
         h("div", { class: "fb-note" }, note, h("button", { type: "button", class: "btn small ghost", onclick: () => post(f, { reply: note.value }, "Note saved") }, "Save note")),
         h("div", { class: "actions", style: "margin:6px 0 0" },
-          ["planned", "done", "declined", "new"].filter((s) => s !== f.status).map((s) => h("button", { type: "button", class: "btn small " + (s === "done" ? "gold" : "ghost"), onclick: () => post(f, { status: s }, STATUS[s]) }, s === "new" ? "↩️ Back to new" : STATUS[s])),
+          f.backlog ? h("a", { class: "att-tag", href: "/admin/backlog", "data-nav": "" }, f.backlog === "done" ? "📋 Done on the backlog" : "📋 On the backlog")
+            : h("button", { type: "button", class: "btn small gold", onclick: async () => { try { await pb.send("/api/vc/mod/backlog", { method: "POST", body: { feedback: f.id } }); toast("📋 Added to the backlog"); feedback(body); } catch (err) { toast(errMsg(err), true); } } }, "📋 Add to backlog"),
+          ["planned", "done", "declined", "new"].filter((s) => s !== f.status).map((s) => h("button", { type: "button", class: "btn small " + "ghost", onclick: () => post(f, { status: s }, STATUS[s]) }, s === "new" ? "↩️ Back to new" : STATUS[s])),
           h("button", { type: "button", class: "btn small danger", onclick: () => confirm("Delete this feedback for good?") && post(f, { remove: true }, "Deleted") }, "🗑️ Delete")));
     };
     body.replaceChildren(h("section", { class: "panel" },
@@ -363,6 +365,65 @@
       h("p", { class: "faint", style: "margin-top:-6px" }, `Ideas, bugs and love notes members send with the 💡 Feedback button (bottom corner of every page, and the footer). ${total} so far. Move each one to Planned, Done or Not doing to keep track. Anonymous ones can't be traced back to anyone.`),
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(fbView === k), onclick: () => { fbView = k; feedback(body); } }, k === "all" ? `${l} (${total})` : `${l} (${d.counts[k]})`))),
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, fbView === "new" ? "Nothing new. 🌙" : "Nothing here.")));
+  }
+
+  // ---------- backlog: what the admins plan to build or fix ----------
+  let blView = "open";
+  async function backlog(body) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    const d = await pb.send("/api/vc/mod/backlog?status=" + blView, {});
+    const PRIO = { high: "🔥 High", normal: "Normal", low: "🐢 Low" };
+    const KIND = { idea: "💡", bug: "🐞", love: "💜", other: "💬" };
+    const post = async (it, b, msg) => { try { await pb.send(`/api/vc/mod/backlog/${it.id}`, { method: "POST", body: b }); if (msg) toast(msg); backlog(body); } catch (err) { toast(errMsg(err), true); } };
+    const prioSel = (v, onchange) => { const sel = h("select", { "aria-label": "Priority", onchange }, Object.keys(PRIO).map((k) => h("option", { value: k }, PRIO[k] === "Normal" ? "Normal priority" : PRIO[k]))); sel.value = v; return sel; };
+
+    // Add form
+    const tIn = h("input", { type: "text", maxlength: 140, placeholder: "What should we build or fix?", "aria-label": "Title" });
+    const nIn = h("textarea", { rows: 2, maxlength: 3000, placeholder: "Notes (optional)", "aria-label": "Notes" });
+    const pIn = prioSel("normal");
+    const add = h("form", { class: "bl-add" }, tIn, nIn, h("div", { class: "bl-add-row" }, pIn, h("button", { type: "submit", class: "btn gold" }, "➕ Add to backlog")));
+    add.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (tIn.value.trim().length < 2) { toast("Give it a short title.", true); return tIn.focus(); }
+      try { await pb.send("/api/vc/mod/backlog", { method: "POST", body: { title: tIn.value, notes: nIn.value, priority: pIn.value } }); toast("📋 Added"); blView = "open"; backlog(body); } catch (err) { toast(errMsg(err), true); }
+    });
+
+    const row = (it) => {
+      const done = it.status === "done";
+      const tick = h("input", { type: "checkbox", checked: done, "aria-label": done ? "Mark as not done" : "Mark as done", onchange: () => post(it, { status: done ? "todo" : "done" }, done ? "Back on the list" : "✅ Done! Nice work.") });
+      const view = h("div", { class: "bl-body" },
+        h("div", { class: "bl-title" }, h("b", {}, it.title),
+          it.status === "doing" ? h("span", { class: "att-tag bl-doing" }, "🔨 In progress") : null,
+          it.priority !== "normal" && !done ? h("span", { class: "att-tag bl-" + it.priority }, PRIO[it.priority]) : null),
+        it.notes ? h("p", { class: "bl-notes" }, it.notes) : null,
+        it.feedback ? h("div", { class: "bl-fb" }, h("small", { class: "faint" }, `${KIND[it.feedback.kind] || "💬"} From feedback by `),
+          it.feedback.member ? personChip(it.feedback.member) : h("i", { class: "faint" }, "Anonymous"),
+          it.feedback.text !== it.title && it.feedback.text !== it.notes ? h("p", { class: "faint bl-quote" }, "“" + it.feedback.text + "”") : null) : null,
+        h("small", { class: "faint" }, `Added by ${it.added_by || "?"} · ${when(it.created)}${done && it.done_at ? ` · done by ${it.done_by} · ${when(it.done_at)}` : ""}`));
+      const box = h("div", { class: "bl-item" + (done ? " done" : "") }, h("label", { class: "bl-tick" }, tick), view);
+      const edit = () => {
+        const t = h("input", { type: "text", maxlength: 140, value: it.title, "aria-label": "Title" });
+        const n = h("textarea", { rows: 3, maxlength: 3000, "aria-label": "Notes" }); n.value = it.notes || "";
+        box.replaceChildren(h("label", { class: "bl-tick" }, tick), h("div", { class: "bl-body" }, t, n,
+          h("div", { class: "actions", style: "margin:0" },
+            h("button", { type: "button", class: "btn small gold", onclick: () => post(it, { title: t.value, notes: n.value }, "Saved") }, "Save"),
+            h("button", { type: "button", class: "btn small ghost", onclick: () => backlog(body) }, "Cancel"))));
+        t.focus();
+      };
+      view.append(h("div", { class: "actions", style: "margin:4px 0 0" },
+        !done ? h("button", { type: "button", class: "btn small ghost", onclick: () => post(it, { status: it.status === "doing" ? "todo" : "doing" }) }, it.status === "doing" ? "⏸️ Pause" : "🔨 Start") : null,
+        !done ? prioSel(it.priority, (e) => post(it, { priority: e.target.value })) : null,
+        h("button", { type: "button", class: "btn small ghost", onclick: edit }, "✏️ Edit"),
+        h("button", { type: "button", class: "btn small danger", onclick: () => confirm(`Delete “${it.title}” from the backlog?`) && post(it, { remove: true }, "Deleted") }, "🗑️")));
+      return box;
+    };
+    const VIEWS = [["open", `📋 To do (${d.counts.open})`], ["done", `✅ Done (${d.counts.done})`], ["all", `All (${d.counts.open + d.counts.done})`]];
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "📋 Backlog"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Everything we plan to build or fix. Add your own here, or tap “📋 Add to backlog” on any ", h("a", { href: "/admin/feedback", "data-nav": "" }, "feedback"), ". Tick an item when it's done; feedback it came from is marked done too."),
+      add,
+      h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(blView === k), onclick: () => { blView = k; backlog(body); } }, l))),
+      d.items.length ? h("div", { class: "bl-list" }, d.items.map(row)) : h("p", { class: "muted" }, blView === "done" ? "Nothing finished yet." : "All clear! 🎉")));
   }
 
   // ---------- the group's own page (/velvetcollar): admins and owners ----------

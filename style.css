@@ -1445,3 +1445,21 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .fb-item.fb-bug { border-left: 3px solid #e0605a; }
 .fb-item.fb-love { border-left: 3px solid #c77dff; }
 .fb-item.fb-idea { border-left: 3px solid var(--gold); }
+
+/* ---------- backlog ---------- */
+.bl-add { display: grid; gap: 8px; margin: 4px 0 14px; }
+.bl-add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bl-list { display: grid; gap: 8px; margin-top: 12px; }
+.bl-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.bl-item.done { opacity: .7; }
+.bl-item.done .bl-title b { text-decoration: line-through; }
+.bl-tick { padding-top: 2px; }
+.bl-tick input { width: 22px; height: 22px; accent-color: var(--gold); cursor: pointer; }
+.bl-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.bl-title { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bl-notes { margin: 0; white-space: pre-wrap; }
+.bl-fb { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bl-quote { flex-basis: 100%; margin: 0; font-style: italic; }
+.att-tag.bl-high { border-color: #e0605a; }
+.att-tag.bl-doing { border-color: var(--gold); }
+.bl-item select, .bl-add select { width: auto; padding: 4px 8px; font-size: .85rem; }
