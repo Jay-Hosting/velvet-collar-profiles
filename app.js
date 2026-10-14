@@ -894,7 +894,6 @@
     document.title = "Get vetted · Velvet Collar";
     const data = await pb.send("/api/vc/vetting/form", {});
     const A = data.answers || {};
-    const fmtDay = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric" }); };
     const user = me();
     const ctl = {};   // question id -> { get(), focus() }
     const reqMark = (q) => (q.req ? h("span", { class: "vf-req", "aria-hidden": "true" }, " *") : null);
@@ -945,7 +944,7 @@
       return null;
     });
 
-    const send = h("button", { type: "submit", class: "btn gold", disabled: !data.hasPhoto }, data.sent && !data.sent.seen ? "Update my form" : "Send my form");
+    const send = h("button", { type: "submit", class: "btn gold", disabled: !data.hasPhoto }, "Send my form");
     const form = h("form", { class: "panel vf-form", novalidate: true }, h("p", { class: "faint", style: "margin-top:0" }, h("span", { class: "vf-req" }, "*"), " Required"), qs,
       h("div", { class: "actions" }, send, !data.hasPhoto ? h("span", { class: "faint" }, "Add a profile photo first (see above).") : null));
     form.addEventListener("submit", async (ev) => {
@@ -976,10 +975,8 @@
       }
     });
 
-    const status = data.vetted ? h("section", { class: "panel vf-status ok" }, h("b", {}, "✅ You're vetted."), " You don't need to send this again unless the team asks you to.")
-      : data.sent ? h("section", { class: "panel vf-status" }, h("b", {}, data.sent.seen ? "👀 The team has read your form" : "📨 Your form was sent"), ` on ${fmtDay(data.sent.updated || data.sent.created)}.`,
-        data.sent.seen ? " They'll be in touch. If they ask you to update it, change your answers below and send it again." : " You can still change your answers below and send it again.")
-      : null;
+    // Members only ever learn that they're vetted. Nothing about pending, on hold or denied.
+    const status = data.vetted ? h("section", { class: "panel vf-status ok" }, h("b", {}, "✅ You're vetted."), " Only you can see this. You don't need to send this again unless the team asks you to.") : null;
     const photo = h("section", { class: "panel vf-photo" + (data.hasPhoto ? "" : " missing") },
       avatarEl(user, "sm"),
       data.hasPhoto ? h("div", {}, h("b", {}, "📷 Profile photo: ✓"), h("p", { class: "faint", style: "margin:2px 0 0" }, "This is the photo the team will see with your form."))
@@ -1648,7 +1645,7 @@
   const isNew = (m) => { const t = parseDate(m.created); return t && Date.now() - t < 7 * 864e5; };
   function badgesFor(p, photoCount) {
     const out = [];
-    if (p.vetted) out.push(["✅", "Vetted", "Vetted for play parties (only owners see this)"]);
+    if (p.vetted) out.push(["✅", "Vetted", p.vetSelf ? "Vetted for play parties. Only you can see this." : "Vetted for play parties (only owners see this)"]);
     for (const b of p.badges || []) if (ADMIN_BADGES[b]) out.push(ADMIN_BADGES[b]);
     if (isNew(p)) out.push(["🌱", "New here", "Joined this week, say hi!"]);
     const plays = (p.play_links || []).map((l) => l.url || "");
@@ -1899,7 +1896,7 @@
     }
     const p = data.profile;
     const vet = data.vetting || {};
-    p.vetted = !!vet.vetted && !vet.self;   // the badge only ever shows for owners
+    p.vetted = !!vet.vetted; p.vetSelf = !!vet.self;   // owners see it on everyone; a member sees it only on their own profile
     const photos = data.photos || [];
     const look = setLook(p.style, p.theme, true);
     document.title = `${p.display_name} · Velvet Collar`;
