@@ -428,6 +428,17 @@
     const more = h("button", { type: "button", class: "btn ghost", hidden: true }, "Show more");
     let offset = 0, d = null;
     const tgHandle = (t) => { const v = String(t || "").trim().replace(/^@/, ""); return /^[A-Za-z0-9_]{5,32}$/.test(v) ? v : ""; };
+    // Their answers from the application form, in the same order as the vetting form.
+    const ans = (q, v) => {
+      if (q.type === "agree") return v ? "✅ Agreed to the event guidelines" : "";
+      if (q.type === "yesno") return v === "yes" ? "Yes" : v === "no" ? "No" : "";
+      if (q.type === "scale") return v ? `${v} / 5${v >= 5 ? " (this is my tribe)" : v <= 1 ? " (extremely uncomfortable)" : ""}` : "";
+      return String(v || "");
+    };
+    const appDetails = (c) => {
+      const rows = (d.questions || []).flatMap((q) => { const a = ans(q, (c.answers || {})[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; });
+      return rows.length ? h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "📋 Read their application"), h("dl", { class: "vf-answers" }, rows)) : null;
+    };
     const invite = (c) => `Hi ${c.name || "there"}! 💜 Velvet Collar has member profiles now: your own page for your kinks, limits, links and photos, plus the events calendar and games. Make yours at ${location.origin}/join${d.joinCode ? " with the join code " + d.joinCode : ""}. It only takes a minute!`;
     const row = (c) => {
       const tg = tgHandle(c.telegram);
@@ -440,7 +451,8 @@
             c.telegram ? h("span", { class: "att-tag" }, "✈️ " + c.telegram) : null,
             c.fetlife ? h("span", { class: "att-tag" }, "FetLife: " + c.fetlife) : null,
             c.email ? h("span", { class: "att-tag" }, "✉️ " + c.email) : null),
-          c.notes ? h("p", { class: "faint", style: "margin:4px 0 0" }, "📝 " + c.notes) : null),
+          c.notes ? h("p", { class: "faint", style: "margin:4px 0 0" }, "📝 " + c.notes) : null,
+          appDetails(c)),
         c.status === "denied" || c.status === "hold" ? null : h("div", { class: "actions", style: "margin:6px 0 0" },
           h("button", { type: "button", class: "btn small ghost", onclick: () => copyText(invite(c), "Invite message copied") }, "📋 Copy invite"),
           tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + tg, target: "_blank", rel: "noopener" }, "✈️ Message on Telegram") : null,
