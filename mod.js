@@ -31,6 +31,11 @@
     return url ? h("a", { class: "att-tag link-tag" + (extraClass ? " " + extraClass : ""), href: url, target: "_blank", rel: "noopener noreferrer", title: kind === "tg" ? "Open a Telegram chat" : "Open their FetLife profile" }, label, " ↗")
       : h("span", { class: "att-tag" + (extraClass ? " " + extraClass : "") }, label);
   };
+  // An answer from a vetting form: the FetLife and Telegram answers open as links when they're real handles.
+  const answerEl = (h, q, a) => {
+    const url = q.id === "fetlife" ? fetLink(a) : q.id === "telegram" ? tgLink(a) : "";
+    return url ? h("a", { class: "ans-link", href: url, target: "_blank", rel: "noopener noreferrer", title: q.id === "fetlife" ? "Open their FetLife profile" : "Open a Telegram chat" }, a, " ↗") : a;
+  };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
 
   async function render(app, tab) {
@@ -176,7 +181,7 @@
           } }, f.seen ? "Mark unread" : "👀 Mark read");
           formEl = h("details", { class: "vet-form", open: !f.seen },
             h("summary", {}, f.seen ? "📋 Vetting form" : "📋 New vetting form", h("small", { class: "faint" }, f.answers._applied ? ` · applied ${dayY(f.answers._applied)} · from the application sheet` : ` · sent ${when(f.updated || f.created)}${f.seen && f.seen_by ? " · read by " + f.seen_by : ""}`)),
-            h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, f.answers[q.id]); return [h("dt", {}, q.q), h("dd", { class: a ? "" : "empty" }, a || "(no answer)")]; })),
+            h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, f.answers[q.id]); return [h("dt", {}, q.q), h("dd", { class: a ? "" : "empty" }, a ? answerEl(h, q, a) : "(no answer)")]; })),
             h("div", { class: "actions" }, mark));
         } else {
           formEl = h("p", { class: "faint vet-noform" }, "No vetting form sent yet. ",
@@ -234,7 +239,7 @@
       cmpRow(c),
       c.notes ? h("p", { class: "faint", style: "margin:6px 0 0" }, "📝 " + c.notes) : null,
       h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "Read their application"),
-        h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, c.answers[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; }))),
+        h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, c.answers[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, answerEl(h, q, a))] : []; }))),
       actions && actions.length ? h("div", { class: "actions", style: "margin:8px 0 0" }, actions) : null);
     const linkApp = async (m, c) => {
       try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "link" } }); toast(`Linked to ${m.display_name}.` + (c.status ? ` Status from the sheet: ${data.labels[c.status] || c.status} (if they didn't have one).` : "")); load(); }
@@ -457,7 +462,7 @@
       return String(v || "");
     };
     const appDetails = (c) => {
-      const rows = (d.questions || []).flatMap((q) => { const a = ans(q, (c.answers || {})[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; });
+      const rows = (d.questions || []).flatMap((q) => { const a = ans(q, (c.answers || {})[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, answerEl(h, q, a))] : []; });
       return rows.length ? h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "📋 Read their application"), h("dl", { class: "vf-answers" }, rows)) : null;
     };
     const invite = (c) => `Hi ${c.name || "there"}! 💜 Velvet Collar has member profiles now: your own page for your kinks, limits, links and photos, plus the events calendar and games. Make yours at ${location.origin}/join${d.joinCode ? " with the join code " + d.joinCode : ""}. It only takes a minute!`;
