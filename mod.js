@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const dayY = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, month: "short", day: "numeric", year: "numeric" }); };
@@ -21,7 +21,7 @@
       return;
     }
     // Vetting is owners only; hosts get Events.
-    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers") || sum.owner);
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
@@ -33,7 +33,7 @@
         id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -414,6 +414,57 @@
         h("a", { href: "/confessions", "data-nav": "" }, location.origin + "/confessions"), "."),
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(cbView === k), onclick: () => { cbView = k; confessions(body); } }, `${l} (${d.counts[k]})`))),
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
+  }
+
+  // ---------- applicants from the old sheet who haven't made a profile yet (owners only) ----------
+  let npView = "vetted", npQ = "";
+  async function noprofile(body) {
+    const { h, pb, toast, errMsg, copyText } = deps();
+    const VIEWS = [["vetted", "✅ Vetted"], ["needs", "📝 Not vetted yet"], ["hold", "⏸️ On hold"], ["denied", "🚫 Denied"], ["all", "All"]];
+    const search = h("input", { type: "search", placeholder: "Search by name, email, Telegram or FetLife", "aria-label": "Search applicants", value: npQ });
+    const pills = h("div", { class: "pills" });
+    const info = h("p", { class: "faint", style: "margin:0" });
+    const list = h("div", { class: "np-list" });
+    const more = h("button", { type: "button", class: "btn ghost", hidden: true }, "Show more");
+    let offset = 0, d = null;
+    const tgHandle = (t) => { const v = String(t || "").trim().replace(/^@/, ""); return /^[A-Za-z0-9_]{5,32}$/.test(v) ? v : ""; };
+    const invite = (c) => `Hi ${c.name || "there"}! 💜 Velvet Collar has member profiles now: your own page for your kinks, limits, links and photos, plus the events calendar and games. Make yours at ${location.origin}/join${d.joinCode ? " with the join code " + d.joinCode : ""}. It only takes a minute!`;
+    const row = (c) => {
+      const tg = tgHandle(c.telegram);
+      return h("div", { class: "np-row" },
+        h("div", { class: "np-main" },
+          h("div", {}, h("b", {}, c.name || "(no name)"), h("small", { class: "faint" }, ` · applied ${dayY(c.applied)} · sheet row ${c.row}`)),
+          h("div", { class: "vm-tags" },
+            h("span", { class: "att-tag" }, d.labels[c.status] || c.status_raw || "No status"),
+            c.status_raw && !/^(yes|emailed|denied|on hold)$/i.test(c.status_raw) ? h("span", { class: "att-tag" }, "Sheet: " + c.status_raw) : null,
+            c.telegram ? h("span", { class: "att-tag" }, "✈️ " + c.telegram) : null,
+            c.fetlife ? h("span", { class: "att-tag" }, "FetLife: " + c.fetlife) : null,
+            c.email ? h("span", { class: "att-tag" }, "✉️ " + c.email) : null),
+          c.notes ? h("p", { class: "faint", style: "margin:4px 0 0" }, "📝 " + c.notes) : null),
+        c.status === "denied" || c.status === "hold" ? null : h("div", { class: "actions", style: "margin:6px 0 0" },
+          h("button", { type: "button", class: "btn small ghost", onclick: () => copyText(invite(c), "Invite message copied") }, "📋 Copy invite"),
+          tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + tg, target: "_blank", rel: "noopener" }, "✈️ Message on Telegram") : null,
+          c.email ? h("a", { class: "btn small ghost", href: "mailto:" + encodeURIComponent(c.email) + "?subject=" + encodeURIComponent("Your Velvet Collar profile") + "&body=" + encodeURIComponent(invite(c)) }, "✉️ Email invite") : null));
+    };
+    const load = async (append) => {
+      if (!append) offset = 0;
+      try { d = await pb.send(`/api/vc/mod/vet-history/unlinked?status=${npView}&offset=${offset}&q=` + encodeURIComponent(npQ), {}); }
+      catch (err) { list.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+      pills.replaceChildren(...VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(npView === k), onclick: () => { npView = k; load(); } }, `${l} (${d.counts[k]})`)));
+      info.textContent = npQ ? `${d.total} found for “${npQ}”.` : `${d.total} ${npView === "all" ? "applicants" : "people"} without a profile on the site.`;
+      const rows = d.items.map(row);
+      if (append) list.append(...rows); else list.replaceChildren(...(rows.length ? rows : [h("p", { class: "muted", style: "margin:0" }, "Nobody here. 🌙")]));
+      offset += d.items.length;
+      more.hidden = offset >= d.total;
+    };
+    let t;
+    search.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { npQ = search.value.trim(); load(); }, 300); });
+    more.addEventListener("click", () => load(true));
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "📜 No profile yet"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Everyone from the old application sheet who isn't linked to a profile on the site. When someone joins, they're matched in ✅ Vetting → 🔗 Possible matches, and once you confirm they drop off this list. Only owners see this tab."),
+      pills, search, info), h("section", { class: "panel" }, list, more));
+    load();
   }
 
   // ---------- volunteers: owners approve or decline volunteer forms ----------
