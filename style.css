@@ -1509,3 +1509,19 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .att-tag.hit { border-color: rgba(120, 220, 150, .6); }
 .att-tag.weak { border-color: rgba(255, 190, 90, .6); }
 .vm-ans summary { cursor: pointer; margin-top: 6px; }
+
+/* ---------- vibe playlist ---------- */
+.songs-ed { display: grid; gap: 8px; justify-items: start; }
+.song-rows { display: grid; gap: 8px; width: 100%; }
+.song-row { display: flex; gap: 8px; align-items: center; }
+.song-row input { flex: 1; min-width: 0; }
+.song-cap { margin: 6px 0 0; font-size: .88rem; color: var(--muted, inherit); opacity: .85; }
+.song-playlist { display: grid; gap: 8px; }
+.song-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.song-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.song-item:hover, .song-item:focus-visible { border-color: var(--gold); }
+.song-item.on { border-color: var(--gold); background: var(--gold-soft); }
+.song-n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .78rem; border: 1px solid var(--line); }
+.song-item.on .song-n { background: var(--gold); color: #1a1420; border-color: var(--gold); }
+.song-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .92rem; }
+.song-src { flex: none; font-size: .75rem; opacity: .65; }

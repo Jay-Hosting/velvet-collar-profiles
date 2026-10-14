@@ -1716,7 +1716,7 @@
     } else if (host === "music.apple.com") {
       src = "https://embed.music.apple.com" + u.pathname + u.search; height = u.searchParams.has("i") ? 175 : 300;
     } else if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com" || host === "youtu.be") {
-      const id = host === "youtu.be" ? u.pathname.slice(1) : u.searchParams.get("v");
+      const id = host === "youtu.be" ? u.pathname.slice(1) : (u.pathname.match(/^\/(?:shorts|live)\/([A-Za-z0-9_-]+)/) || [])[1] || u.searchParams.get("v");
       if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) { src = `https://www.youtube-nocookie.com/embed/${id}`; height = 200; }
     } else if (host === "soundcloud.com") {
       src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&color=%23988ae3&visual=false&show_comments=false"; height = 120;
@@ -1725,6 +1725,35 @@
       h("span", { class: "mono emoji", "aria-hidden": "true" }, "🎵"), h("span", { class: "txt" }, h("b", {}, "My vibe song"), h("small", {}, hostOf(url))), h("span", { class: "ext", "aria-hidden": "true" }, "↗"));
     return h("iframe", { class: "song-frame", src, height: String(height), loading: "lazy", title: "Profile song",
       allow: "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture", referrerpolicy: "strict-origin-when-cross-origin" });
+  }
+
+  // A name for a song link when no title was found: "Spotify playlist", "YouTube video"…
+  function songSvc(url) {
+    let host = ""; try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
+    return host === "open.spotify.com" ? "Spotify" : host === "music.apple.com" ? "Apple Music" : /youtu/.test(host) ? "YouTube" : host === "soundcloud.com" ? "SoundCloud" : hostOf(url);
+  }
+  function songLabel(s, i) {
+    if (s.title) return s.title;
+    let u; try { u = new URL(s.url); } catch { return "Song " + (i + 1); }
+    let kind = (u.pathname.match(/\/(track|album|playlist|episode|song)\//) || [])[1];
+    if (kind === "album" && u.searchParams.has("i")) kind = "song";
+    return kind ? `${songSvc(s.url)} ${kind === "track" ? "song" : kind}` : `Song ${i + 1} · ${songSvc(s.url)}`;
+  }
+  // The profile playlist: one link plays on its own; several get one player and a list to pick from.
+  function playlistEl(list) {
+    list = (list || []).filter((s) => s && safeUrl(s.url));
+    if (!list.length) return null;
+    if (list.length === 1) return h("div", { class: "song-one" }, songEmbed(list[0].url), list[0].title ? h("p", { class: "song-cap" }, list[0].title) : null);
+    const player = h("div", { class: "song-player" });
+    const items = list.map((s, i) => h("li", {}, h("button", { type: "button", class: "song-item", onclick: () => pick(i) },
+      h("span", { class: "song-n", "aria-hidden": "true" }, String(i + 1)), h("span", { class: "song-t" }, songLabel(s, i)), h("span", { class: "song-src" }, songSvc(s.url)))));
+    const pick = (i) => {
+      player.replaceChildren(songEmbed(list[i].url));
+      items.forEach((li, j) => { const b = li.firstChild; b.classList.toggle("on", j === i); if (j === i) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
+    };
+    const box = h("div", { class: "song-playlist" }, player, h("ol", { class: "song-list" }, items));
+    pick(0);
+    return box;
   }
 
   // ---------- little avatar helpers for lists of people ----------
@@ -1960,8 +1989,9 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
-    const song = p.song ? songEmbed(p.song) : null;
-    if (song) side.push(h("section", { class: "keyring song" }, h("h2", {}, "🎵 My vibe"), song));
+    const songList = Array.isArray(p.songs) && p.songs.length ? p.songs : p.song ? [{ url: p.song, title: "" }] : [];
+    const song = playlistEl(songList);
+    if (song) side.push(h("section", { class: "keyring song" }, h("h2", {}, songList.length > 1 ? "🎵 My vibe playlist" : "🎵 My vibe"), song));
     if (plays.length) {
       side.push(h("section", { class: "keyring playroom" },
         h("h2", {}, "Playroom"),
@@ -2538,6 +2568,24 @@
       }).filter((x) => x.url);
       return wrap;
     }
+    // Vibe playlist: up to 6 song (or whole-playlist) links.
+    const songsEd = (() => {
+      const MAX = 6;
+      const start = Array.isArray(rec.songs) && rec.songs.length ? rec.songs.map((x) => x.url) : rec.song ? [rec.song] : [];
+      const rows = h("div", { class: "song-rows" });
+      const addBtn = h("button", { type: "button", class: "btn small ghost" }, "+ Add another song");
+      const row = (v) => {
+        const inp = h("input", { type: "url", maxlength: 300, value: v || "", placeholder: rows.children.length ? "https://… (another song)" : "https://open.spotify.com/track/…", "aria-label": "Song link" });
+        inp.addEventListener("blur", () => { const t = inp.value.trim(); if (t && !/^https?:\/\//i.test(t) && /\./.test(t)) inp.value = "https://" + t; });
+        const el = h("div", { class: "song-row" }, inp, h("button", { type: "button", class: "btn small ghost", "aria-label": "Remove this song", onclick: () => { el.remove(); if (!rows.children.length) rows.append(row("")); sync(); } }, "✕"));
+        return el;
+      };
+      const sync = () => { addBtn.style.display = rows.children.length >= MAX ? "none" : ""; };
+      addBtn.addEventListener("click", () => { if (rows.children.length < MAX) { const r = row(""); rows.append(r); r.querySelector("input").focus(); } sync(); });
+      (start.length ? start : [""]).slice(0, MAX).forEach((v) => rows.append(row(v)));
+      sync();
+      return { el: h("div", { class: "songs-ed" }, rows, addBtn), read: () => [...rows.querySelectorAll("input")].map((i) => i.value.trim()).filter(Boolean).map((url) => ({ url })) };
+    })();
     const linksEd = listEditor([...(rec.jars || []), ...(rec.links || [])], "Name (FetLife, wishlist…)", "Paste the link here", 40, LINK_PRESETS);
     // ---------- Playroom: each hosted game gets a box for the member's own share link ----------
     const playOriginal = (rec.play_links || []).filter((l) => l && l.url);
@@ -2613,7 +2661,7 @@
     saveBtn.addEventListener("click", async () => {
       if (!nameI.value.trim()) return toast("Add a display name", true);
       if (!slugOk) return toast("Pick a different profile name", true);
-      const bad = [...linksEd.read(), ...readPlayLinks()].find((x) => !safeUrl(x.url));
+      const bad = [...linksEd.read(), ...readPlayLinks(), ...songsEd.read()].find((x) => !safeUrl(x.url));
       if (bad) return toast(`"${bad.url}" needs to start with https://`, true);
       let bday; try { bday = readBday(); } catch (err) { return toast(err.message, true); }
       saveBtn.disabled = true; saveBtn.textContent = "Saving…";
@@ -2635,7 +2683,7 @@
         fd.append("crushes_off", crushBox.checked ? "false" : "true");
         fd.append("vouches_off", vouchBox.checked ? "false" : "true");
         fd.append("hide_online", onlineBox.checked ? "false" : "true");
-        fd.append("song", document.getElementById("f_song").value.trim());
+        fd.append("songs", JSON.stringify(songsEd.read()));
         if (lookingSel.length) lookingSel.forEach((v) => fd.append("looking_for", v)); else fd.append("looking_for", "");
         if (relSel.length) relSel.forEach((v) => fd.append("rel_style", v)); else fd.append("rel_style", "");
         fd.append("jars", "[]"); // jars now live in links
@@ -2797,7 +2845,8 @@
             bdayField,
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
             field("Hobbies", area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Separate them with commas or new lines; they show as tags.", true),
-            field("🎵 Vibe song", input("song", { type: "url", maxlength: 300, placeholder: "https://open.spotify.com/track/…" }), "A song that's very you. Paste a Spotify, Apple Music, YouTube or SoundCloud link and it plays right on your page.", true))),
+            h("div", { class: "field full" }, h("label", {}, "🎵 Vibe playlist"), songsEd.el,
+              h("span", { class: "hint" }, "Songs that are very you. Paste Spotify, Apple Music, YouTube or SoundCloud links, up to 6. A Spotify or Apple Music playlist link plays the whole playlist.")))),
         peoplePanel,
         h("section", { class: "panel" }, h("h2", {}, "Interests & limits"),
           h("p", { class: "faint", style: "margin-top:-6px" }, "Filled your Kink Jars shelf? Paste its link in the Playroom tab and it can fill these in for you."),
