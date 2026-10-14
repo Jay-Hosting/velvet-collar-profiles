@@ -203,7 +203,7 @@
       title: h("input", { type: "text", maxlength: 80, placeholder: "Halloween munch" }), emoji: h("input", { type: "text", maxlength: 8, placeholder: "🎃", style: "max-width:6em" }),
       starts_pacific: h("input", { type: "text", maxlength: 40, placeholder: "2026-10-31 7:00 PM" }), ends_pacific: h("input", { type: "text", maxlength: 40, placeholder: "2026-10-31 10:00 PM (optional)" }),
       where: h("input", { type: "text", maxlength: 120, placeholder: "Where (or 'DM for address')" }), description: h("textarea", { rows: 3, maxlength: 1000, placeholder: "What to expect, what to bring…" }),
-      url: h("input", { type: "url", maxlength: 300, placeholder: "https://… (optional)" }), hidden: h("input", { type: "checkbox" }), hosted: h("input", { type: "checkbox" }),
+      url: h("input", { type: "url", maxlength: 300, placeholder: "https://… (optional)" }), hidden: h("input", { type: "checkbox" }), hosted: h("input", { type: "checkbox" }), volunteers: h("input", { type: "checkbox" }),
       vetting: h("select", {}, h("option", { value: "" }, "No vetting"), h("option", { value: "offered" }, "✅ You can get vetted here"), h("option", { value: "required" }, "🔒 Vetted members only")),
     };
     let editing = null;
@@ -212,13 +212,13 @@
     const cancel = h("button", { type: "button", class: "btn ghost", style: "display:none" }, "Cancel edit");
     const fill = (ev) => {
       editing = ev ? ev.id : null;
-      for (const k of Object.keys(f)) { if (k === "hidden" || k === "hosted") f[k].checked = !!(ev && ev[k]); else f[k].value = ev ? ev[k] || "" : ""; }
+      for (const k of Object.keys(f)) { if (k === "hidden" || k === "hosted" || k === "volunteers") f[k].checked = !!(ev && ev[k]); else f[k].value = ev ? ev[k] || "" : ""; }
       title.textContent = ev ? `Editing: ${ev.title}` : "Add an event"; cancel.style.display = ev ? "" : "none";
       if (ev) title.scrollIntoView({ behavior: "smooth", block: "start" });
     };
     cancel.addEventListener("click", () => fill(null));
     saveBtn.addEventListener("click", async () => {
-      const payload = {}; for (const k of Object.keys(f)) payload[k] = k === "hidden" || k === "hosted" ? f[k].checked : f[k].value;
+      const payload = {}; for (const k of Object.keys(f)) payload[k] = k === "hidden" || k === "hosted" || k === "volunteers" ? f[k].checked : f[k].value;
       saveBtn.disabled = true;
       try { await pb.send(editing ? `/api/vc/mod/events/${editing}` : "/api/vc/mod/events", { method: "POST", body: payload }); toast(editing ? "Event updated" : "Event added 🎉"); events(body); }
       catch (err) { toast(errMsg(err), true); saveBtn.disabled = false; }
@@ -233,9 +233,11 @@
         if (!holder.hidden) attendance(holder, ev);
       });
       return h("div", { class: "mod-event-wrap" }, h("div", { class: "mod-event" + (ev.hidden ? " is-hidden" : "") + (Date.parse(String(ev.starts).replace(" ", "T")) < now ? " past" : "") },
-        h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.interested ? ` · ${ev.interested} interested` : ""}${ev.attended ? ` · ✅ ${ev.attended} came` : ""}${ev.hosted ? " · 💜 hosted" : ""}${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
+        h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.interested ? ` · ${ev.interested} interested` : ""}${ev.attended ? ` · ✅ ${ev.attended} came` : ""}${ev.hosted ? " · 💜 hosted" : ""}${ev.volunteers ? " · 🙋 volunteers wanted" : ""}${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
         h("span", { class: "actions", style: "margin:0" },
           peopleBtn,
+          Date.parse(String(ev.starts).replace(" ", "T")) >= now ? h("label", { class: "check vol-switch", title: "Show this event on the volunteer form" },
+            h("input", { type: "checkbox", checked: !!ev.volunteers, onchange: async (e) => { try { await pb.send(`/api/vc/mod/events/${ev.id}/volunteers`, { method: "POST", body: { on: e.target.checked } }); toast(e.target.checked ? "🙋 Open for volunteers" : "Closed to volunteers"); events(body); } catch (err) { toast(errMsg(err), true); e.target.checked = !e.target.checked; } } }), "🙋 Volunteers") : null,
           h("button", { type: "button", class: "btn small", onclick: () => fill(ev) }, "Edit"),
           h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm(`Delete "${ev.title}"? Its RSVPs and attendance record are deleted with it. To keep the record, tick Hidden instead.`)) return; try { await pb.send(`/api/vc/mod/events/${ev.id}`, { method: "DELETE" }); toast("Deleted"); events(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete"))),
         holder);
@@ -249,6 +251,7 @@
           field("Where", f.where), field("Link", f.url), field("Vetting", f.vetting, "Vetted only shows velvet; get vetted here shows green")),
         field("Description", f.description),
         h("label", { class: "check" }, f.hosted, "💜 Hosted by Velvet Collar (pink on the calendar)"),
+        h("label", { class: "check" }, f.volunteers, "🙋 Open for volunteers (shows on the volunteer form, with a 🙋 Volunteer button on the event)"),
         h("label", { class: "check" }, f.hidden, "Hidden (save it as a draft)"),
         h("div", { class: "actions" }, saveBtn, cancel)),
       h("section", { class: "panel" }, h("h2", {}, "Coming up"), upcoming.length ? upcoming.map(evRow) : h("p", { class: "muted" }, "Nothing planned yet."),

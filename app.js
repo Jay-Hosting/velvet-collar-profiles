@@ -762,7 +762,7 @@
                 return [go, maybe];
               })(),
               past ? null : addMenu(ev),
-              !past && ev.hosted && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
+              !past && ev.volunteers && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
               ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
               !past ? h("span", { class: "faint" }, `${ev.going} going` + (ev.interestedCount ? ` · ${ev.interestedCount} interested` : "")) : null)));
       };
@@ -1040,7 +1040,7 @@
     const form = h("form", { class: "panel vf-form", novalidate: true },
       h("h2", { style: "margin-top:0" }, "Volunteer form"),
       h("p", { class: "faint", style: "margin-top:0" }, h("span", { class: "vf-req" }, "*"), " Required. Only the owners see your answers and phone number."),
-      d.events.length ? null : h("p", { class: "vf-status panel" }, "There are no upcoming events on the calendar right now. You can still offer to help at the next one."),
+      d.events.length ? null : h("p", { class: "vf-status panel" }, "No events are open for volunteers right now. You can still offer to help at “any upcoming event”, and the owners will match you up."),
       field("event", "Which event would you like to help with?", evSel, true),
       field("name", "Name / preferred name", name, true),
       field("pronouns", "Preferred pronouns", pron, false),

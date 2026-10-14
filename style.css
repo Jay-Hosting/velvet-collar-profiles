@@ -1486,3 +1486,4 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .vo-qa p { margin: 0; white-space: pre-wrap; }
 .vo-decide { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .vo-roles { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.vol-switch { font-size: .85rem; white-space: nowrap; }
