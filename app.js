@@ -220,6 +220,41 @@
     setTimeout(() => (st.needs21 ? age : gl).focus(), 50);
   }
 
+  // ---------- feedback: a floating 💡 button (and a footer link) open a small form ----------
+  const FB_KINDS = [["idea", "💡", "An idea"], ["bug", "🐞", "Something's broken"], ["love", "💜", "Something I love"], ["other", "💬", "Something else"]];
+  function openFeedback() {
+    if (!me()) { toast("Log in to send feedback 💜", true); return; }
+    let kind = "idea";
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "fb_title" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", esc); };
+    const esc = (e) => { if (e.key === "Escape") close(); };
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const pills = h("div", { class: "pills", role: "radiogroup", "aria-label": "What kind of feedback" });
+    const drawPills = () => pills.replaceChildren(...FB_KINDS.map(([k, e, l]) => h("button", { type: "button", class: "pill", role: "radio", "aria-checked": String(kind === k), "aria-pressed": String(kind === k), onclick: () => { kind = k; drawPills(); text.placeholder = PH[k]; } }, `${e} ${l}`)));
+    const PH = { idea: "What would you love to see on the site?", bug: "What went wrong, and where? What did you expect to happen?", love: "What's working well for you?", other: "Anything at all…" };
+    const text = h("textarea", { rows: 5, maxlength: 2000, placeholder: PH.idea, "aria-label": "Your feedback" });
+    const anon = h("input", { type: "checkbox", id: "fb_anon" });
+    const send = h("button", { type: "submit", class: "btn gold" }, "Send feedback");
+    const form = h("form", { class: "modal-box fb-box" },
+      h("div", { class: "toggle-row" }, h("h2", { id: "fb_title", style: "margin:0" }, "💡 Feedback"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+      h("p", { class: "muted", style: "margin:0" }, "Ideas, bugs, wishes, love notes. The admins read every one."),
+      pills, text,
+      h("label", { class: "check", for: "fb_anon" }, anon, h("span", {}, "Send anonymously (the admins won't see your name)")),
+      h("div", { class: "actions", style: "margin:0" }, send));
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (text.value.trim().length < 3) { toast("Tell us a little more first.", true); return text.focus(); }
+      send.disabled = true;
+      try { await pb.send("/api/vc/feedback", { method: "POST", body: { kind, text: text.value.trim(), anon: anon.checked, page: location.pathname } }); close(); toast("💜 Thank you! The admins will take a look."); }
+      catch (err) { toast(errMsg(err), true); send.disabled = false; }
+    });
+    drawPills(); modal.append(form); document.body.append(modal); document.addEventListener("keydown", esc);
+    setTimeout(() => text.focus(), 50);
+  }
+  const fbBtn = h("button", { type: "button", class: "fb-float", "aria-label": "Send feedback", title: "Send feedback", onclick: openFeedback }, h("span", { "aria-hidden": "true" }, "💡"), h("span", { class: "fb-float-t" }, "Feedback"));
+  document.body.append(fbBtn);
+  document.addEventListener("click", (e) => { const a = e.target.closest("[data-feedback]"); if (a) { e.preventDefault(); openFeedback(); } });
+
   // The community guidelines in a pop-up. onAgree (optional) adds an "I agree" button.
   function openGuidelines(onAgree) {
     const G = window.VCGuidelines;
@@ -428,6 +463,7 @@
 
   function renderNav() {
     nav.replaceChildren();
+    if (typeof fbBtn !== "undefined") fbBtn.hidden = !me() || route().name === "edit" || route().name === "mod";
     const user = me();
     const here = route().name;
     const playroom = h("a", { class: "btn small ghost playroom-link" + (here === "playroom" ? " current" : ""), href: "/playroom", "data-nav": "" }, "Playroom");
@@ -447,7 +483,7 @@
       if (isAdmin || badges.includes("host")) {
         const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
+        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0) + (sm.newFeedback || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }

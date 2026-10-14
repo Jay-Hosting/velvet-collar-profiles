@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -27,10 +27,11 @@
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
         id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null,
-        id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null)));
+        id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null,
+        id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, feedback, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -331,6 +332,37 @@
         h("a", { href: "/confessions", "data-nav": "" }, location.origin + "/confessions"), "."),
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(cbView === k), onclick: () => { cbView = k; confessions(body); } }, `${l} (${d.counts[k]})`))),
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
+  }
+
+  // ---------- feedback: ideas, bugs and love notes from members ----------
+  let fbView = "new";
+  async function feedback(body) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    const d = await pb.send("/api/vc/mod/feedback?status=" + fbView, {});
+    const KIND = { idea: "💡 Idea", bug: "🐞 Something's broken", love: "💜 Love note", other: "💬 Other" };
+    const STATUS = { new: "🆕 New", planned: "🛠️ Planned", done: "✅ Done", declined: "🚫 Not doing" };
+    const post = async (f, b, msg) => { try { await pb.send(`/api/vc/mod/feedback/${f.id}`, { method: "POST", body: b }); toast(msg); feedback(body); } catch (err) { toast(errMsg(err), true); } };
+    const tab = document.querySelector('.mod-tabs a[href="/admin/feedback"]');
+    if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.new) tab.append(h("span", { class: "nav-badge" }, String(d.counts.new))); }
+    const VIEWS = [["new", "🆕 New"], ["planned", "🛠️ Planned"], ["done", "✅ Done"], ["declined", "🚫 Not doing"], ["all", "All"]];
+    const total = d.counts.new + d.counts.planned + d.counts.done + d.counts.declined;
+    const row = (f) => {
+      const note = h("input", { type: "text", maxlength: 500, value: f.reply || "", placeholder: "Private note for the admins (optional)", "aria-label": "Admin note" });
+      return h("div", { class: "mod-cb fb-item fb-" + f.kind },
+        h("div", { class: "mod-cb-meta" }, h("b", {}, KIND[f.kind] || f.kind), fbView === "all" ? h("span", { class: "att-tag" }, STATUS[f.status]) : null,
+          h("small", { class: "faint" }, " · from "), f.member ? personChip(f.member) : h("i", { class: "faint" }, "Anonymous"),
+          h("small", { class: "faint" }, ` · ${when(f.created)}${f.page ? " · on " + f.page : ""}${f.handled_by ? " · last touched by " + f.handled_by : ""}`)),
+        h("p", { class: "mod-cb-text" }, f.text),
+        h("div", { class: "fb-note" }, note, h("button", { type: "button", class: "btn small ghost", onclick: () => post(f, { reply: note.value }, "Note saved") }, "Save note")),
+        h("div", { class: "actions", style: "margin:6px 0 0" },
+          ["planned", "done", "declined", "new"].filter((s) => s !== f.status).map((s) => h("button", { type: "button", class: "btn small " + (s === "done" ? "gold" : "ghost"), onclick: () => post(f, { status: s }, STATUS[s]) }, s === "new" ? "↩️ Back to new" : STATUS[s])),
+          h("button", { type: "button", class: "btn small danger", onclick: () => confirm("Delete this feedback for good?") && post(f, { remove: true }, "Deleted") }, "🗑️ Delete")));
+    };
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "💡 Feedback"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, `Ideas, bugs and love notes members send with the 💡 Feedback button (bottom corner of every page, and the footer). ${total} so far. Move each one to Planned, Done or Not doing to keep track. Anonymous ones can't be traced back to anyone.`),
+      h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(fbView === k), onclick: () => { fbView = k; feedback(body); } }, k === "all" ? `${l} (${total})` : `${l} (${d.counts[k]})`))),
+      d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, fbView === "new" ? "Nothing new. 🌙" : "Nothing here.")));
   }
 
   // ---------- the group's own page (/velvetcollar): admins and owners ----------
