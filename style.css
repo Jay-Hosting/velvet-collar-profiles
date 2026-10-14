@@ -963,8 +963,13 @@ div.game:hover { border-color: var(--line); background: var(--panel); }
 
 /* Mod page */
 .mod-head h1 { margin-bottom: 4px; }
-.mod-tabs { margin: 12px 0 16px; }
-.mod-tabs .pill { text-decoration: none; }
+.mod-groups { margin: 12px 0 0; }
+.mod-groups .pill, .mod-tabs .pill { text-decoration: none; }
+.mod-groups .pill { font-weight: 600; }
+.mod-tabs { margin: 8px 0 16px; padding: 8px 10px; border-radius: 16px; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); }
+.mod-tabs .pill { font-size: .88rem; padding-top: 4px; padding-bottom: 4px; }
+.mod-tabs[hidden] { display: none; }
+.mod-tabs[hidden] + div { margin-top: 16px; }
 .mod-report.handled { opacity: .7; }
 .mod-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .mod-transcript { background: rgba(0,0,0,.25); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; max-height: 260px; overflow: auto; }

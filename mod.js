@@ -6,6 +6,16 @@
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
   const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
+  const GROUPS = [
+    ["people", "👥 People", ["members", "vetting", "noprofile"]],
+    ["events", "📅 Events", ["events", "volunteers"]],
+    ["moderation", "🛡️ Moderation", ["reports", "confessions", "content"]],
+    ["ideas", "💡 Ideas", ["feedback", "backlog"]],
+    ["site", "🏠 Site", ["group", "question"]],
+    ["activity", "📈 Activity", ["activity"]],
+  ];
+  const SUB_LABEL = { members: "👥 All members", events: "📅 Calendar", question: "❓ Question of the week" };
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const dayY = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, month: "short", day: "numeric", year: "numeric" }); };
@@ -49,17 +59,24 @@
     }
     // Vetting is owners only; hosts get Events.
     const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
-    if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
+    // Things waiting for someone, per tab (shown as a count on the tab and its group).
+    const waiting = { reports: sum.openReports || 0, vetting: (sum.newForms || 0) + (sum.vetMatches || 0), confessions: sum.newConfessions || 0, volunteers: sum.newVolunteers || 0, feedback: sum.newFeedback || 0 };
+    const allowed = new Set(tabs.map((t) => t[0]));
+    const label = Object.fromEntries(tabs);
+    const groups = GROUPS.map(([id, name, ids]) => [id, name, ids.filter((t) => allowed.has(t))]).filter((g) => g[2].length);
+    // No tab in the link (or one this person can't open): start where something is waiting, else People (or Events for hosts).
+    if (!allowed.has(tab)) tab = tabs.map((t) => t[0]).find((t) => waiting[t]) || (allowed.has("members") ? "members" : tabs[0][0]);
+    const open = groups.find((g) => g[2].includes(tab));
+    const badge = (n) => (n ? h("span", { class: "nav-badge" }, String(n)) : null);
     const body = h("div", {});
-    const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
+    const groupNav = h("div", { class: "pills mod-groups", role: "tablist", "aria-label": "Admin sections" }, groups.map(([id, name, ids]) =>
+      h("a", { class: "pill", href: "/admin/" + ids[0], "data-nav": "", role: "tab", "aria-selected": String(open && open[0] === id), "aria-pressed": String(open && open[0] === id) },
+        name, badge(ids.reduce((n, t) => n + (waiting[t] || 0), 0)))));
+    const nav = h("div", { class: "pills mod-tabs", role: "tablist", "aria-label": "Pages in this section", hidden: !open || open[2].length < 2 }, (open ? open[2] : []).map((id) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
-        label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
-        id === "vetting" && (sum.newForms || sum.vetMatches) ? h("span", { class: "nav-badge" }, String((sum.newForms || 0) + (sum.vetMatches || 0))) : null,
-        id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null,
-        id === "volunteers" && sum.newVolunteers ? h("span", { class: "nav-badge" }, String(sum.newVolunteers)) : null,
-        id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
+        SUB_LABEL[id] || label[id], badge(waiting[id]))));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
-      h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
+      h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
     try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
