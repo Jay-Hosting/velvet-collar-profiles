@@ -9,6 +9,28 @@
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const dayY = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, month: "short", day: "numeric", year: "numeric" }); };
+  // Links from handles people typed into the old form: Telegram opens a chat, FetLife opens their profile.
+  const NOT_HANDLE = /^(none|na|no|nope|nah|nothing|not yet|n\/?a|yes|idk|unknown|pending|tbd|-+)$/i;
+  const tgLink = (t) => {
+    if (NOT_HANDLE.test(String(t || "").trim())) return "";
+    const v = String(t || "").trim().replace(/^https?:\/\/(www\.)?t(elegram)?\.me\//i, "").replace(/^@/, "").replace(/\/.*$/, "");
+    return /^[A-Za-z0-9_]{5,32}$/.test(v) ? "https://t.me/" + v : "";
+  };
+  const fetLink = (f) => {
+    const v = String(f || "").trim();
+    if (NOT_HANDLE.test(v)) return "";
+    const m = /^(?:https?:\/\/)?(?:www\.)?fetlife\.com\/(?:users\/)?([A-Za-z0-9_-]+)/i.exec(v);
+    if (m) return "https://fetlife.com/" + (/^\d+$/.test(m[1]) ? "users/" : "") + m[1];
+    const h2 = v.replace(/^@/, "");
+    return /^[A-Za-z0-9_-]{2,40}$/.test(h2) ? "https://fetlife.com/" + h2 : "";
+  };
+  // A tag that's a link when the handle is usable, plain text when it isn't.
+  const handleTag = (h, kind, value, extraClass) => {
+    const url = kind === "tg" ? tgLink(value) : fetLink(value);
+    const label = (kind === "tg" ? "✈️ " : "FetLife: ") + value;
+    return url ? h("a", { class: "att-tag link-tag" + (extraClass ? " " + extraClass : ""), href: url, target: "_blank", rel: "noopener noreferrer", title: kind === "tg" ? "Open a Telegram chat" : "Open their FetLife profile" }, label, " ↗")
+      : h("span", { class: "att-tag" + (extraClass ? " " + extraClass : "") }, label);
+  };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
 
   async function render(app, tab) {
@@ -207,8 +229,8 @@
         h("div", { class: "vm-tags" },
           c.tier ? h("span", { class: "att-tag " + TIERS[c.tier][1] }, TIERS[c.tier][0]) : null,
           h("span", { class: "att-tag" }, "Sheet: " + (c.status_raw || "no status") + (c.status ? " → " + (data.labels[c.status] || c.status) : "")),
-          !c.fields && c.telegram ? h("span", { class: "att-tag" }, "✈️ " + c.telegram) : null,
-          !c.fields && c.fetlife ? h("span", { class: "att-tag" }, "FetLife: " + c.fetlife) : null)),
+          c.telegram ? handleTag(h, "tg", c.telegram) : null,
+          c.fetlife ? handleTag(h, "fet", c.fetlife) : null)),
       cmpRow(c),
       c.notes ? h("p", { class: "faint", style: "margin:6px 0 0" }, "📝 " + c.notes) : null,
       h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "Read their application"),
@@ -427,7 +449,6 @@
     const list = h("div", { class: "np-list" });
     const more = h("button", { type: "button", class: "btn ghost", hidden: true }, "Show more");
     let offset = 0, d = null;
-    const tgHandle = (t) => { const v = String(t || "").trim().replace(/^@/, ""); return /^[A-Za-z0-9_]{5,32}$/.test(v) ? v : ""; };
     // Their answers from the application form, in the same order as the vetting form.
     const ans = (q, v) => {
       if (q.type === "agree") return v ? "✅ Agreed to the event guidelines" : "";
@@ -441,21 +462,19 @@
     };
     const invite = (c) => `Hi ${c.name || "there"}! 💜 Velvet Collar has member profiles now: your own page for your kinks, limits, links and photos, plus the events calendar and games. Make yours at ${location.origin}/join${d.joinCode ? " with the join code " + d.joinCode : ""}. It only takes a minute!`;
     const row = (c) => {
-      const tg = tgHandle(c.telegram);
       return h("div", { class: "np-row" },
         h("div", { class: "np-main" },
           h("div", {}, h("b", {}, c.name || "(no name)"), h("small", { class: "faint" }, ` · applied ${dayY(c.applied)} · sheet row ${c.row}`)),
           h("div", { class: "vm-tags" },
             h("span", { class: "att-tag" }, d.labels[c.status] || c.status_raw || "No status"),
             c.status_raw && !/^(yes|emailed|denied|on hold)$/i.test(c.status_raw) ? h("span", { class: "att-tag" }, "Sheet: " + c.status_raw) : null,
-            c.telegram ? h("span", { class: "att-tag" }, "✈️ " + c.telegram) : null,
-            c.fetlife ? h("span", { class: "att-tag" }, "FetLife: " + c.fetlife) : null,
+            c.telegram ? handleTag(h, "tg", c.telegram) : null,
+            c.fetlife ? handleTag(h, "fet", c.fetlife) : null,
             c.email ? h("span", { class: "att-tag" }, "✉️ " + c.email) : null),
           c.notes ? h("p", { class: "faint", style: "margin:4px 0 0" }, "📝 " + c.notes) : null,
           appDetails(c)),
         c.status === "denied" || c.status === "hold" ? null : h("div", { class: "actions", style: "margin:6px 0 0" },
           h("button", { type: "button", class: "btn small ghost", onclick: () => copyText(invite(c), "Invite message copied") }, "📋 Copy invite"),
-          tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + tg, target: "_blank", rel: "noopener" }, "✈️ Message on Telegram") : null,
           c.email ? h("a", { class: "btn small ghost", href: "mailto:" + encodeURIComponent(c.email) + "?subject=" + encodeURIComponent("Your Velvet Collar profile") + "&body=" + encodeURIComponent(invite(c)) }, "✉️ Email invite") : null));
     };
     const load = async (append) => {

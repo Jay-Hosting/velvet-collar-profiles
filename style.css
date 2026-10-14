@@ -1533,3 +1533,6 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .np-list, .vm-results, .vm-member, .song-list { grid-template-columns: minmax(0, 1fr); }
 .np-row, .vm-cand, .np-main { min-width: 0; overflow-wrap: anywhere; }
 .vm-tags .att-tag { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+
+a.att-tag.link-tag { color: inherit; text-decoration: none; cursor: pointer; }
+a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(--gold); background: var(--gold-soft); }
