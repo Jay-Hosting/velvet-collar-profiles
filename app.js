@@ -1441,6 +1441,17 @@
     lines.push(`👉 ${url}`);
     return lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   }
+  // Hobbies people can tap to add in the editor (they can still type their own).
+  const HOBBY_GROUPS = [
+    ["🎮 Games", ["Video games", "Board games", "D&D / tabletop RPGs", "Card games", "Puzzles", "Trivia", "Escape rooms", "Magic: The Gathering"]],
+    ["🎨 Creative", ["Drawing", "Painting", "Photography", "Writing", "Poetry", "Crafting", "Knitting & crochet", "Sewing", "Cosplay", "Pottery", "Woodworking", "3D printing", "Making music", "Singing", "DJing"]],
+    ["🌲 Outdoors", ["Hiking", "Camping", "Gardening", "Fishing", "Kayaking", "Beach days", "Stargazing", "Road trips", "Travel", "Picnics"]],
+    ["💪 Active", ["Gym", "Yoga", "Running", "Cycling", "Dancing", "Martial arts", "Rock climbing", "Swimming", "Pole fitness", "Roller skating", "Disc golf"]],
+    ["🍳 Food & drink", ["Cooking", "Baking", "BBQ", "Coffee", "Tea", "Wine", "Craft beer", "Cocktails", "Trying new restaurants", "Brunch"]],
+    ["🎬 Entertainment", ["Movies", "TV series", "Anime", "Reading", "Comics & manga", "Podcasts", "Live music", "Concerts", "Theater", "Karaoke", "Stand-up comedy", "Horror"]],
+    ["🧠 Learning & tech", ["Tech & coding", "Gaming PCs", "Science", "History", "Languages", "Astrology", "Tarot", "Psychology", "True crime"]],
+    ["🏡 Home & chill", ["Pets", "Cats", "Dogs", "Plants", "Home decor", "Thrifting", "Collecting", "Self-care", "Meditation", "Volunteering", "Cars", "Motorcycles", "Fashion", "Makeup"]],
+  ];
   const hobbyList = (t) => [...new Set(String(t || "").split(/[,\n;•·]+/).map((s) => s.trim()).filter(Boolean))].slice(0, 40);
 
   // ---------- the full "share my profile" post, with photos ----------
@@ -2271,7 +2282,29 @@
       return { birthday: `${bMonth.value}-${bDay.value}`, year: y };
     };
     const area = (name, attrs = {}) => { const t = h("textarea", Object.assign({ id: "f_" + name, name }, attrs)); t.value = rec[name] || ""; return t; };
-    const field = (label, control, hint, full) => h("div", { class: "field" + (full ? " full" : "") }, h("label", { for: control.id }, label), control, hint ? h("span", { class: "hint" }, hint) : null);
+    // The hobbies box plus a tap-to-add list. Tapping adds or removes a hobby in the box; typing in the box updates the list.
+    const hobbyField = (ta) => {
+      const key = (x) => x.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const current = () => hobbyList(ta.value);
+      const has = (x) => current().some((y) => key(y) === key(x));
+      const pills = [];
+      const sync = () => { const set = new Set(current().map(key)); pills.forEach(([b, x]) => b.setAttribute("aria-pressed", String(set.has(key(x))))); count.textContent = current().length ? `${current().length} picked` : ""; };
+      const toggle = (x) => {
+        const list = current();
+        const next = has(x) ? list.filter((y) => key(y) !== key(x)) : [...list, x];
+        ta.value = next.join(", ");
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        sync();
+      };
+      const count = h("span", { class: "faint hobby-count" });
+      const groups = HOBBY_GROUPS.map(([g, items]) => h("div", { class: "hobby-group" }, h("b", {}, g),
+        h("div", { class: "pills" }, items.map((x) => { const b = h("button", { type: "button", class: "pill hobby-pill", "aria-pressed": "false", onclick: () => toggle(x) }, x); pills.push([b, x]); return b; }))));
+      const picker = h("details", { class: "hobby-picker" }, h("summary", {}, "🎨 Pick from a list ", count), h("div", { class: "hobby-groups" }, groups));
+      ta.addEventListener("input", sync);
+      sync();
+      return h("div", { class: "hobby-field" }, ta, picker);
+    };
+    const field = (label, control, hint, full) => h("div", { class: "field" + (full ? " full" : "") }, h("label", { for: control.id || (control.querySelector("textarea, input, select") || {}).id || "" }, label), control, hint ? h("span", { class: "hint" }, hint) : null);
 
     // avatar
     const avWrap = h("div", {}, avatarEl(rec));
@@ -2857,7 +2890,7 @@
             field("Area", areaSelect(), "Roughly where you are, so people nearby can find you. Optional."),
             bdayField,
             field("About you", area("bio", { maxlength: 3000, placeholder: "Who you are, what you're looking for, how to approach you…" }), null, true),
-            field("Hobbies", area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" }), "The everyday you. Separate them with commas or new lines; they show as tags.", true),
+            field("Hobbies", hobbyField(area("hobbies", { maxlength: 1000, class: "short", placeholder: "Gaming, hiking, baking, D&D…" })), "The everyday you. Tap some below, or type your own separated by commas. They show as tags.", true),
             h("div", { class: "field full" }, h("label", {}, "🎵 Vibe playlist"), songsEd.el,
               h("span", { class: "hint" }, "Songs that are very you. Paste Spotify, Apple Music, YouTube or SoundCloud links, up to 6. A Spotify or Apple Music playlist link plays the whole playlist.")))),
         peoplePanel,

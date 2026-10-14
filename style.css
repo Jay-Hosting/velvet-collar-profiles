@@ -1559,3 +1559,12 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .guide-tips ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
 .mod-head .toggle-row h1 { margin: 0; }
 .pill.guide-q { margin-left: auto; }
+
+/* ---------- hobby picker ---------- */
+.hobby-field { display: grid; gap: 8px; }
+.hobby-picker summary { cursor: pointer; font-weight: 600; font-size: .92rem; padding: 8px 12px; border: 1px dashed var(--gold); border-radius: 12px; width: fit-content; }
+.hobby-picker[open] summary { margin-bottom: 4px; }
+.hobby-groups { display: grid; gap: 12px; margin-top: 8px; }
+.hobby-group > b { display: block; font-size: .85rem; margin-bottom: 6px; opacity: .85; }
+.hobby-pill { font-size: .85rem; }
+.hobby-count { font-weight: 400; margin-left: 6px; }
