@@ -48,6 +48,153 @@
   };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
 
+
+  // ---------- the Admin guide: what each page does. Each person only sees the parts for pages they can open. ----------
+  // [id, emoji + title, the tab it explains (or "" for the intro), short summary, [steps], [good to know]]
+  const GUIDE = [
+    ["start", "🧭 Start here", "", "How the Admin page is laid out and who can see what.", [
+      "The top row is the sections: 👥 People, 📅 Events, 🛡️ Moderation, 💡 Ideas, 🏠 Site and 📈 Activity. Tap one and its pages show in the row underneath.",
+      "A pink number means something is waiting for you. It adds up on the section and on the 🛡️ Admin button in the menu.",
+      "Plain “Admin” opens the first page with something waiting, so you can work through the queue.",
+      "The ❓ button next to the pages row opens this guide at the page you're on.",
+    ], [
+      "🗝️ Owners see everything, including vetting, volunteers and the old application sheet.",
+      "🛡️ Admins see everything except those three.",
+      "🎪 Hosts only see Events and Confessions.",
+      "Everything here acts on real accounts and is saved straight away. Anything that can't be undone asks you first.",
+    ]],
+    ["members", "👥 All members", "members", "Find anyone, hide a profile, reset a password and give badges.", [
+      "Search by display name or profile name. With no search it lists the newest members first.",
+      "🙈 Hide takes a profile off the site for everyone except admins. Unhide brings it back exactly as it was.",
+      "🔑 Reset password makes a new temporary password, shown once, with a 📋 button that copies a ready-to-send message. Send it to them privately.",
+      "Badges: tap to give or take away. 🎪 Host gives access to Events and Confessions; 🛡️ Admin gives this whole page. Only owners can give 🗝️ Owner.",
+      "Each person shows whether they've agreed to the community guidelines and confirmed 21+, and whether they use Whispers and The Hunt (you can switch those off for them).",
+    ], [
+      "Hiding is the gentle option: nothing is deleted.",
+    ]],
+    ["vetting", "✅ Vetting", "vetting", "Who's vetted for play parties. Owners only.", [
+      "📋 To review lists new vetting forms (oldest first) and anyone marked Needs vetting or Needs re-vetting.",
+      "Open a member's 📋 Vetting form to read their answers. FetLife and Telegram answers are links.",
+      "Tap a status: ✅ Vetted, 📝 Needs vetting, 🔄 Needs re-vetting, ⏸️ On hold or 🚫 Denied. Setting a status marks their form read.",
+      "Use the private note for who vetted them, when it expires or why it's on hold.",
+      "No form yet? 📋 Copy a message asking them to fill it in.",
+      "To set a status for someone who isn't on the list yet, find them with the search box.",
+    ], [
+      "Members only ever see “✅ You're vetted” on their own page. Nobody sees pending, on hold or denied, and nobody sees anyone else's status.",
+    ]],
+    ["matches", "🔗 Possible matches", "vetting", "Linking members to their application in the old Google Form sheet. Owners only.", [
+      "Inside ✅ Vetting, the 🔗 Possible matches filter lists members who might match an old application. New members are checked automatically.",
+      "🟢 Strong: a Telegram or FetLife handle matches exactly. 🟡 Close: a handle almost matches (a typo, extra numbers, 0 for o). 🟠 Name only.",
+      "The coloured chips compare each detail: ✓ same, ≈ almost, ✗ different.",
+      "✅ Yes, this is them links it: their status comes from the sheet (if you hadn't set one), a note is added and their answers are attached to their vetting form.",
+      "✕ Not them hides that application for that member for good.",
+      "Can't find someone? Use 🔍 Find in old applications on their row and search by name, email, Telegram or FetLife. Linked by mistake? Tap Unlink.",
+    ], []],
+    ["noprofile", "📜 No profile yet", "noprofile", "Everyone from the old application sheet who hasn't made a profile. Owners only.", [
+      "Filter by ✅ Vetted, 📝 Not vetted yet, ⏸️ On hold or 🚫 Denied, or search by name, email, Telegram or FetLife.",
+      "📋 Read their application shows their full answers.",
+      "📋 Copy invite copies a message with the join link and join code. ✉️ Email invite opens your email app with it written. Telegram and FetLife tags open their chat or profile.",
+      "When they join and you confirm the match in 🔗 Possible matches, they drop off this list.",
+    ], [
+      "Denied and on-hold people don't get invite buttons.",
+    ]],
+    ["events", "📅 Events calendar", "events", "Add and edit events, and keep a record of who came.", [
+      "Fill in the form at the top and Save. Times are Pacific, typed like 2026-10-31 7:00 PM.",
+      "Vetting: “You can get vetted here” shows green; “Vetted members only” shows velvet with a 🔒.",
+      "💜 Hosted by Velvet Collar shows pink on the calendar. 🙋 Open for volunteers puts the event on the volunteer form with a 🙋 Volunteer button. Hidden saves it as a draft.",
+      "Edit loads an event back into the form. Delete removes it with its RSVPs; tick Hidden instead to keep the record.",
+      "👥 People on an event shows who's going and who's interested. Tick Came as people arrive, add walk-ins, and copy or download the list.",
+    ], []],
+    ["volunteers", "🙋 Volunteers", "volunteers", "Volunteer forms for events. Owners only.", [
+      "Forms are grouped by event, with a running count of who's approved for each role.",
+      "Each form has their answers, phone (📞 call, 💬 text) and Telegram.",
+      "Tick the role they'll do, add a message if you like (“Setup starts at 5pm, Jess will text you the address”) and tap 🎉 Approve, or 💜 Not this time.",
+      "They see your answer and message in a pop-up the next time they open the site, and approved volunteers get a 🙋 tag on the event.",
+      "The private note is for owners only. ↩️ Back to review undoes a decision.",
+    ], [
+      "To open an event for volunteers, tick 🙋 Open for volunteers when you edit it.",
+    ]],
+    ["reports", "⚑ Reports", "reports", "Reports members send from Whispers.", [
+      "Each report shows who reported whom, why, and the saved messages.",
+      "✅ Mark handled when it's dealt with (Reopen if needed).",
+      "Quick actions: 🤫 turn off their Whispers, 🏹 take them out of The Hunt, or 🙈 hide their profile.",
+    ], []],
+    ["confessions", "💌 Confessions", "confessions", "The anonymous Confession Box. Hosts can moderate it too.", [
+      "New confessions wait in ⏳ To review. ✅ Approve puts them on the wall; 🙈 Don't post hides them.",
+      "Take down anything mean, coercive, or that points to a real person.",
+    ], [
+      "Nobody, including owners, can see who wrote a confession.",
+    ]],
+    ["content", "🧹 Content", "content", "Clean up photos, kind notes and question answers.", [
+      "Pick 📷 Photos, 💌 Kind notes or ❓ Answers. Newest first.",
+      "🗑 Delete removes it for good.",
+    ], []],
+    ["feedback", "💡 Feedback", "feedback", "What members send with the 💡 Feedback button.", [
+      "Each note is 💡 an idea, 🐞 something broken, 💜 a love note or 💬 other, with the page they were on.",
+      "Move it to 🛠️ Planned, ✅ Done or 🚫 Not doing. The private note is for admins only.",
+      "📋 Add to backlog turns it into a backlog item and marks it Planned.",
+    ], [
+      "Anonymous feedback can't be traced back to anyone.",
+    ]],
+    ["backlog", "📋 Backlog", "backlog", "Everything we plan to build or fix.", [
+      "Add an item with a title, notes and a priority, or add it from Feedback.",
+      "🔨 Start marks it in progress; in-progress and high-priority items sit at the top.",
+      "Tick the box when it's done. If it came from feedback, that feedback is marked Done too.",
+    ], []],
+    ["group", "🏠 Group page", "group", "The Velvet Collar page at /velvetcollar.", [
+      "Edit the name, tagline, location and about text, and upload a logo and cover photo.",
+      "🔗 Links: Telegram, Discord, FetLife, a donation page and so on.",
+      "📄 Extra sections: how to join, what a munch is like, FAQs.",
+      "⚙️ Settings: show it to visitors who aren't logged in, show the team, and show upcoming hosted events.",
+    ], []],
+    ["question", "❓ Question of the week", "question", "The weekly question on the Playroom.", [
+      "Type a question and pick the day it starts. Queue a few ahead and they go live by themselves.",
+      "The newest question whose start day has arrived is the live one (🟢 live now).",
+      "Hide or delete questions; deleting removes their answers too.",
+    ], []],
+    ["activity", "📈 Activity", "activity", "When people are on the site and what they use.", [
+      "Pick the last 7, 30 or 90 days. The numbers compare with the period before.",
+      "⏰ Busy times shows the busiest days and hours (Pacific time): handy for when to post or plan events.",
+      "📊 Day by day, 🧭 What gets used, 🏆 Most active members, 🌱 New members, and quiet members who haven't been on in a month.",
+    ], [
+      "Whispers and crushes only ever show as totals, never per person.",
+    ]],
+  ];
+  function openGuide(allowed, at) {
+    const { h } = deps();
+    const parts = GUIDE.filter((g) => !g[2] || allowed.has(g[2]));
+    let cur = Math.max(0, parts.findIndex((g) => g[0] === at));
+    const modal = h("div", { class: "modal guide-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "ag_title" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", key); };
+    const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(cur + 1); if (e.key === "ArrowLeft") go(cur - 1); };
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const nav = h("div", { class: "pills guide-nav", role: "tablist", "aria-label": "Guide topics" });
+    const page = h("div", { class: "guide-page" });
+    const prev = h("button", { type: "button", class: "btn ghost", onclick: () => go(cur - 1) }, "← Back");
+    const next = h("button", { type: "button", class: "btn gold", onclick: () => (cur === parts.length - 1 ? close() : go(cur + 1)) });
+    const go = (i) => {
+      cur = Math.max(0, Math.min(parts.length - 1, i));
+      const [id, title, , intro, steps, tips] = parts[cur];
+      nav.replaceChildren(...parts.map((g, j) => h("button", { type: "button", class: "pill", role: "tab", "aria-selected": String(j === cur), "aria-pressed": String(j === cur), onclick: () => go(j) }, g[1])));
+      page.replaceChildren(
+        h("h2", { id: "ag_title", style: "margin:0" }, title),
+        h("p", { class: "muted", style: "margin:4px 0 0" }, intro),
+        h("ol", { class: "guide-steps" }, steps.map((t) => h("li", {}, t))),
+        tips.length ? h("div", { class: "guide-tips" }, h("b", {}, "Good to know"), h("ul", {}, tips.map((t) => h("li", {}, t)))) : "");
+      prev.disabled = cur === 0;
+      next.textContent = cur === parts.length - 1 ? "Done 💜" : "Next →";
+      // Bring the current topic into view in the strip (without scrolling the page itself).
+      const on = nav.querySelector('[aria-selected="true"]');
+      if (on) { const l = on.offsetLeft, r = l + on.offsetWidth; if (l < nav.scrollLeft) nav.scrollLeft = l - 8; else if (r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = r - nav.clientWidth + 8; }
+      page.scrollTop = 0;
+    };
+    modal.append(h("div", { class: "modal-box guide-box" },
+      h("div", { class: "toggle-row" }, h("b", {}, "📖 Admin guide"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+      nav, page, h("div", { class: "actions", style: "margin:0;justify-content:space-between" }, prev, h("small", { class: "faint" }, ""), next)));
+    document.body.append(modal); document.addEventListener("keydown", key);
+    go(cur);
+  }
+
   async function render(app, tab) {
     const { h, pb, toast, go, errMsg } = deps();
     document.title = "Admin · Velvet Collar";
@@ -75,7 +222,10 @@
     const nav = h("div", { class: "pills mod-tabs", role: "tablist", "aria-label": "Pages in this section", hidden: !open || open[2].length < 2 }, (open ? open[2] : []).map((id) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         SUB_LABEL[id] || label[id], badge(waiting[id]))));
-    app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
+    const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", onclick: () => openGuide(allowed, "start") }, "📖 Admin guide");
+    const pageHelp = h("button", { type: "button", class: "pill guide-q", "aria-label": "How this page works", title: "How this page works", onclick: () => openGuide(allowed, tab) }, "❓");
+    (nav.hidden ? groupNav : nav).append(pageHelp);
+    app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
     try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
