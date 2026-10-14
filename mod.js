@@ -167,6 +167,7 @@
           h("div", { class: "pills" }, [["", "None"], ...["vetted", "needs", "renew", "hold", "denied"].map((k) => [k, L[k]])].map(([k, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String((v.status || "") === k),
             onclick: () => save({ status: k }, k ? `Set to ${label}` : "Status cleared") }, label))),
           h("div", { class: "mod-row2" }, note, h("button", { type: "button", class: "btn small ghost", onclick: () => save({ note: note.value }, "Note saved") }, "Save note")),
+          historyBox(m),
           formEl);
       };
       draw();
@@ -189,32 +190,74 @@
       const empty = q ? "Nobody by that name." : vetView === "review" ? "Nothing to review. 🌙 All caught up." : vetView === "hold" ? "Nobody is on hold." : vetView === "denied" ? "Nobody is denied." : "Nobody is vetted yet.";
       holder.replaceChildren(...(ms.length ? ms.map(row) : [h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, empty))]));
     };
+    // ---- the old application sheet: shared bits ----
+    const TIERS = { strong: ["🟢 Strong match", "hit"], close: ["🟡 Close match", "close"], name: ["🟠 Name only", "weak"] };
+    const FIELD = { telegram: "✈️ Telegram", fetlife: "FetLife", name: "Name" };
+    // Side by side: what matches the member's profile and what doesn't.
+    const cmpRow = (c) => c.fields ? h("div", { class: "vm-cmp" }, ["telegram", "fetlife", "name"].map((k) => {
+      const f = c.fields[k];
+      if (f.state === "missing") return h("span", { class: "vm-f none" }, FIELD[k] + " — not given");
+      if (f.state === "match") return h("span", { class: "vm-f ok" }, `${FIELD[k]} ✓ ${f.sheet}`);
+      if (f.state === "close") return h("span", { class: "vm-f close" }, `${FIELD[k]} ≈ sheet: ${f.sheet} · profile: ${f.profile}`);
+      return h("span", { class: "vm-f no" }, `${FIELD[k]} ✗ sheet: ${f.sheet}${f.profile ? " · profile: " + f.profile : ""}`);
+    })) : null;
+    const appCard = (m, c, actions) => h("div", { class: "vm-cand t-" + (c.tier || "none") },
+      h("div", {},
+        h("b", {}, c.name || "(no name)"), h("small", { class: "faint" }, ` · applied ${dayY(c.applied)} · sheet row ${c.row}`),
+        h("div", { class: "vm-tags" },
+          c.tier ? h("span", { class: "att-tag " + TIERS[c.tier][1] }, TIERS[c.tier][0]) : null,
+          h("span", { class: "att-tag" }, "Sheet: " + (c.status_raw || "no status") + (c.status ? " → " + (data.labels[c.status] || c.status) : "")),
+          !c.fields && c.telegram ? h("span", { class: "att-tag" }, "✈️ " + c.telegram) : null,
+          !c.fields && c.fetlife ? h("span", { class: "att-tag" }, "FetLife: " + c.fetlife) : null)),
+      cmpRow(c),
+      c.notes ? h("p", { class: "faint", style: "margin:6px 0 0" }, "📝 " + c.notes) : null,
+      h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "Read their application"),
+        h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, c.answers[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; }))),
+      actions && actions.length ? h("div", { class: "actions", style: "margin:8px 0 0" }, actions) : null);
+    const linkApp = async (m, c) => {
+      try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "link" } }); toast(`Linked to ${m.display_name}.` + (c.status ? ` Status from the sheet: ${data.labels[c.status] || c.status} (if they didn't have one).` : "")); load(); }
+      catch (err) { toast(errMsg(err), true); }
+    };
+    // On each member: their linked application, or a search of the sheet to find and link it by hand.
+    const historyBox = (m) => {
+      const box = h("div", { class: "vm-find" });
+      if (m.history) {
+        box.append(h("p", { class: "faint", style: "margin:0" }, `📜 Old application: sheet row ${m.history.row} · ${m.history.name} · applied ${dayY(m.history.applied)} · sheet said “${m.history.status_raw || "no status"}” `,
+          h("button", { type: "button", class: "btn small ghost", onclick: async () => {
+            if (!confirm(`Unlink this application from ${m.display_name}? Their status, note and attached answers stay as they are.`)) return;
+            try { await pb.send(`/api/vc/mod/vet-matches/${m.history.id}`, { method: "POST", body: { member: m.id, action: "unlink" } }); toast("Unlinked"); load(); } catch (err) { toast(errMsg(err), true); }
+          } }, "Unlink")));
+        return box;
+      }
+      const q = h("input", { type: "search", placeholder: "Search the old applications: name, email, Telegram or FetLife", "aria-label": "Search old applications" });
+      const res = h("div", { class: "vm-results" });
+      let t;
+      q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(async () => {
+        if (q.value.trim().length < 2) return res.replaceChildren();
+        try {
+          const r = await pb.send(`/api/vc/mod/vet-history?member=${m.id}&q=` + encodeURIComponent(q.value.trim()), {});
+          res.replaceChildren(...(r.items.length ? r.items.map((c) => appCard(m, c, [c.linkedTo ? h("span", { class: "faint" }, "Already linked to ", personChip(c.linkedTo))
+            : h("button", { type: "button", class: "btn small gold", onclick: () => linkApp(m, c) }, `✅ Link to ${m.display_name}`)])) : [h("p", { class: "faint", style: "margin:0" }, "No applications found.")]));
+        } catch (err) { toast(errMsg(err), true); }
+      }, 300); });
+      const wrap = h("div", { class: "vm-search", hidden: true }, q, res);
+      box.append(h("button", { type: "button", class: "btn small ghost", onclick: () => { wrap.hidden = !wrap.hidden; if (!wrap.hidden) q.focus(); } }, "🔍 Find in old applications"), wrap);
+      return box;
+    };
+
     // ---- possible matches with the old application sheet ----
     let mt = null;
     const ANS = { experience: "Experience with sex-positive spaces", interest: "What interests them", consent: "What consent looks and feels like", referred: "Referred by" };
     const drawMatches = () => {
       const L = data.labels;
-      const cand = (m, c) => h("div", { class: "vm-cand" + (c.strong ? " strong" : "") },
-        h("div", { class: "toggle-row" }, h("div", {},
-          h("b", {}, c.name || "(no name)"), h("small", { class: "faint" }, ` · applied ${dayY(c.applied)} · sheet row ${c.row}`),
-          h("div", { class: "vm-tags" },
-            h("span", { class: "att-tag" }, "Sheet: " + (c.status_raw || "no status") + (c.status ? " → " + (L[c.status] || c.status) : "")),
-            c.telegram ? h("span", { class: "att-tag" + (c.how.includes("telegram") ? " hit" : "") }, "✈️ " + c.telegram) : null,
-            c.fetlife ? h("span", { class: "att-tag" + (c.how.includes("fetlife") ? " hit" : "") }, "FetLife: " + c.fetlife) : null,
-            h("span", { class: "att-tag " + (c.strong ? "hit" : "weak") }, c.strong ? "Matched on " + c.how.filter((x) => x !== "name").join(" & ") : "Name only")))),
-        c.notes ? h("p", { class: "faint", style: "margin:6px 0 0" }, "📝 " + c.notes) : null,
-        h("details", { class: "vm-ans" }, h("summary", { class: "faint" }, "Read their application"),
-          h("dl", { class: "vf-answers" }, data.questions.flatMap((q) => { const a = answer(q, c.answers[q.id]); return a ? [h("dt", {}, q.q), h("dd", {}, a)] : []; }))),
-        h("div", { class: "actions", style: "margin:8px 0 0" },
-          h("button", { type: "button", class: "btn small gold", onclick: async () => {
-            try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "link" } }); toast(`Linked. ${m.display_name} is now ${L[c.status] || "updated"}.`); load(); } catch (err) { toast(errMsg(err), true); }
-          } }, "✅ Yes, this is them"),
-          h("button", { type: "button", class: "btn small ghost", onclick: async () => {
-            try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "dismiss" } }); toast("Dismissed"); load(); } catch (err) { toast(errMsg(err), true); }
-          } }, "✕ Not them")));
+      const cand = (m, c) => appCard(m, c, [
+        h("button", { type: "button", class: "btn small gold", onclick: () => linkApp(m, c) }, "✅ Yes, this is them"),
+        h("button", { type: "button", class: "btn small ghost", onclick: async () => {
+          try { await pb.send(`/api/vc/mod/vet-matches/${c.id}`, { method: "POST", body: { member: m.id, action: "dismiss" } }); toast("Dismissed"); load(); } catch (err) { toast(errMsg(err), true); }
+        } }, "✕ Not them")]);
       holder.replaceChildren(
         h("section", { class: "panel" }, h("p", { class: "faint", style: "margin:0" },
-          `Members who might match an application in the old Google Form sheet (${mt.linked} of ${mt.total} applications are linked to a profile so far). Confirming sets their status from the sheet, adds a note, and attaches their answers to their vetting form. New members are checked automatically when they join.`)),
+          `Members who might match an application in the old Google Form sheet (${mt.linked} of ${mt.total} applications are linked to a profile so far). Confirming sets their status from the sheet (unless you've already given them one), adds a note, and attaches their answers to their vetting form. 🟢 a handle matches exactly · 🟡 a handle almost matches (typo, extra numbers, 0 for o) · 🟠 only the name matches. Can't find someone? Use 🔍 Find in old applications on their row in the other lists.`)),
         ...(mt.items.length ? mt.items.map(({ member: m, candidates }) => h("section", { class: "panel vm-member" },
           h("div", {},
             h("div", {}, personChip(m), h("div", { class: "faint", style: "font-size:.85rem" }, `@${m.slug}${m.tg ? " · ✈️ " + m.tg : ""} · now: ${L[m.vetting.status] || "no status"}`),

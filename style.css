@@ -1492,7 +1492,19 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 /* ---------- vetting: possible matches with the old application sheet ---------- */
 .vm-member { display: grid; gap: 10px; }
 .vm-cand { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
-.vm-cand.strong { border-color: rgba(120, 220, 150, .45); }
+.vm-cand.t-strong { border-color: rgba(120, 220, 150, .45); }
+.vm-cand.t-close { border-color: rgba(255, 210, 90, .45); }
+.att-tag.close { border-color: rgba(255, 210, 90, .7); }
+.vm-cmp { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vm-f { font-size: .82rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.vm-f.ok { border-color: rgba(120, 220, 150, .6); }
+.vm-f.close { border-color: rgba(255, 210, 90, .7); }
+.vm-f.no { border-color: rgba(255, 120, 140, .6); }
+.vm-f.none { opacity: .6; }
+.vm-find { display: grid; gap: 8px; justify-items: start; }
+.vm-search, .vm-results { width: 100%; }
+.vm-search { display: grid; gap: 8px; }
+.vm-results { display: grid; gap: 8px; }
 .vm-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .att-tag.hit { border-color: rgba(120, 220, 150, .6); }
 .att-tag.weak { border-color: rgba(255, 190, 90, .6); }
