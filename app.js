@@ -11,8 +11,29 @@
   const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
-  const REL_STYLES = [["single", "Single"], ["mono", "Monogamous"], ["monogamish", "Monogamish"], ["poly", "Polyamorous"], ["solo_poly", "Solo poly"],
-    ["open", "Open relationship"], ["swinger", "Swinger"], ["ra", "Relationship anarchy"], ["exploring", "Still figuring it out"]];
+  // Relationship styles: [value, label, group, what it means]. Members pick up to 5.
+  const REL_STYLES = [
+    ["single", "Single", "general", "Not partnered right now."],
+    ["mono", "Monogamous", "general", "One partner, both exclusive."],
+    ["monogamish", "Monogamish", "general", "Mostly monogamous, with agreed exceptions."],
+    ["open", "Open relationship", "general", "A couple who see or play with other people."],
+    ["swinger", "Swinger", "general", "A couple who play with others, often together."],
+    ["ra", "Relationship anarchy", "general", "No set rules or rankings; each relationship is shaped by the people in it."],
+    ["exploring", "Still figuring it out", "general", "Working out what fits."],
+    ["enm", "Ethically non-monogamous (ENM)", "poly", "The umbrella: more than one relationship, with everyone's knowledge and consent."],
+    ["poly", "Polyamorous", "poly", "More than one loving relationship at a time."],
+    ["solo_poly", "Solo poly", "poly", "Poly, and your own primary partner: no nesting or merging lives."],
+    ["kitchen_table", "Kitchen table poly", "poly", "Everyone in the polycule is happy to hang out together, like around the kitchen table."],
+    ["garden_party", "Garden party poly", "poly", "Friendly with metamours at events and gatherings, but not close."],
+    ["parallel", "Parallel poly", "poly", "Partners know about each other but keep their relationships separate."],
+    ["hierarchical", "Hierarchical poly", "poly", "A primary partner (or partners), with other relationships alongside."],
+    ["non_hierarchical", "Non-hierarchical poly", "poly", "No primary: every relationship stands on its own."],
+    ["polyfidelity", "Polyfidelity", "poly", "A closed group: everyone's committed within it."],
+    ["triad", "Triad / throuple", "poly", "Three people together."],
+    ["quad", "Quad", "poly", "Four people together, often two couples."],
+    ["polycule", "Polycule", "poly", "A wider web of connected partners and metamours."],
+    ["mono_poly", "Mono/poly", "poly", "One partner is monogamous and the other is poly."],
+  ];
   const REL_TYPES = [["partner", "💞", "Partner"], ["spouse", "💍", "Spouse"], ["nesting", "🏡", "Nesting partner"], ["dating", "🌹", "Dating"], ["play", "🔥", "Play partner"],
     ["dom", "⛓️", "Dominant"], ["sub", "🎀", "submissive"], ["owner", "🗝️", "Owner"], ["pet", "🐾", "Pet"], ["caregiver", "🧸", "Caregiver"], ["little", "🍭", "Little"], ["friend", "🤝", "Close friend"]];
   const relType = (t) => REL_TYPES.find((x) => x[0] === t) || ["", "🔗", t];
@@ -1986,7 +2007,7 @@
             ? h("span", { class: "chip gold bday-today" }, "🎉 Birthday today!" + (ageOf(p) ? ` · ${ageOf(p)}` : ""))
             : h("span", { class: "chip", title: "Birthday" }, "🎂 " + bdayText(p.birthday) + (ageOf(p) ? ` · ${ageOf(p)}` : ""))) : null,
           p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
-          (p.rel_style || []).map((v) => h("span", { class: "chip", title: "Relationship style" }, "💞 " + ((REL_STYLES.find((x) => x[0] === v) || [])[1] || v))),
+          (p.rel_style || []).map((v) => { const st = REL_STYLES.find((x) => x[0] === v) || []; return h("span", { class: "chip", title: st[3] || "Relationship style" }, "💞 " + (st[1] || v)); }),
           p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
           null),
         badgeHolder,
@@ -2361,18 +2382,24 @@
         } }, h("span", { "aria-hidden": "true" }, e), label)));
     }
     drawLooking();
-    // Relationship style picker (up to 3)
+    // Relationship style picker (up to 5), in two groups, with what each one means.
     let relSel = (rec.rel_style || []).slice();
-    const relPills = h("div", { class: "pills", role: "group", "aria-label": "Relationship style" });
-    const drawRelStyle = () => relPills.replaceChildren(...REL_STYLES.map(([v, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(relSel.includes(v)), onclick: () => {
+    const relPills = h("div", { class: "rel-groups", role: "group", "aria-label": "Relationship style" });
+    const relPill = ([v, label, , what]) => h("button", { type: "button", class: "pill", title: what, "aria-pressed": String(relSel.includes(v)), onclick: () => {
       if (relSel.includes(v)) relSel = relSel.filter((x) => x !== v);
-      else if (relSel.length >= 3) return toast("Pick up to 3", true);
+      else if (relSel.length >= 5) return toast("Pick up to 5", true);
       else relSel = relSel.concat(v);
       drawRelStyle();
-    } }, label)));
+    } }, label);
+    const drawRelStyle = () => relPills.replaceChildren(
+      h("div", { class: "pills" }, REL_STYLES.filter((x) => x[2] === "general").map(relPill)),
+      h("b", { class: "rel-group-h" }, "🌈 Polyamory & ENM"),
+      h("div", { class: "pills" }, REL_STYLES.filter((x) => x[2] === "poly").map(relPill)));
     drawRelStyle();
     const relStyleField = h("div", { class: "field full" }, h("span", { class: "label" }, "💞 Relationship style"), relPills,
-      h("span", { class: "hint" }, "Optional. Pick up to 3. Shown on your page."));
+      h("details", { class: "rel-help" }, h("summary", {}, "What do these mean?"),
+        h("dl", {}, REL_STYLES.flatMap(([, label, , what]) => [h("dt", {}, label), h("dd", {}, what)]))),
+      h("span", { class: "hint" }, "Optional. Pick up to 5. Shown on your page."));
 
     // My people: relationships with other members. They only show once the other person accepts.
     const peoplePanel = h("section", { class: "panel", id: "people" });

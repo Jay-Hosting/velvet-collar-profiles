@@ -5,7 +5,9 @@
   "use strict";
   const deps = () => window.VCNetwork.deps;
   const LOOK = { friends: "🤝 Friends", partners: "💞 Partners", play: "🔥 Play", open: "✨ Open to anything" };
-  const STYLE = { single: "Single", mono: "Monogamous", monogamish: "Monogamish", poly: "Polyamorous", solo_poly: "Solo poly", open: "Open relationship", swinger: "Swinger", ra: "Relationship anarchy", exploring: "Still figuring it out" };
+  const STYLE = { single: "Single", mono: "Monogamous", monogamish: "Monogamish", poly: "Polyamorous", solo_poly: "Solo poly", open: "Open relationship", swinger: "Swinger", ra: "Relationship anarchy", exploring: "Still figuring it out",
+    enm: "ENM", kitchen_table: "Kitchen table poly", garden_party: "Garden party poly", parallel: "Parallel poly", hierarchical: "Hierarchical poly", non_hierarchical: "Non-hierarchical poly",
+    polyfidelity: "Polyfidelity", triad: "Triad / throuple", quad: "Quad", polycule: "Polycule", mono_poly: "Mono/poly" };
   let tab = "matches", realm = "all";
 
   async function render(app) {

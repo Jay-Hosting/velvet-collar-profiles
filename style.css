@@ -1569,3 +1569,12 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .hobby-pill { font-size: .85rem; }
 .hobby-count { font-weight: 400; margin-left: 6px; }
 .net-chip.hobby { border-color: rgba(120, 200, 255, .55); }
+
+/* Relationship style picker */
+.rel-groups { display: grid; gap: 8px; }
+.rel-group-h { font-size: .85rem; opacity: .85; margin-top: 4px; }
+.rel-help summary { cursor: pointer; font-size: .88rem; opacity: .85; }
+.rel-help dl { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; font-size: .88rem; }
+.rel-help dt { font-weight: 600; }
+.rel-help dd { margin: 0; opacity: .85; }
+@media (max-width: 600px) { .rel-help dl { grid-template-columns: minmax(0, 1fr); } .rel-help dd { margin-bottom: 6px; } }
