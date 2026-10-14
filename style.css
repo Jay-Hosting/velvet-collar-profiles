@@ -1529,3 +1529,7 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 /* ---------- applicants without a profile ---------- */
 .np-list { display: grid; gap: 8px; }
 .np-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+/* Long unbroken text from the old sheet (handles, notes, emails) wraps inside the card instead of stretching the list. */
+.np-list, .vm-results, .vm-member, .song-list { grid-template-columns: minmax(0, 1fr); }
+.np-row, .vm-cand, .np-main { min-width: 0; overflow-wrap: anywhere; }
+.vm-tags .att-tag { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
