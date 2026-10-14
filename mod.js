@@ -236,8 +236,6 @@
         h("div", {}, h("b", {}, `${ev.emoji || "📅"} ${ev.title}`), h("small", { class: "faint" }, ` · ${when(ev.starts)}${ev.where ? " · " + ev.where : ""} · ${ev.going} going${ev.interested ? ` · ${ev.interested} interested` : ""}${ev.attended ? ` · ✅ ${ev.attended} came` : ""}${ev.hosted ? " · 💜 hosted" : ""}${ev.volunteers ? " · 🙋 volunteers wanted" : ""}${ev.vetting === "offered" ? " · ✅ vetting here" : ev.vetting === "required" ? " · 🔒 vetted only" : ""}${ev.hidden ? " · hidden" : ""}`)),
         h("span", { class: "actions", style: "margin:0" },
           peopleBtn,
-          Date.parse(String(ev.starts).replace(" ", "T")) >= now ? h("label", { class: "check vol-switch", title: "Show this event on the volunteer form" },
-            h("input", { type: "checkbox", checked: !!ev.volunteers, onchange: async (e) => { try { await pb.send(`/api/vc/mod/events/${ev.id}/volunteers`, { method: "POST", body: { on: e.target.checked } }); toast(e.target.checked ? "🙋 Open for volunteers" : "Closed to volunteers"); events(body); } catch (err) { toast(errMsg(err), true); e.target.checked = !e.target.checked; } } }), "🙋 Volunteers") : null,
           h("button", { type: "button", class: "btn small", onclick: () => fill(ev) }, "Edit"),
           h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm(`Delete "${ev.title}"? Its RSVPs and attendance record are deleted with it. To keep the record, tick Hidden instead.`)) return; try { await pb.send(`/api/vc/mod/events/${ev.id}`, { method: "DELETE" }); toast("Deleted"); events(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete"))),
         holder);
