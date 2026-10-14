@@ -133,7 +133,7 @@
     const group = (m) => {
       const s = m.vetting.status, unread = m.form && !m.form.seen;
       if (unread || !s || s === "needs" || s === "renew") return "review";
-      return s === "hold" ? "hold" : "vetted";
+      return s === "hold" || s === "denied" ? s : "vetted";
     };
     const row = (m) => {
       const el = h("div", { class: "mod-member vet-row" });
@@ -163,7 +163,7 @@
           h("div", { class: "vf-head" }, photo, h("div", {}, personChip(m),
             h("div", { class: "faint", style: "font-size:.85rem" }, `@${m.slug}`, v.by ? ` · updated by ${v.by}${v.at ? " " + day(v.at) : ""}` : ""),
             h("div", { style: "font-size:.92rem;margin-top:2px" }, h("b", {}, L[v.status] || "No status yet"), f && !f.seen ? h("span", { class: "vet-new" }, "New form") : null))),
-          h("div", { class: "pills" }, [["", "None"], ...["vetted", "needs", "renew", "hold"].map((k) => [k, L[k]])].map(([k, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String((v.status || "") === k),
+          h("div", { class: "pills" }, [["", "None"], ...["vetted", "needs", "renew", "hold", "denied"].map((k) => [k, L[k]])].map(([k, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String((v.status || "") === k),
             onclick: () => save({ status: k }, k ? `Set to ${label}` : "Status cleared") }, label))),
           h("div", { class: "mod-row2" }, note, h("button", { type: "button", class: "btn small ghost", onclick: () => save({ note: note.value }, "Note saved") }, "Save note")),
           formEl);
@@ -171,7 +171,7 @@
       draw();
       return el;
     };
-    const VIEWS = [["review", "📋 To review"], ["hold", "⏸️ On hold"], ["vetted", "✅ Vetted"]];
+    const VIEWS = [["review", "📋 To review"], ["hold", "⏸️ On hold"], ["vetted", "✅ Vetted"], ["denied", "🚫 Denied"]];
     const draw = () => {
       const q = search.value.trim();
       const counts = {}; VIEWS.forEach(([k]) => { counts[k] = q ? 0 : data.members.filter((m) => group(m) === k).length; });
@@ -183,7 +183,7 @@
       let ms = q ? data.members : data.members.filter((m) => group(m) === vetView);
       // To review: new forms first (oldest first, so nobody waits too long), then everyone else by name.
       if (!q && vetView === "review") ms = ms.slice().sort((a, b) => { const an = a.form && !a.form.seen, bn = b.form && !b.form.seen; return an !== bn ? (an ? -1 : 1) : an ? String(a.form.created).localeCompare(String(b.form.created)) : a.display_name.localeCompare(b.display_name); });
-      const empty = q ? "Nobody by that name." : vetView === "review" ? "Nothing to review. 🌙 All caught up." : vetView === "hold" ? "Nobody is on hold." : "Nobody is vetted yet.";
+      const empty = q ? "Nobody by that name." : vetView === "review" ? "Nothing to review. 🌙 All caught up." : vetView === "hold" ? "Nobody is on hold." : vetView === "denied" ? "Nobody is denied." : "Nobody is vetted yet.";
       holder.replaceChildren(...(ms.length ? ms.map(row) : [h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, empty))]));
     };
     const load = async () => {
@@ -343,7 +343,7 @@
     const d = await pb.send("/api/vc/mod/volunteers?status=" + voView, {});
     const RL = { setup: "🧰 Setup", crew: "🎉 Party crew", breakdown: "🧹 Breakdown" };
     const ST = { pending: "⏳ To review", approved: "🎉 Approved", declined: "💜 Declined", withdrawn: "↩️ Withdrawn" };
-    const VET = { vetted: "✅ Vetted", needs: "📝 Needs vetting", renew: "🔄 Needs re-vetting", hold: "⏸️ On hold" };
+    const VET = { vetted: "✅ Vetted", needs: "📝 Needs vetting", renew: "🔄 Needs re-vetting", hold: "⏸️ On hold", denied: "🚫 Denied" };
     const evWhen = (ev) => { const t = Date.parse(String(ev.starts || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
     const tab = document.querySelector('.mod-tabs a[href="/admin/volunteers"]');
     if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.pending) tab.append(h("span", { class: "nav-badge" }, String(d.counts.pending))); }

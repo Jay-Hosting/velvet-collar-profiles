@@ -1006,10 +1006,12 @@ select option, select optgroup { background: #1d1a22; color: #f1ecf7; }
 .staff-vet.s-vetted { border-color: rgba(120, 220, 150, .5); }
 .staff-vet.s-needs, .staff-vet.s-renew { border-color: rgba(255, 210, 120, .55); }
 .staff-vet.s-hold { border-color: rgba(255, 120, 140, .6); }
+.staff-vet.s-denied { border-color: rgba(150, 150, 160, .6); }
 .vet-group { margin: 16px 0 4px; font-size: .95rem; }
 .vet-row.s-vetted { border-color: rgba(120, 220, 150, .45); }
 .vet-row.s-needs, .vet-row.s-renew { border-color: rgba(255, 210, 120, .45); }
 .vet-row.s-hold { border-color: rgba(255, 120, 140, .5); }
+.vet-row.s-denied { border-color: rgba(150, 150, 160, .5); opacity: .85; }
 .vet-row .mod-row2 input { flex: 1; min-width: 200px; }
 
 /* vetting form */
