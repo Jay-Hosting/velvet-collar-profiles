@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   const PT = { timeZone: "America/Los_Angeles" };
   const when = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " PT"; };
   const day = (d) => { const t = Date.parse(String(d || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric" }); };
@@ -20,7 +20,7 @@
       return;
     }
     // Vetting is owners only; hosts get Events.
-    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => t[0] !== "vetting" || sum.owner);
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers") || sum.owner);
     if (!tabs.some((t) => t[0] === tab)) tab = tabs[0][0];
     const body = h("div", {});
     const nav = h("div", { class: "pills mod-tabs", role: "tablist" }, tabs.map(([id, label]) =>
@@ -28,10 +28,11 @@
         label, id === "reports" && sum.openReports ? h("span", { class: "nav-badge" }, String(sum.openReports)) : null,
         id === "vetting" && sum.newForms ? h("span", { class: "nav-badge" }, String(sum.newForms)) : null,
         id === "confessions" && sum.newConfessions ? h("span", { class: "nav-badge" }, String(sum.newConfessions)) : null,
+        id === "volunteers" && sum.newVolunteers ? h("span", { class: "nav-badge" }, String(sum.newVolunteers)) : null,
         id === "feedback" && sum.newFeedback ? h("span", { class: "nav-badge" }, String(sum.newFeedback)) : null)));
     app.replaceChildren(h("section", { class: "mod-head" }, h("h1", {}, "🛡️ Admin"),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -334,6 +335,70 @@
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
   }
 
+  // ---------- volunteers: owners approve or decline volunteer forms ----------
+  let voView = "pending";
+  async function volunteers(body) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    const d = await pb.send("/api/vc/mod/volunteers?status=" + voView, {});
+    const RL = { setup: "🧰 Setup", crew: "🎉 Party crew", breakdown: "🧹 Breakdown" };
+    const ST = { pending: "⏳ To review", approved: "🎉 Approved", declined: "💜 Declined", withdrawn: "↩️ Withdrawn" };
+    const VET = { vetted: "✅ Vetted", needs: "📝 Needs vetting", renew: "🔄 Needs re-vetting", hold: "⏸️ On hold" };
+    const evWhen = (ev) => { const t = Date.parse(String(ev.starts || "").replace(" ", "T")); return isNaN(t) ? "" : new Date(t).toLocaleString("en-US", { ...PT, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+    const tab = document.querySelector('.mod-tabs a[href="/admin/volunteers"]');
+    if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.pending) tab.append(h("span", { class: "nav-badge" }, String(d.counts.pending))); }
+    const post = async (v, b, msg) => { try { await pb.send(`/api/vc/mod/volunteers/${v.id}`, { method: "POST", body: b }); toast(msg); volunteers(body); } catch (err) { toast(errMsg(err), true); } };
+    const qa = (label, text) => text ? h("div", { class: "vo-qa" }, h("small", { class: "faint" }, label), h("p", {}, text)) : null;
+
+    const card = (v) => {
+      const m = v.member;
+      const offered = v.roles.indexOf("any") !== -1 ? ["setup", "crew", "breakdown"] : v.roles;
+      const pick = v.role.length ? v.role : (v.roles.indexOf("any") !== -1 ? [] : v.roles);
+      const boxes = Object.keys(RL).map((k) => { const cb = h("input", { type: "checkbox", value: k }); cb.checked = pick.indexOf(k) !== -1; return h("label", { class: "check" + (offered.indexOf(k) === -1 ? " faint" : "") }, cb, RL[k]); });
+      const chosen = () => boxes.map((l) => l.querySelector("input")).filter((c) => c.checked).map((c) => c.value);
+      const msg = h("textarea", { rows: 2, maxlength: 1000, placeholder: "Message to them (optional). They'll see it on the site, e.g. “Setup starts at 5pm, Jess will text you the address.”" }); msg.value = v.message || "";
+      const note = h("input", { type: "text", maxlength: 1000, value: v.note || "", placeholder: "Private note for owners (optional)" });
+      const decided = v.status === "approved" || v.status === "declined";
+      return h("div", { class: "mod-cb vo-card vo-" + v.status },
+        h("div", { class: "mod-cb-meta" }, m ? personChip(m) : h("i", {}, "member deleted"),
+          h("b", {}, v.name), v.pronouns ? h("span", { class: "faint" }, "(" + v.pronouns + ")") : null,
+          m && m.vetting ? h("span", { class: "att-tag" }, VET[m.vetting] || m.vetting) : null,
+          voView === "all" ? h("span", { class: "att-tag" }, ST[v.status]) : null,
+          h("small", { class: "faint" }, ` · sent ${when(v.created)}${v.reviewed_by ? ` · ${v.status} by ${v.reviewed_by}` : ""}`)),
+        h("div", { class: "vo-contact" },
+          h("a", { class: "btn small ghost", href: "tel:" + v.phone.replace(/[^\d+]/g, "") }, "📞 " + v.phone),
+          h("a", { class: "btn small ghost", href: "sms:" + v.phone.replace(/[^\d+]/g, "") }, "💬 Text"),
+          m && m.tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + encodeURIComponent(m.tg), target: "_blank", rel: "noopener" }, "✈️ Telegram @" + m.tg) : null),
+        h("p", { style: "margin:6px 0 0" }, h("small", { class: "faint" }, "Offered: "), v.roles.map((r) => d.roles[r] || r).join(", ")),
+        qa("Why they'd like to volunteer", v.why), qa("Accessibility needs / limitations", v.access), qa("To make volunteering great for them", v.extra),
+        h("small", { class: "faint" }, v.agreed ? "✓ Agreed to all the volunteer expectations" : "⚠️ Didn't agree to the expectations"),
+        v.status === "withdrawn" ? h("p", { class: "faint" }, "They withdrew this form.") : h("div", { class: "vo-decide" },
+          h("div", { class: "vo-roles" }, h("small", { class: "faint" }, "Their role:"), boxes),
+          msg, note,
+          h("div", { class: "actions", style: "margin:0" },
+            v.status !== "approved" ? h("button", { type: "button", class: "btn small gold", onclick: () => { const r = chosen(); if (!r.length) return toast("Tick the role they'll do first.", true); post(v, { status: "approved", role: r, message: msg.value, note: note.value }, "🎉 Approved. They'll see it next time they open the site."); } }, "🎉 Approve") : null,
+            v.status !== "declined" ? h("button", { type: "button", class: "btn small ghost", onclick: () => post(v, { status: "declined", message: msg.value, note: note.value }, "💜 Declined. They'll see it next time they open the site.") }, "💜 Not this time") : null,
+            decided ? h("button", { type: "button", class: "btn small ghost", onclick: () => post(v, { role: chosen(), message: msg.value, note: note.value }, "Saved") }, "💾 Save changes") : null,
+            decided ? h("button", { type: "button", class: "btn small ghost", onclick: () => post(v, { status: "pending" }, "Back to review") }, "↩️ Back to review") : null)));
+    };
+
+    // Group by event, soonest first ("any event" last).
+    const groups = {};
+    for (const v of d.items) { const k = v.event ? v.event.id : "any"; (groups[k] = groups[k] || { ev: v.event, list: [] }).list.push(v); }
+    const keys = Object.keys(groups).sort((a, b) => a === "any" ? 1 : b === "any" ? -1 : (groups[a].ev.starts < groups[b].ev.starts ? -1 : 1));
+    const crew = (list) => { const c = {}; list.filter((v) => v.status === "approved").forEach((v) => v.role.forEach((r) => { c[r] = (c[r] || 0) + 1; })); return Object.keys(RL).filter((r) => c[r]).map((r) => `${RL[r]} ${c[r]}`).join(" · "); };
+    const VIEWS = ["pending", "approved", "declined", "withdrawn"];
+    const total = VIEWS.reduce((n, k) => n + d.counts[k], 0);
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "🙋 Volunteers"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Volunteer forms members send from ", h("a", { href: "/volunteer", "data-nav": "" }, location.origin + "/volunteer"), " (or 🙋 Volunteer on a Velvet Collar event). Pick their role and approve, or let them know it's not this time. They see your answer and message the next time they open the site, and approved volunteers see a 🙋 tag on the event. Only owners see this tab and their phone numbers."),
+      h("div", { class: "pills" }, VIEWS.map((k) => h("button", { type: "button", class: "pill", "aria-pressed": String(voView === k), onclick: () => { voView = k; volunteers(body); } }, `${ST[k]} (${d.counts[k]})`)),
+        h("button", { type: "button", class: "pill", "aria-pressed": String(voView === "all"), onclick: () => { voView = "all"; volunteers(body); } }, `All (${total})`)),
+      d.items.length ? keys.map((k) => { const g = groups[k]; const c = crew(g.list); return h("div", { class: "vo-group" },
+        h("h3", {}, g.ev ? `${g.ev.emoji || "📅"} ${g.ev.title}` : "✨ Any upcoming event", h("small", { class: "faint" }, g.ev ? " · " + evWhen(g.ev) + " PT" : ""), c ? h("span", { class: "att-tag" }, "Crew: " + c) : null),
+        h("div", { class: "mod-cb-list" }, g.list.map(card))); })
+        : h("p", { class: "muted" }, voView === "pending" ? "No volunteer forms waiting. 🌙" : "Nothing here.")));
+  }
+
   // ---------- feedback: ideas, bugs and love notes from members ----------
   let fbView = "new";
   async function feedback(body) {
@@ -573,7 +638,7 @@
 
   // ---------- activity: busy times, who's most active, what gets used (admins and owners) ----------
   let actRange = 30, actHeat = "online", actSort = "overall", actAll = false;
-  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box", network: "🤝 Networking",
+  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box", network: "🤝 Networking", volunteer: "🙋 Volunteer form",
     edit: "✏️ Editing their profile", question: "❓ Question of the week", vetting: "📝 Vetting form", admin: "🛡️ Admin" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];

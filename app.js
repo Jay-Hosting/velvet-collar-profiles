@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
   const REL_STYLES = [["single", "Single"], ["mono", "Monogamous"], ["monogamish", "Monogamish"], ["poly", "Polyamorous"], ["solo_poly", "Solo poly"],
@@ -153,7 +153,7 @@
     { e: "✏️", t: "Fill in your profile", p: ["You're on your Edit page now. Add a photo, a little about you, what you're looking for, your relationship style, and your interests and limits.", "Everything is optional, so share as much or as little as you like. Tap Save profile at the bottom when you're done."], tip: "The glow-up meter at the top shows what's left to fill in." },
     { e: "🎨", t: "Make it look like you", p: ["The 🎨 Settings tab changes your colours, pattern, font, charm and mood.", "📸 Photos adds a gallery, 🔗 Links adds your other pages, and 🎲 Playroom holds your game links."] },
     { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Tap 📣 Share on your page to copy it or post it in Telegram." },
-    { e: "📅", t: "Events", p: ["The Events calendar shows munches, game nights and play parties. Tap I'm going or ☆ Interested, and add them to your own calendar.", "Some play parties need you to be vetted first. Fill in the vetting form from the Events page."] },
+    { e: "📅", t: "Events", p: ["The Events calendar shows munches, game nights and play parties. Tap I'm going or ☆ Interested, and add them to your own calendar.", "Some play parties need you to be vetted first. Fill in the vetting form from the Events page.", "Want to help out? Tap 🙋 Volunteer on an event."] },
     { e: "🎲", t: "The Playroom", p: ["Games to play with other members: 🏹 The Hunt, 🤫 Whispers (anonymous chats) and more.", "React to profiles, leave kind notes, vouch for people, and send secret crushes. They're only revealed if it's mutual."] },
     { e: "💜", t: "Look after each other", p: ["Ask first, respect limits, and keep what's shared here inside the group.", "If anything feels off, use Report inside a Whisper chat, or tell one of the team. You'll find them on the Velvet Collar page."], tip: "Don't want crushes, vouches, reactions or kind notes? Switch each one off in 🎨 Settings any time." },
   ];
@@ -218,6 +218,34 @@
     });
     modal.append(form); document.body.append(modal);
     setTimeout(() => (st.needs21 ? age : gl).focus(), 50);
+  }
+
+  // ---------- volunteer news: owners' decisions, shown once ----------
+  let volChecked = false;
+  async function volNews() {
+    if (volChecked || consentOpen || !me()) return;
+    volChecked = true;
+    let d; try { d = await pb.send("/api/vc/volunteer/news", { requestKey: null }); } catch { return; }
+    if (!d.items || !d.items.length) return;
+    const RL = { setup: "🧰 Setup", crew: "🎉 Party crew", breakdown: "🧹 Breakdown" };
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "vn_title" });
+    const close = async () => { modal.remove(); try { await pb.send("/api/vc/volunteer/news", { method: "POST", body: {} }); } catch {} };
+    const one = (v) => {
+      const ev = v.event ? `${v.event.emoji || "📅"} ${v.event.title} · ${fmtWhen(v.event.starts)}` : "📅 An upcoming event";
+      return h("div", { class: "vn-item " + v.status },
+        h("b", {}, v.status === "approved" ? "🎉 You're on the crew!" : v.status === "declined" ? "💜 Not this time" : "📨 Update on your volunteer form"),
+        h("p", { class: "muted", style: "margin:2px 0" }, ev),
+        v.status === "approved" && v.role.length ? h("p", { style: "margin:2px 0" }, "Your role: ", h("b", {}, v.role.map((r) => RL[r] || r).join(", "))) : null,
+        v.status === "declined" ? h("p", { class: "faint", style: "margin:2px 0" }, "Volunteer spots rotate between events, so please do offer again for the next one.") : null,
+        v.message ? h("p", { class: "vn-msg" }, "“" + v.message + "”") : null);
+    };
+    modal.append(h("div", { class: "modal-box" },
+      h("h2", { id: "vn_title", style: "margin:0" }, "🙋 Volunteer news"),
+      d.items.map(one),
+      h("div", { class: "actions", style: "margin:0;justify-content:space-between" },
+        h("a", { class: "btn ghost", href: "/volunteer", "data-nav": "", onclick: close }, "See my volunteering"),
+        h("button", { type: "button", class: "btn gold", onclick: close }, "Got it 💜"))));
+    document.body.append(modal);
   }
 
   // ---------- feedback: a floating 💡 button (and a footer link) open a small form ----------
@@ -416,6 +444,7 @@
     if (path === "admin" || path.startsWith("admin/")) return { name: "mod", tab: path.slice(6) };
     if (path === "question") return { name: "question" };
     if (path === "vetting" || path === "apply") return { name: "vetting" };
+    if (path === "volunteer" || path === "volunteers") return { name: "volunteer" };
     if (path === "velvetcollar" || path === "about" || path === "group") return { name: "group" };
     return { name: "profile", slug: path.split("/")[0] };
   }
@@ -448,7 +477,7 @@
   }
   setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
   // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
-  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", network: "network", edit: "edit", question: "question", vetting: "vetting", mod: "admin" };
+  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", network: "network", edit: "edit", question: "question", vetting: "vetting", volunteer: "volunteer", mod: "admin" };
   function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
   // Every 2 minutes while the site is on screen (that also keeps the green "online" dot fresh).
   setInterval(() => { if (document.visibilityState === "visible") seen(); }, 120000);
@@ -483,7 +512,7 @@
       if (isAdmin || badges.includes("host")) {
         const modBtn = h("a", { class: "btn small ghost" + (here === "mod" ? " current" : ""), href: "/admin", "data-nav": "", title: "Admin tools" }, "🛡️ Admin");
         nav.append(modBtn);
-        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0) + (sm.newFeedback || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
+        pb.send("/api/vc/mod/summary", {}).then((sm) => { const n = (sm.openReports || 0) + (sm.newForms || 0) + (sm.newConfessions || 0) + (sm.newFeedback || 0) + (sm.newVolunteers || 0); if (n) modBtn.append(h("span", { class: "nav-badge", "aria-label": `${n} waiting: reports, vetting forms and confessions to review` }, String(n))); }).catch(() => {});
       }
       drawNavBadge(here === "playroom");
     }
@@ -497,7 +526,7 @@
     try {
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
-      checkConsent();
+      checkConsent().then(volNews);
       if (r.name === "home") return me() ? await renderDirectory() : await renderGroup(renderLanding);
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
@@ -512,6 +541,7 @@
       if (r.name === "huntgame") return me() ? await window.VCHunt.renderGame(app, r.id) : renderLogin("/hunt/" + r.id);
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       if (r.name === "vetting") return me() ? await renderVetting() : renderLogin("/vetting");
+      if (r.name === "volunteer") return me() ? await renderVolunteer() : renderLogin("/volunteer");
       if (r.name === "group") return await renderGroup();
       return await renderProfile(r.slug);
     } catch (err) {
@@ -700,6 +730,7 @@
               ev.mine ? h("span", { class: "ev-tag going" }, past ? "✓ You went" : "✓ You're going") : null,
               ev.interested ? h("span", { class: "ev-tag interested" }, "⭐ You're interested") : null,
               ev.hosted ? h("span", { class: "ev-tag hosted" }, "💜 Hosted by Velvet Collar") : null,
+              ev.volunteer ? h("a", { class: "ev-tag vol", href: "/volunteer", "data-nav": "" }, ev.volunteer.status === "approved" ? "🙋 You're volunteering" + (ev.volunteer.role.length ? ": " + ev.volunteer.role.map((r) => ({ setup: "setup", crew: "party crew", breakdown: "breakdown" })[r] || r).join(", ") : "") : "🙋 Volunteer form sent") : null,
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
               ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
             h("h2", {}, ev.title),
@@ -731,6 +762,7 @@
                 return [go, maybe];
               })(),
               past ? null : addMenu(ev),
+              !past && ev.hosted && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
               ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
               !past ? h("span", { class: "faint" }, `${ev.going} going` + (ev.interestedCount ? ` · ${ev.interestedCount} interested` : "")) : null)));
       };
@@ -789,7 +821,8 @@
     app.replaceChildren(
       h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
         h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
-        h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →"))),
+        h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →")),
+        h("p", { class: "vf-cta" }, "🙋 Want to help make our events happen? ", h("a", { href: "/volunteer", "data-nav": "" }, "Volunteer at an event →"))),
       h("section", { class: "panel cal" },
         h("div", { class: "cal-bar" },
           h("button", { type: "button", class: "btn small ghost", "aria-label": "Previous month", onclick: () => move(-1) }, "‹"),
@@ -959,6 +992,106 @@
         h("p", { class: "muted" }, "After you send it, a member of our team will be in touch to discuss next steps. Our team is small, so please be patient. We try to respond within 3 business days."),
         h("p", { class: "faint" }, "We respect your privacy: only the group's owners read these answers. We may ask for a copy of a government ID to complete your application; any copies are destroyed once your vetting review is done. Never send ID photos here.")),
       status, photo, formEl);
+  }
+
+  // ---------- volunteering (owners approve on the Admin page) ----------
+  const VOL_EXPECT = [
+    ["🧰 Setup crew", ["Arrive on time (set-up start time will be shared by Nyc and Jess).", "Be prepared to jump in wherever help is needed: moving furniture, decorating, setting up equipment, organizing supplies, cleaning, or other general event preparation.", "Wear comfortable clothing and shoes suitable for lifting, carrying, and moving around.", "Ask questions if you're unsure how something should be done. We'd rather answer questions than have you guess.", "Respect the venue and handle all equipment and decorations with care.", "Once setup is complete, check back in with us before heading out."]],
+    ["🎉 Party crew (during the party)", ["Arrive on time and check in with us (party crew time will be shared by Nyc and Jess).", "Help with last-minute prep and food.", "Help welcome guests and tour party spaces.", "Help hand out drinks and snacks.", "Restock supplies (water, snacks, safer sex supplies, paper products, etc.) as needed.", "Help keep common areas clean and tidy throughout the event.", "Help keep the atmosphere welcoming by being approachable, friendly, and helpful.", "Let us know if you notice spills, broken equipment, safety concerns, or supplies running low.", "If someone needs help or raises a concern, listen without judgment and promptly connect them with Nyc or Jess. Volunteers are not expected to mediate conflicts or handle consent issues.", "Don't drink to intoxication or use substances that would impair your ability to volunteer.", "If you'd like to join in scenes, check in with Nyc or Jess so we can adjust party coverage.", "Check in with us before heading out."]],
+    ["🧹 Breakdown crew", ["Stay after the party to help with breakdown.", "Cleanup: removing decor, collecting trash, returning safer-sex supplies, collecting laundry and dishes, wiping down shared surfaces and equipment, and gathering lost and found.", "Venue reset: returning furniture to where it was, packing away decor, equipment, laundry and dishes, helping load supplies into the car, and telling us if anything is damaged or missing.", "Making sure the venue is back in the agreed-upon condition. Check in with us before you leave so we know everything's done."]],
+    ["🚫 Volunteers are NOT expected to", ["Mediate disputes or investigate consent concerns. Grab Jess or Nyc.", "Handle emergencies beyond letting Nyc or Jess know.", "Take part in scenes, conversations, or physical affection they're uncomfortable with.", "Basically, if something feels uncomfortable, find Nyc or Jess! We'd much rather answer questions and step in than have you feel you need to solve a problem on your own."]],
+  ];
+  async function renderVolunteer() {
+    document.title = "Volunteer · Velvet Collar";
+    const d = await pb.send("/api/vc/volunteer", {});
+    const P = d.prefill || {};
+    const want = new URLSearchParams(location.search).get("event") || "";
+    const ST = { pending: "⏳ Waiting for the owners", approved: "🎉 You're on the crew!", declined: "💜 Not this time", withdrawn: "↩️ Withdrawn" };
+    const evLabel = (ev) => ev ? `${ev.emoji || "📅"} ${ev.title} · ${fmtWhen(ev.starts)}` : "📅 Any upcoming event";
+
+    // ---- my forms ----
+    const mineList = () => {
+      const open = d.mine.filter((v) => v.status !== "withdrawn" && (!v.event || parseDate(v.event.starts) > Date.now() - 864e5));
+      if (!open.length) return null;
+      return h("section", { class: "panel vol-mine" }, h("h2", {}, "🙋 My volunteering"),
+        open.map((v) => h("div", { class: "vol-row " + v.status },
+          h("div", {}, h("b", {}, evLabel(v.event)), h("div", { class: "vol-st" }, ST[v.status] || v.status,
+            v.status === "approved" && v.role.length ? h("span", {}, " · ", v.role.map((r) => d.roles[r] || r).join(", ")) : null,
+            v.status === "pending" ? h("small", { class: "faint" }, " · you offered: " + v.roles.map((r) => d.roles[r] || r).join(", ")) : null),
+            v.message ? h("p", { class: "vn-msg" }, "💬 “" + v.message + "”") : null),
+          v.status === "pending" || v.status === "approved" ? h("button", { type: "button", class: "btn small ghost", onclick: async () => {
+            if (!confirm(v.status === "approved" ? "Step down from volunteering at this event? Please also message Nyc or Jess so they can plan." : "Withdraw this volunteer form?")) return;
+            try { await pb.send(`/api/vc/volunteer/${v.id}/withdraw`, { method: "POST", body: {} }); toast("Withdrawn"); renderVolunteer(); } catch (err) { toast(errMsg(err), true); }
+          } }, v.status === "approved" ? "Step down" : "Withdraw") : null)));
+    };
+
+    // ---- the form ----
+    const field = (id, label, el, req, hint) => h("div", { class: "vf-q", id: "q_" + id }, h("label", { class: "field", for: "vo_" + id }, h("span", { class: "label vf-label" }, label, req ? h("span", { class: "vf-req", "aria-hidden": "true" }, " *") : null), el, hint ? h("span", { class: "hint" }, hint) : null));
+    const evSel = h("select", { id: "vo_event" }, h("option", { value: "" }, "Pick an event…"), d.events.map((ev) => h("option", { value: ev.id }, evLabel(ev))), h("option", { value: "any" }, "✨ Any upcoming event, wherever you need me"));
+    if (want && d.events.some((ev) => ev.id === want)) evSel.value = want;
+    const name = h("input", { type: "text", id: "vo_name", maxlength: 80, value: P.name || "", autocomplete: "name" });
+    const pron = h("input", { type: "text", id: "vo_pronouns", maxlength: 40, value: P.pronouns || "", placeholder: "she/her, he/him, they/them…" });
+    const phone = h("input", { type: "tel", id: "vo_phone", maxlength: 30, value: P.phone || "", autocomplete: "tel", placeholder: "(916) 555-0123" });
+    const roleBoxes = ["setup", "crew", "breakdown", "any"].filter((k) => d.roles[k]).map((k) => { const cb = h("input", { type: "checkbox", value: k }); cb.checked = (P.roles || []).indexOf(k) !== -1; return h("label", { class: "check" }, cb, d.roles[k]); });
+    const ta = (id, v, ph) => { const t = h("textarea", { id: "vo_" + id, rows: 3, maxlength: 2000, placeholder: ph || "" }); t.value = v || ""; return t; };
+    const access = ta("access", P.access), why = ta("why", P.why), extra = ta("extra", P.extra, "“Nope!” is a fine answer.");
+    const agreeBoxes = d.agree.map((t) => { const cb = h("input", { type: "checkbox" }); return [cb, h("label", { class: "check" }, cb, t)]; });
+    const send = h("button", { type: "submit", class: "btn gold" }, "🙋 Send my volunteer form");
+    const form = h("form", { class: "panel vf-form", novalidate: true },
+      h("h2", { style: "margin-top:0" }, "Volunteer form"),
+      h("p", { class: "faint", style: "margin-top:0" }, h("span", { class: "vf-req" }, "*"), " Required. Only the owners see your answers and phone number."),
+      d.events.length ? null : h("p", { class: "vf-status panel" }, "There are no upcoming events on the calendar right now. You can still offer to help at the next one."),
+      field("event", "Which event would you like to help with?", evSel, true),
+      field("name", "Name / preferred name", name, true),
+      field("pronouns", "Preferred pronouns", pron, false),
+      field("phone", "Phone number", phone, true, "So Nyc and Jess can reach you about timings."),
+      h("div", { class: "vf-q", id: "q_roles" }, h("fieldset", { class: "vf-set" }, h("legend", {}, h("span", { class: "label vf-label" }, "Which volunteer role(s) are you interested in?", h("span", { class: "vf-req" }, " *"))), h("div", { class: "vf-opts" }, roleBoxes))),
+      field("access", "Do you have any accessibility needs or physical limitations we should know about?", access, false),
+      field("why", "Why would you like to volunteer with Velvet Collar?", why, true),
+      h("div", { class: "vf-q", id: "q_agree" }, h("fieldset", { class: "vf-set" }, h("legend", {}, h("span", { class: "label vf-label" }, "Expectations", h("span", { class: "vf-req" }, " *"))),
+        h("p", { class: "faint", style: "margin:0 0 6px" }, "Read the expectations above, then tick each one."), h("div", { class: "vf-opts" }, agreeBoxes.map((x) => x[1])))),
+      field("extra", "Is there anything you'd like us to know that would help make volunteering a great experience for you?", extra, true),
+      h("div", { class: "actions" }, send));
+    const flag = (id, msg, el) => {
+      form.querySelectorAll(".vf-q.missing").forEach((x) => x.classList.remove("missing"));
+      const q = document.getElementById("q_" + id); if (q) { q.classList.add("missing"); q.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      if (el) el.focus();
+      toast(msg, true);
+    };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const roles = roleBoxes.map((l) => l.querySelector("input")).filter((c) => c.checked).map((c) => c.value);
+      if (!evSel.value) return flag("event", "Pick the event you'd like to help with.", evSel);
+      if (!name.value.trim()) return flag("name", "Please tell us your name.", name);
+      if (phone.value.replace(/\D/g, "").length < 7) return flag("phone", "Please add a phone number.", phone);
+      if (!roles.length) return flag("roles", "Pick at least one role.");
+      if (!why.value.trim()) return flag("why", "That one's required.", why);
+      const unticked = agreeBoxes.find(([cb]) => !cb.checked);
+      if (unticked) return flag("agree", "Please tick all the expectations.", unticked[0]);
+      if (!extra.value.trim()) return flag("extra", "That one's required (“Nope!” is fine).", extra);
+      send.disabled = true;
+      try {
+        await pb.send("/api/vc/volunteer", { method: "POST", body: { event: evSel.value, name: name.value, pronouns: pron.value, phone: phone.value, roles, access: access.value, why: why.value, extra: extra.value, agreed: true } });
+        app.replaceChildren(h("div", { class: "center-msg" }, h("h1", {}, "🙋 Thank you!"),
+          h("p", {}, "Your volunteer form is with the owners. You'll see their answer here on the site, and Nyc or Jess will reach out with details if you're on the crew."),
+          h("p", { class: "muted" }, "Sending a form doesn't guarantee a volunteer spot or a discounted ticket. We rotate volunteers fairly between events."),
+          h("div", { class: "actions", style: "justify-content:center" }, h("a", { class: "btn gold", href: "/volunteer", "data-nav": "" }, "See my volunteering"), h("a", { class: "btn ghost", href: "/events", "data-nav": "" }, "Back to Events"))));
+        window.scrollTo(0, 0);
+      } catch (err) {
+        const f = err && err.response && err.response.field;
+        if (f) flag(f, errMsg(err)); else toast(errMsg(err), true);
+        send.disabled = false;
+      }
+    });
+
+    app.replaceChildren(
+      h("section", { class: "playroom-head" }, h("h1", {}, "🙋 Volunteer"),
+        h("p", {}, "Thank you for your interest in volunteering with Velvet Collar! Our volunteers are an essential part of creating welcoming, safe, and memorable experiences for our community."),
+        h("p", { class: "muted" }, "Volunteer opportunities include event setup, party crew during the event, and breakdown afterwards. We rotate opportunities fairly, while also considering each event's needs, your availability, and the events you plan to attend. Sending a form doesn't guarantee a volunteer spot or discounted ticket, but it helps us match volunteers to upcoming events.")),
+      mineList() || "",
+      h("section", { class: "panel vol-expect" }, h("h2", {}, "What volunteers do"),
+        VOL_EXPECT.map(([t, items]) => h("details", { class: "vol-x" }, h("summary", {}, t), h("ul", {}, items.map((x) => h("li", {}, x)))))),
+      form);
   }
 
   // ---------- question of the week (set by admins in the dashboard) ----------
