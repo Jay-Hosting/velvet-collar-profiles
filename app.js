@@ -2025,7 +2025,11 @@
       const sel = h("select", { id: "f_location", name: "location" },
         h("option", { value: "" }, "Prefer not to say"),
         cur && !known ? h("option", { value: cur }, `${cur} (old answer, please pick one)`) : null,
-        AREAS.map(([group, list]) => h("optgroup", { label: group }, list.map((a) => h("option", { value: a }, a)))));
+        // A to Z inside each group ("Elsewhere in California" and "Out of state" stay at the end).
+        AREAS.map(([group, list]) => h("optgroup", { label: group }, [...list].sort((a, b) => {
+          const last = (x) => /^(Elsewhere|Out of state)/.test(x) ? 1 : 0;
+          return last(a) - last(b) || a.localeCompare(b);
+        }).map((a) => h("option", { value: a }, a)))));
       sel.value = cur;
       return sel;
     };
