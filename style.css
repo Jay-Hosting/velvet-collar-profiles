@@ -1568,3 +1568,4 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .hobby-group > b { display: block; font-size: .85rem; margin-bottom: 6px; opacity: .85; }
 .hobby-pill { font-size: .85rem; }
 .hobby-count { font-weight: 400; margin-left: 6px; }
+.net-chip.hobby { border-color: rgba(120, 200, 255, .55); }

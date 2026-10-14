@@ -13,7 +13,7 @@
     document.title = "Networking · Velvet Collar";
     let d = await pb.send("/api/vc/network", {});
     const head = h("section", { class: "playroom-head" }, h("h1", {}, "🤝 Networking"),
-      h("p", { class: "muted" }, "Find members who share your kinks and your romantic side. Join interest circles, see who else is in them, and say hi."));
+      h("p", { class: "muted" }, "Find members who share your kinks, your romantic side and your hobbies. Join interest circles, see who else is in them, and say hi."));
     const body = h("div", {});
     app.replaceChildren(head, body);
     const reload = async () => { d = await pb.send("/api/vc/network", {}); draw(); };
@@ -49,7 +49,7 @@
         h("section", { class: "panel net-hero" },
           h("h2", {}, "How it works"),
           h("ul", { class: "net-how" },
-            h("li", {}, "✨ ", h("b", {}, "Matches: "), "members ranked by the kink and romance interests you share, with exactly what you have in common."),
+            h("li", {}, "✨ ", h("b", {}, "Matches: "), "members ranked by the kink, romance and hobby interests you share, with exactly what you have in common."),
             h("li", {}, "🫶 ", h("b", {}, "Circles: "), "interest groups like Rope, Aftercare or Date nights. Join the ones you like and see who else is in."),
             h("li", {}, "🔒 ", h("b", {}, "Opt-in: "), "you only appear here, and only see others, once you turn it on. Your limits are never matched on, and you can leave any time.")),
           h("p", { class: "faint", style: "margin:0" }, `${d.people} member${d.people === 1 ? " has" : "s have"} turned it on so far.`)),
@@ -67,6 +67,7 @@
       const tips = [];
       if (!d.has.kink) tips.push(h("li", {}, "🫙 Add your ", h("b", {}, "Kink Jars"), " shelf (or fill in Into & curious about) in ", h("a", { href: "/edit#playroom", "data-nav": "" }, "Edit → Playroom"), " for kink matches."));
       if (!d.has.romance) tips.push(h("li", {}, "💞 Add your ", h("b", {}, "Romantic Jars"), " share link in ", h("a", { href: "/edit#playroom", "data-nav": "" }, "Edit → Playroom"), " for romance matches."));
+      if (!d.has.hobbies) tips.push(h("li", {}, "🎨 Pick a few ", h("b", {}, "Hobbies"), " in ", h("a", { href: "/edit", "data-nav": "" }, "Edit → Profile"), " (there's a list to tap from) for hobby matches."));
       return tips.length ? h("ul", { class: "net-tips faint" }, tips) : null;
     }
 
@@ -94,14 +95,14 @@
     const tg = (m) => m.tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + encodeURIComponent(m.tg), target: "_blank", rel: "noopener" }, "💬 Telegram") : null;
 
     function matches(holder) {
-      const pick = h("div", { class: "pills" }, [["all", "Everything"], ["kink", "⛓️ Kink"], ["romance", "🌹 Romance"]].map(([k, l]) =>
+      const pick = h("div", { class: "pills" }, [["all", "Everything"], ["kink", "⛓️ Kink"], ["romance", "🌹 Romance"], ["hobby", "🎨 Hobbies"]].map(([k, l]) =>
         h("button", { type: "button", class: "pill", "aria-pressed": String(realm === k), onclick: () => { realm = k; draw(); } }, l)));
-      const scoreOf = (m) => realm === "kink" ? m.kinkScore : realm === "romance" ? m.romanceScore : m.score;
+      const scoreOf = (m) => realm === "kink" ? m.kinkScore : realm === "romance" ? m.romanceScore : realm === "hobby" ? (m.hobbyScore || 0) : m.score;
       const list = d.matches.filter((m) => scoreOf(m) > 0).sort((a, b) => scoreOf(b) - scoreOf(a));
       const best = Math.max(1, ...list.map(scoreOf));
       const chips = (arr, cls) => arr.map((x) => h("span", { class: "net-chip " + cls }, x));
       const card = (m) => {
-        const circ = m.circles.filter((c) => realm === "all" || c.realm === realm);
+        const circ = realm === "hobby" ? [] : m.circles.filter((c) => realm === "all" || c.realm === realm);
         const parts = (r) => [
           r.love.length ? h("div", { class: "net-row" }, h("b", {}, "💞 Both love"), chips(r.love, "love")) : null,
           r.enjoy.length ? h("div", { class: "net-row" }, h("b", {}, "😊 Both enjoy"), chips(r.enjoy.slice(0, 8), "enjoy")) : null,
@@ -112,14 +113,15 @@
           personHead(m, h("div", { class: "net-score", title: "How much you share" }, h("i", {}, h("em", { style: `width:${Math.round(scoreOf(m) / best * 100)}%` })), h("small", { class: "faint" }, "in common"))),
           m.intro ? h("p", { class: "net-intro" }, "“" + m.intro + "”") : null,
           circ.length ? h("div", { class: "net-row" }, h("b", {}, "🫶 Circles"), circ.map((c) => h("span", { class: "net-chip circle" }, `${c.emoji} ${c.label}`))) : null,
-          realm !== "romance" ? labelled("⛓️ Kink", parts(m.kink)) : null,
-          realm !== "kink" ? labelled("🌹 Romance", parts(m.romance)) : null,
+          realm === "all" || realm === "kink" ? labelled("⛓️ Kink", parts(m.kink)) : null,
+          realm === "all" || realm === "romance" ? labelled("🌹 Romance", parts(m.romance)) : null,
+          (realm === "all" || realm === "hobby") && (m.hobbies || []).length ? labelled("🎨 Hobbies", [h("div", { class: "net-row" }, h("b", {}, "🎨 You both like"), chips(m.hobbies.slice(0, 12), "hobby"))]) : null,
           m.lookingBoth.length ? h("p", { class: "faint", style: "margin:6px 0 0" }, "You're both looking for " + m.lookingBoth.map((x) => (LOOK[x] || x).replace(/^\S+\s/, "").toLowerCase()).join(" and ") + ".") : null,
           h("div", { class: "actions", style: "margin-top:10px" }, h("a", { class: "btn small", href: "/" + m.slug, "data-nav": "" }, "View profile"), tg(m)));
       };
       holder.replaceChildren(pick,
         list.length ? h("div", { class: "net-list" }, list.map(card))
-          : h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, d.people ? "No matches yet in this area. Join more circles, or add your jar shelves for better matches." : "You're the first one here! Matches show up as more members turn on Networking."), nudges()),
+          : h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, d.people ? (realm === "hobby" ? "Nobody shares a hobby with you yet. Add a few more in Edit → Profile." : "No matches yet in this area. Join more circles, or add your jar shelves for better matches.") : "You're the first one here! Matches show up as more members turn on Networking."), nudges()),
         h("p", { class: "faint", style: "text-align:center" }, "Always ask first. Sharing an interest isn't a yes to anything."));
     }
 
@@ -156,7 +158,7 @@
       saveBtn.addEventListener("click", async () => { const r = await save({ circles: [...sel], intro: intro.value }, "Saved"); if (r) await reload(); });
       holder.replaceChildren(h("section", { class: "panel" },
         h("h2", {}, "My interests"),
-        h("p", { class: "faint", style: "margin-top:-6px" }, "Your circles. Matches also use your Kink Jars and Romantic Jars shelves and your Into list, and never anything on your limits. Dashed ones are suggested from your profile."),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Your circles. Matches also use your Kink Jars and Romantic Jars shelves, your Into list and your Hobbies, and never anything on your limits. Dashed ones are suggested from your profile."),
         picker(sel), nudges(),
         h("label", { class: "field", style: "margin-top:10px" }, h("span", { class: "label" }, "What you're hoping to find (optional)"), intro),
         h("div", { class: "actions" }, saveBtn,
