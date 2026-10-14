@@ -1133,18 +1133,31 @@
       h("span", { class: "txt" }, h("b", {}, grp.page.name, h("span", { class: "new-pill group-pill" }, "💜 Group")), h("small", {}, grp.page.tagline || "Our group page: about us, links and the team")),
       h("span", { class: "arrow", "aria-hidden": "true" }, "→")) : null;
     // Who's on the site right now (green dot). Refreshed every minute while the list is open.
-    let onlineSet = new Set();
-    const loadOnline = () => pb.send("/api/vc/online", { requestKey: null }).then((d) => { onlineSet = new Set(d.online || []); }).catch(() => {});
+    let onlineSet = new Set(), rank = new Map();
+    const loadOnline = () => pb.send("/api/vc/online", { requestKey: null }).then((d) => { onlineSet = new Set(d.online || []); rank = new Map((d.order || []).map((id, i) => [id, i])); }).catch(() => {});
     await loadOnline();
     const FILTERS = [["all", "Everyone"], ["online", "🟢 Online now"], ["new", "🌱 New this week"], ...LOOKING.filter(([v]) => v !== "nothing").map(([v, e, l]) => [v, `${e} ${l}`])];
     const filterBar = h("div", { class: "pills dir-filters", role: "group", "aria-label": "Filter members" });
     const drawFilters = () => filterBar.replaceChildren(...FILTERS.map(([v, label]) =>
       h("button", { type: "button", class: "pill", "aria-pressed": String(filter === v), onclick: () => { filter = v; drawFilters(); draw(); } }, label)));
+    // Sort: most active (online now, then most recently active), A–Z, or newest. Remembered on this device.
+    let sortBy = "active"; try { sortBy = localStorage.getItem("vc_dir_sort") || "active"; } catch {}
+    const SORTS = [["active", "🔥 Most active"], ["az", "A–Z"], ["new", "🌱 Newest"]];
+    const sorted = (items) => {
+      const byName = (a, b) => (a.display_name || "").localeCompare(b.display_name || "", undefined, { sensitivity: "base" });
+      const byNew = (a, b) => (a.created < b.created ? 1 : a.created > b.created ? -1 : 0);
+      if (sortBy === "az") return items.slice().sort(byName);
+      if (sortBy === "new") return items.slice().sort(byNew);
+      const r = (m) => (rank.has(m.id) ? rank.get(m.id) : 1e9);
+      return items.slice().sort((a, b) => (onlineSet.has(b.id) - onlineSet.has(a.id)) || (r(a) - r(b)) || byNew(a, b));
+    };
+    const sortSel = h("select", { class: "dir-sort", "aria-label": "Sort members", onchange: (e) => { sortBy = e.target.value; try { localStorage.setItem("vc_dir_sort", sortBy); } catch {} draw(); } }, SORTS.map(([v, l]) => h("option", { value: v }, l)));
+    sortSel.value = sortBy;
     const matchesFilter = (m) => filter === "all" ? true : filter === "online" ? onlineSet.has(m.id) : filter === "new" ? isNew(m) : (m.looking_for || []).includes(filter) || (filter !== "open" && (m.looking_for || []).includes("open"));
     const draw = () => {
       rows.replaceChildren();
       const t = term.trim().toLowerCase();
-      const items = list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m));
+      const items = sorted(list.filter((m) => (!t || (m.display_name + " " + m.slug).toLowerCase().includes(t)) && matchesFilter(m)));
       if (groupRow && filter === "all" && (!t || (grp.page.name + " velvetcollar group").toLowerCase().includes(t))) rows.append(groupRow);
       if (!items.length) rows.append(h("p", { class: "muted" }, list.length ? "No one matches that." : "No one has joined the list yet."));
       for (const m of items) {
@@ -1182,7 +1195,7 @@
       h("section", { class: "panel" },
         h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Member list"), h("span", { class: "actions", style: "margin:0" }, h("a", { class: "btn small", href: "/network", "data-nav": "" }, "🤝 Networking"), twinsBtn)),
         h("p", { class: "faint", style: "margin-top:4px" }, "Only logged-in members can see this list, and only people who opted in are on it. Open-to-anything members show up under every filter."),
-        search, filterBar, rows),
+        h("div", { class: "dir-search-row" }, search, sortSel), filterBar, rows),
     );
     drawThisWeek(weekHolder, list);
     drawCrushes(crushHolder);
