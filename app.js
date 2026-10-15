@@ -173,7 +173,7 @@
     { e: "👋", t: "Welcome to Velvet Collar", p: ["This is where members of the group have a profile, find each other, see events and play games.", "Here's a 1-minute tour. You can open it again any time from “How it works” at the bottom of the page."] },
     { e: "✏️", t: "Fill in your profile", p: ["You're on your Edit page now. Add a photo, a little about you, what you're looking for, your relationship style, and your interests and limits.", "Everything is optional, so share as much or as little as you like. Tap Save profile at the bottom when you're done."], tip: "The glow-up meter at the top shows what's left to fill in." },
     { e: "🎨", t: "Make it look like you", p: ["The 🎨 Settings tab changes your colours, pattern, font, charm and mood.", "📸 Photos adds a gallery, 🔗 Links adds your other pages, and 🎲 Playroom holds your game links."] },
-    { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Tap 📣 Share on your page to copy it or post it in Telegram." },
+    { e: "👥", t: "Join the member list", p: ["New profiles aren't on the member list yet, so people can only find you through your link.", "When you're ready, add a profile photo and tick “Put me on the member list” in 🎨 Settings. You can hide yourself again whenever you like."], tip: "Your link is velvetcollarsac.com/ + your profile name. Tap 📣 Share on your page to copy it or post it in Telegram." },
     { e: "📅", t: "Events", p: ["The Events calendar shows munches, game nights and play parties. Tap I'm going or ☆ Interested, and add them to your own calendar.", "Some play parties need you to be vetted first. Fill in the vetting form from the Events page.", "Want to help out? Tap 🙋 Volunteer on an event."] },
     { e: "🎲", t: "The Playroom", p: ["Games to play with other members: 🏹 The Hunt, 🤫 Whispers (anonymous chats) and more.", "React to profiles, leave kind notes, vouch for people, and send secret crushes. They're only revealed if it's mutual."] },
     { e: "💜", t: "Look after each other", p: ["Ask first, respect limits, and keep what's shared here inside the group.", "If anything feels off, use Report inside a Whisper chat, or tell one of the team. You'll find them on the Velvet Collar page."], tip: "Don't want crushes, vouches, reactions or kind notes? Switch each one off in 🎨 Settings any time." },
@@ -2608,12 +2608,12 @@
       const f = avInput.files[0]; if (!f) return;
       avatarFile = f; removeAvatar = false;
       avWrap.replaceChildren(h("img", { class: "avatar", src: URL.createObjectURL(f), alt: "" }));
-      refreshLook();
+      refreshLook(); syncPrivacy();
     });
     const avatarBox = h("div", { class: "avatar-edit" }, avWrap,
       h("div", { class: "actions", style: "margin:0" },
         h("label", { class: "btn small", for: "avatarInput" }, "Upload photo"), avInput,
-        h("button", { class: "btn small ghost", type: "button", onclick: () => { avatarFile = null; removeAvatar = true; avWrap.replaceChildren(avatarEl({ display_name: nameI.value })); refreshLook(); } }, "Remove")));
+        h("button", { class: "btn small ghost", type: "button", onclick: () => { avatarFile = null; removeAvatar = true; avWrap.replaceChildren(avatarEl({ display_name: nameI.value })); refreshLook(); syncPrivacy(); } }, "Remove")));
 
     // basics
     const nameI = input("display_name", { maxlength: 60, required: true });
@@ -2731,6 +2731,19 @@
     const crushBox = h("input", { type: "checkbox", checked: !rec.crushes_off });
     const vouchBox = h("input", { type: "checkbox", checked: !rec.vouches_off });
     const onlineBox = h("input", { type: "checkbox", checked: !rec.hide_online });
+    // These only work once there's a profile photo. Without one they're off and greyed out;
+    // adding a photo switches the usual ones back on (you can still untick them before saving).
+    const privBoxes = [listedBox, reactBox, notesBox, matchBox, crushBox, vouchBox, onlineBox];
+    const photoNote = h("p", { class: "photo-needed", hidden: true }, "📷 Add a profile photo to turn these on. Until then you're not on the member list and people can't react, leave notes, send crushes or vouch for you.");
+    let hadPhoto = !!rec.avatar;
+    const syncPrivacy = () => {
+      const has = !!avatarFile || (!removeAvatar && !!rec.avatar);
+      photoNote.hidden = has;
+      for (const b of privBoxes) { b.disabled = !has; if (!has) b.checked = false; b.closest("label")?.classList.toggle("is-off", !has); }
+      if (has && !hadPhoto) for (const b of [reactBox, notesBox, matchBox, crushBox, vouchBox, onlineBox]) b.checked = true;
+      hadPhoto = has;
+    };
+    setTimeout(syncPrivacy, 0);   // once the Privacy section below has been built
 
     // ---------- look settings (Settings tab) ----------
     let look = L.resolve(rec.style, rec.theme);
@@ -2868,6 +2881,7 @@
           h("div", { class: "form-grid" },
             h("div", { class: "field full" },
               h("p", { class: "muted", style: "margin:0" }, "Anyone you share your link with can see your page. It isn't searchable on the web."),
+              photoNote,
               h("label", { class: "check", style: "margin-top:8px" }, listedBox, "Put me on the member list"),
               h("span", { class: "hint" }, "Logged-in members can browse the list. Leave it off and people only find you through your link.")),
             h("div", { class: "field full" },
