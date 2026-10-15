@@ -117,7 +117,9 @@
     ], [
       "To open an event for volunteers, tick 🙋 Open for volunteers when you edit it.",
     ]],
-    ["reports", "⚑ Reports", "reports", "Reports members send from Whispers.", [
+    ["reports", "⚑ Reports", "reports", "Reported photos and videos, and reports from Whispers.", [
+      "📷 Reported photos & videos come first. Anything reported for showing a minor or someone who didn't consent is already hidden from members.",
+      "Tap to view (they start blurred), read who reported it and why, then: 🗑 Delete it, 🔒 Keep hidden, 🔞 Mark NSFW (and show it) or ✅ It's fine, show it.",
       "Each report shows who reported whom, why, and the saved messages.",
       "✅ Mark handled when it's dealt with (Reopen if needed).",
       "Quick actions: 🤫 turn off their Whispers, 🏹 take them out of The Hunt, or 🙈 hide their profile.",
@@ -235,12 +237,46 @@
   }
 
   // ---------- reports ----------
+  // Reported photos and videos: look, then keep it hidden, mark it NSFW, restore it or delete it.
+  const PR_L = { minor: "🚸 Someone under 18", consent: "🙅 Someone who didn't agree to be posted", nsfw: "🔞 Explicit, not marked NSFW", guidelines: "📜 Breaks the guidelines", other: "💬 Other" };
+  const PR_OUT = { restore: "✅ Restored", nsfw: "🔞 Marked NSFW", delete: "🗑 Deleted", keep_hidden: "🔒 Kept hidden" };
+  async function photoReports(holder, refresh) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    let d; try { d = await pb.send("/api/vc/mod/photo-reports", {}); } catch (err) { holder.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+    if (!d.items.length) { holder.replaceChildren(); return; }
+    const act = async (it, action, msg) => {
+      if (action === "delete" && !confirm("Delete this for good? This can't be undone.")) return;
+      try { await pb.send(`/api/vc/mod/photo-reports/${it.photo.id}`, { method: "POST", body: { action } }); toast(msg); refresh(); } catch (err) { toast(errMsg(err), true); }
+    };
+    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `📷 Reported photos & videos (${d.items.length})`), ...d.items.map((it) => {
+      const ph = it.photo, url = pb.files.getURL(ph, ph.image), vid = /\.(mp4|mov|webm|m4v)$/i.test(ph.image);
+      let shown = false;
+      const media = h("div", { class: "pr-media blurred" }, vid ? h("video", { src: url, controls: true, preload: "metadata" }) : h("img", { src: pb.files.getURL(ph, ph.image, { thumb: "400x400" }), alt: "" }),
+        h("button", { type: "button", class: "pr-reveal", onclick: (e) => { shown = !shown; media.classList.toggle("blurred", !shown); e.currentTarget.textContent = shown ? "Blur" : "Tap to view"; } }, "Tap to view"));
+      return h("section", { class: "panel mod-report pr-card" },
+        h("div", { class: "pr-grid" }, media,
+          h("div", {},
+            h("p", { class: "mod-who", style: "margin-top:0" }, "Posted by ", ph.owner ? personChip(ph.owner) : h("i", {}, "member deleted"),
+              ph.flagged ? h("span", { class: "att-tag" }, "🔒 Hidden from members") : h("span", { class: "att-tag" }, "👀 Still showing"), ph.nsfw ? h("span", { class: "att-tag" }, "NSFW") : null),
+            ph.caption ? h("p", { class: "faint", style: "margin:4px 0" }, "“" + ph.caption + "”") : null,
+            h("ul", { class: "pr-list" }, it.reports.map((r) => h("li", {}, h("b", {}, PR_L[r.reason] || r.reason), " · ", r.reporter ? personChip(r.reporter) : h("i", {}, "deleted"),
+              h("small", { class: "faint" }, ` · ${when(r.created)}`), r.note ? h("div", { class: "faint" }, "“" + r.note + "”") : null))),
+            h("div", { class: "actions" },
+              h("button", { type: "button", class: "btn small danger", onclick: () => act(it, "delete", "Deleted") }, "🗑 Delete it"),
+              h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "keep_hidden", "Kept hidden") }, "🔒 Keep hidden"),
+              h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "nsfw", "Marked NSFW and shown") }, "🔞 Mark NSFW"),
+              h("button", { type: "button", class: "btn small gold", onclick: () => act(it, "restore", "Restored") }, "✅ It's fine, show it")))));
+    }));
+  }
+
   async function reports(body) {
     const { h, pb, toast, personChip, errMsg } = deps();
     const data = await pb.send("/api/vc/mod/reports", {});
     const act = async (path, payload, msg) => { try { await pb.send(path, { method: "POST", body: payload }); toast(msg); reports(body); } catch (err) { toast(errMsg(err), true); } };
-    if (!data.reports.length) { body.replaceChildren(h("section", { class: "panel" }, h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
-    body.replaceChildren(...data.reports.map((r) => {
+    const photoHolder = h("div", {});
+    photoReports(photoHolder, () => reports(body));
+    if (!data.reports.length) { body.replaceChildren(photoHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
+    body.replaceChildren(photoHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
       const who = r.reported;
       const lines = String(r.message || "").split("\n").filter(Boolean).map((l) => h("p", { class: /^Them:/.test(l) ? "them" : "rep" }, l.replace(/^Them:/, `${who ? who.display_name : "Them"}:`).replace(/^Reporter:/, `${r.reporter ? r.reporter.display_name : "Reporter"}:`)));
       return h("section", { class: "panel mod-report" + (r.handled ? " handled" : "") },

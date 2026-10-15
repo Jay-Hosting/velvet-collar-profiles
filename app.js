@@ -2048,7 +2048,7 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
-    if (photos.length) side.push(gallerySide(photos));
+    if (photos.length) side.push(gallerySide(photos, { canReport: !!me() && !data.isOwner, onHidden: () => render() }));
     const songList = Array.isArray(p.songs) && p.songs.length ? p.songs : p.song ? [{ url: p.song, title: "" }] : [];
     const song = playlistEl(songList);
     if (song) side.push(h("section", { class: "keyring song" }, h("h2", {}, songList.length > 1 ? "🎵 My vibe playlist" : "🎵 My vibe"), song));
@@ -2227,7 +2227,8 @@
     if (!isVid(ph)) return h("img", { src: fileUrl(ph, ph.image, "400x400"), alt: ph.caption || "", loading: "lazy" });
     return h("span", { class: "vid-thumb" }, h("video", { src: fileUrl(ph, ph.image) + "#t=0.5", preload: "metadata", muted: true, playsinline: true, tabindex: "-1", "aria-hidden": "true" }), h("span", { class: "vid-play", "aria-hidden": "true" }, "▶"));
   }
-  function gallerySide(photos) {
+  function gallerySide(photos, opts) {
+    opts = opts || {};
     const SHOW = 9;
     const anyNsfw = photos.some((x) => x.nsfw);
     let showNsfw = false;
@@ -2236,20 +2237,74 @@
     const draw = () => grid.replaceChildren(...photos.slice(0, SHOW).map((ph, i) => {
       const more = i === SHOW - 1 && photos.length > SHOW ? photos.length - SHOW + 1 : 0;
       const veiled = ph.nsfw && !showNsfw;
-      return h("button", { type: "button", class: "ph" + (veiled ? " nsfw" : "") + (isVid(ph) ? " is-vid" : ""), "aria-label": more ? `See all ${photos.length}` : veiled ? "NSFW, tap to view" : (ph.caption || (isVid(ph) ? "Video " : "Photo ") + (i + 1)),
-        onclick: () => openViewer(photos, i, showNsfw) },
+      return h("button", { type: "button", class: "ph" + (veiled ? " nsfw" : "") + (isVid(ph) ? " is-vid" : "") + (ph.flagged ? " flagged" : ""), "aria-label": more ? `See all ${photos.length}` : veiled ? "NSFW, tap to view" : (ph.caption || (isVid(ph) ? "Video " : "Photo ") + (i + 1)),
+        onclick: () => (more ? openGalleryAll(photos, opts, showNsfw) : openViewer(photos, i, showNsfw, opts)) },
         mediaThumb(ph),
         veiled ? h("div", { class: "veil" }, h("span", {}, isVid(ph) ? "▶ NSFW" : "NSFW")) : null,
+        ph.flagged ? h("div", { class: "ph-flag" }, "🔒 Under review") : null,
         more ? h("div", { class: "ph-more" }, `+${more}`) : null);
     }));
     draw();
     const toggle = anyNsfw ? h("button", { class: "btn small ghost", type: "button", onclick: (e) => { showNsfw = !showNsfw; draw(); e.currentTarget.textContent = showNsfw ? "Blur NSFW" : "Show NSFW"; } }, "Show NSFW") : null;
     return h("section", { class: "keyring photos-side" },
-      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, vids ? "📸 Photos & videos" : "📸 Photos", h("small", { class: "faint" }, ` ${photos.length}`)), toggle),
+      h("div", { class: "toggle-row" },
+        h("button", { type: "button", class: "photos-title", title: "See them all", onclick: () => openGalleryAll(photos, opts, showNsfw) },
+          h("h2", { style: "margin:0" }, vids ? "📸 Photos & videos" : "📸 Photos", h("small", { class: "faint" }, ` ${photos.length} ›`))),
+        toggle),
       grid);
   }
+  // Every photo and video as thumbnails; tap one to open it in the viewer.
+  function openGalleryAll(items, opts, showNsfwStart) {
+    let showNsfw = !!showNsfwStart;
+    const modal = h("div", { class: "modal gallery-all", role: "dialog", "aria-modal": "true", "aria-label": "All photos and videos" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", esc); };
+    const esc = (e) => { if (e.key === "Escape" && !document.querySelector(".viewer")) close(); };
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const grid = h("div", { class: "gallery-all-grid" });
+    const draw = () => grid.replaceChildren(...items.map((ph, i) => {
+      const veiled = ph.nsfw && !showNsfw;
+      return h("button", { type: "button", class: "ph" + (veiled ? " nsfw" : "") + (ph.flagged ? " flagged" : ""), "aria-label": ph.caption || (isVid(ph) ? "Video " : "Photo ") + (i + 1), onclick: () => openViewer(items, i, showNsfw, opts) },
+        mediaThumb(ph), veiled ? h("div", { class: "veil" }, h("span", {}, isVid(ph) ? "▶ NSFW" : "NSFW")) : null, ph.flagged ? h("div", { class: "ph-flag" }, "🔒 Under review") : null);
+    }));
+    draw();
+    const anyNsfw = items.some((x) => x.nsfw);
+    modal.append(h("div", { class: "modal-box gallery-all-box" },
+      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, `📸 ${items.length} ${items.some(isVid) ? "photos & videos" : "photos"}`),
+        h("span", { class: "actions", style: "margin:0" },
+          anyNsfw ? h("button", { type: "button", class: "btn small ghost", onclick: (e) => { showNsfw = !showNsfw; draw(); e.currentTarget.textContent = showNsfw ? "Blur NSFW" : "Show NSFW"; } }, showNsfw ? "Blur NSFW" : "Show NSFW") : null,
+          h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕"))),
+      grid));
+    document.body.append(modal); document.addEventListener("keydown", esc);
+  }
+  // Report a photo or video. A minor or missing consent hides it straight away until an admin has looked.
+  const PHOTO_REPORT = [["minor", "🚸 Shows someone under 18"], ["consent", "🙅 Shows someone who didn't agree to be posted"], ["nsfw", "🔞 Explicit but not marked NSFW"], ["guidelines", "📜 Breaks the community guidelines another way"], ["other", "💬 Something else"]];
+  function reportPhoto(ph, onDone) {
+    if (!me()) { toast("Log in to report a photo.", true); return; }
+    let reason = "";
+    const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "pr_title", style: "z-index:95" });
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    const opts = h("div", { class: "vf-opts" }, PHOTO_REPORT.map(([k, l]) => h("label", { class: "check" }, h("input", { type: "radio", name: "pr_reason", value: k, onchange: () => { reason = k; } }), l)));
+    const note = h("textarea", { rows: 2, maxlength: 500, placeholder: "Anything the admins should know (optional)" });
+    const send = h("button", { type: "button", class: "btn gold" }, "⚑ Send report");
+    send.addEventListener("click", async () => {
+      if (!reason) return toast("Pick a reason.", true);
+      send.disabled = true;
+      try {
+        const r = await pb.send(`/api/vc/photos/${ph.id}/report`, { method: "POST", body: { reason, note: note.value } });
+        close(); toast(r.hidden ? "Thank you. It's hidden until an admin reviews it." : "Thank you. The admins will take a look."); if (onDone) onDone(r);
+      } catch (err) { toast(errMsg(err), true); send.disabled = false; }
+    });
+    modal.append(h("div", { class: "modal-box" },
+      h("div", { class: "toggle-row" }, h("h2", { id: "pr_title", style: "margin:0" }, "⚑ Report this"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+      h("p", { class: "muted", style: "margin:0" }, "What's wrong with it? Reports go to the admins and the owner isn't told who sent them."), opts, note,
+      h("p", { class: "faint", style: "margin:0" }, "Photos of someone under 18 or someone who didn't agree to be posted are hidden straight away while the admins look."),
+      h("div", { class: "actions", style: "margin:0" }, send)));
+    document.body.append(modal);
+  }
   // Full-screen viewer: ‹ › (or arrow keys, or swipe) to flip through, NSFW stays blurred until tapped.
-  function openViewer(items, start, showNsfw) {
+  function openViewer(items, start, showNsfw, opts) {
+    opts = opts || {};
     let i = start;
     const revealed = new Set();
     const stage = h("div", { class: "viewer-stage" });
@@ -2267,16 +2322,18 @@
         : h("img", { src: fileUrl(ph, ph.image, "1200x0"), alt: ph.caption || "" });
       stage.replaceChildren(h("div", { class: "viewer-media" + (veiled ? " veiled" : "") }, media,
         veiled ? h("button", { type: "button", class: "viewer-reveal", onclick: () => { revealed.add(ph.id); draw(); } }, "NSFW · tap to show") : null));
-      cap.textContent = ph.caption || "";
+      cap.replaceChildren(ph.caption || "", ph.flagged ? h("span", { class: "faint" }, (ph.caption ? " · " : "") + "🔒 Hidden from others while an admin reviews a report") : "");
       count.textContent = items.length > 1 ? `${i + 1} / ${items.length}` : "";
+      reportBtn.hidden = !opts.canReport;
     };
+    const reportBtn = h("button", { type: "button", class: "btn small ghost viewer-report", onclick: () => reportPhoto(items[i], (r) => { if (r.hidden) { items[i].flagged = true; close(); if (opts.onHidden) opts.onHidden(); } }) }, "⚑ Report");
     let x0 = null;
     stage.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
     stage.addEventListener("touchend", (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); });
     modal.addEventListener("click", (e) => { if (e.target === modal || e.target === stage) close(); });
     const nav = items.length > 1;
     modal.append(
-      h("div", { class: "viewer-top" }, count, h("button", { type: "button", class: "btn iconbtn", "aria-label": "Close", onclick: close }, "✕")),
+      h("div", { class: "viewer-top" }, count, h("span", { class: "actions", style: "margin:0" }, reportBtn, h("button", { type: "button", class: "btn iconbtn", "aria-label": "Close", onclick: close }, "✕"))),
       nav ? h("button", { type: "button", class: "viewer-nav prev", "aria-label": "Previous", onclick: () => go(-1) }, "‹") : "",
       stage,
       nav ? h("button", { type: "button", class: "viewer-nav next", "aria-label": "Next", onclick: () => go(1) }, "›") : "",
@@ -2734,8 +2791,22 @@
     const photoGrid = h("div", { class: "ph-edit" });
     const newNsfw = h("input", { type: "checkbox", checked: true });
     const phInput = h("input", { type: "file", accept: "image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v,.webm", multiple: true, class: "sr", id: "photoInput" });
+    // Upload rules: tick to agree before adding anything (remembered on this device once agreed).
+    let rulesOk = false; try { rulesOk = localStorage.getItem("vc_photo_rules") === "1"; } catch {}
+    const rulesTick = h("input", { type: "checkbox", id: "photoRules", checked: rulesOk });
+    rulesTick.addEventListener("change", () => { rulesOk = rulesTick.checked; try { localStorage.setItem("vc_photo_rules", rulesOk ? "1" : "0"); } catch {} drawPhotos(); });
+    const photoRules = h("section", { class: "photo-rules" },
+      h("b", {}, "📜 Before you upload"),
+      h("ul", {},
+        h("li", {}, h("b", {}, "No children. "), "Nothing showing anyone under 18, sexual or not, including in the background."),
+        h("li", {}, h("b", {}, "Consent. "), "Only photos and videos of yourself, or of people who agreed to be posted here. If anyone else is in it, ask them first."),
+        h("li", {}, h("b", {}, "Mark explicit ones NSFW. "), "Anything with nudity or sex gets the NSFW tick so it's blurred until someone chooses to look."),
+        h("li", {}, h("b", {}, "Follow the community guidelines. "), "Nothing hateful, nothing that outs someone, nothing you don't have the rights to.")),
+      h("p", { class: "faint", style: "margin:4px 0 8px" }, "Members can report anything that breaks these. Reports of a minor or of someone who didn't consent hide it straight away while the admins review it."),
+      h("label", { class: "check", for: "photoRules" }, rulesTick, h("span", {}, "I understand and my uploads follow these rules.")));
     phInput.addEventListener("change", async () => {
       const files = [...phInput.files]; phInput.value = "";
+      if (!rulesOk) { toast("Please read and tick the upload rules first.", true); photoRules.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
       for (const f of files) {
         if (photos.length >= 100) { toast("Galleries are limited to 100 photos and videos", true); break; }
         const vid = /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name);
@@ -2767,8 +2838,8 @@
             try { await Promise.all(photos.map((p, k) => p.sort === k ? null : pb.collection("photos").update(p.id, { sort: k }).then((r) => (photos[k] = r)))); }
             catch (err) { toast(errMsg(err), true); }
           };
-          return h("div", { class: "ph-card" },
-            h("span", { class: "ph-media" }, mediaThumb(ph)),
+          return h("div", { class: "ph-card" + (ph.flagged ? " flagged" : "") },
+            h("span", { class: "ph-media" }, mediaThumb(ph), ph.flagged ? h("span", { class: "ph-flag", title: "Someone reported this, so it's hidden from others until an admin reviews it." }, "🔒 Under review") : null),
             h("div", { class: "ctl" }, cap,
               h("div", { class: "line" },
                 h("label", { class: "check" }, nsfw, "NSFW"),
@@ -2781,7 +2852,7 @@
                     catch (err) { toast(errMsg(err), true); }
                   } }, "🗑")))));
         }),
-        h("label", { class: "upload", for: "photoInput" }, h("span", {}, h("b", {}, "+ Add photos or videos"), h("br"), h("small", {}, `${photos.length} of 100 · photos up to 12 MB · up to 10 videos (MP4, MOV, WebM), 50 MB each`))),
+        h("label", { class: "upload" + (rulesOk ? "" : " locked"), for: rulesOk ? "photoInput" : "photoRules", onclick: () => { if (!rulesOk) toast("Tick the upload rules first 💜", true); } }, h("span", {}, h("b", {}, rulesOk ? "+ Add photos or videos" : "🔒 Tick the rules above to upload"), h("br"), h("small", {}, `${photos.length} of 100 · photos up to 12 MB · up to 10 videos (MP4, MOV, WebM), 50 MB each`))),
       );
     }
     drawPhotos();
@@ -2999,9 +3070,10 @@
             field("Telegram username", input("tg_username", { maxlength: 33, placeholder: "@yourname", autocapitalize: "off", spellcheck: "false" }), "Optional. Adds a \"Message on Telegram\" button to your page."))),
       ] },
       { id: "photos", label: "📸 Photos", body: [
-        h("section", { class: "panel" }, h("h2", {}, "Photos"),
+        h("section", { class: "panel" }, h("h2", {}, "Photos & videos"),
+          photoRules,
           h("div", { class: "toggle-row" },
-            h("p", { class: "faint", style: "margin:0" }, "Photos save as soon as you add them. NSFW ones stay blurred until a viewer taps."),
+            h("p", { class: "faint", style: "margin:0" }, "They save as soon as you add them. NSFW ones stay blurred until a viewer taps."),
             h("label", { class: "check" }, newNsfw, "Mark new uploads NSFW")),
           phInput, photoGrid),
       ] },

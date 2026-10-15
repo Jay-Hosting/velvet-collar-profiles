@@ -1680,3 +1680,24 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .viewer { background: rgba(8, 3, 8, .98); }
 .viewer-media { overflow: hidden; border-radius: 12px; }
 .ph.nsfw .vid-play { display: none; }
+
+/* Photo upload rules, full gallery, reports */
+.photo-rules { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 4px 0 12px; background: rgba(255,255,255,.02); }
+.photo-rules ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: .9rem; }
+.upload.locked { opacity: .65; }
+.photos-title { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.photos-title:hover h2, .photos-title:focus-visible h2 { text-decoration: underline; text-underline-offset: 4px; }
+.ph-flag { position: absolute; left: 4px; right: 4px; bottom: 4px; font-size: .68rem; padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff; text-align: center; }
+.ph-media { position: relative; }
+.gallery-all-box { width: min(980px, 100%); max-width: 100%; max-height: 90vh; overflow-y: auto; display: grid; gap: 12px; }
+.gallery-all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.gallery-all-grid .ph { border-radius: 10px; }
+.viewer-report { color: #fff; border-color: rgba(255,255,255,.35); }
+.mod-sec-h { margin: 6px 0 10px; font-size: 1.05rem; }
+.pr-grid { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 600px) { .pr-grid { grid-template-columns: minmax(0, 1fr); } }
+.pr-media { position: relative; border-radius: 12px; overflow: hidden; aspect-ratio: 1; background: var(--panel-solid); }
+.pr-media img, .pr-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pr-media.blurred img, .pr-media.blurred video { filter: blur(24px) brightness(.6); }
+.pr-reveal { position: absolute; left: 8px; bottom: 8px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.5); color: #fff; font: inherit; font-size: .8rem; cursor: pointer; }
+.pr-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
