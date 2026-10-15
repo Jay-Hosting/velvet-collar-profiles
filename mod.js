@@ -5,12 +5,12 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["games", "🎲 Games"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
   const GROUPS = [
     ["people", "👥 People", ["members", "vetting", "noprofile"]],
     ["events", "📅 Events", ["events", "volunteers"]],
-    ["moderation", "🛡️ Moderation", ["reports", "confessions", "content"]],
+    ["moderation", "🛡️ Moderation", ["reports", "confessions", "games", "content"]],
     ["ideas", "💡 Ideas", ["feedback", "backlog"]],
     ["site", "🏠 Site", ["group", "question"]],
     ["activity", "📈 Activity", ["activity"]],
@@ -60,7 +60,7 @@
     ], [
       "🗝️ Owners see everything, including vetting, volunteers and the old application sheet.",
       "🛡️ Admins see everything except those three.",
-      "🎪 Hosts only see Events and Confessions.",
+      "🎪 Hosts only see Events, Confessions and Games.",
       "Everything here acts on real accounts and is saved straight away. Anything that can't be undone asks you first.",
     ]],
     ["members", "👥 All members", "members", "Everyone on the site, and a member card for each person.", [
@@ -129,6 +129,14 @@
       "Take down anything mean, coercive, or that points to a real person.",
     ], [
       "Nobody, including owners, can see who wrote a confession.",
+    ]],
+    ["games", "🎲 Games", "games", "The Playroom games' moving parts. Hosts can use it too.", [
+      "🎲 Truth or Dare: member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
+      "➕ Add a card puts your own straight into the deck. 📦 Retire takes a card out without deleting it.",
+      "Heat levels: 🌸 Mild, 🌶️ Spicy, 🔥 Scorching. Players only get cards at or below the heat they chose.",
+    ], [
+      "Cards that touch a member's limits are never dealt to them, so tag-worthy words (rope, impact, photo…) help.",
+      "Reported answers and photos show up in ⚑ Reports.",
     ]],
     ["content", "🧹 Content", "content", "Clean up photos, kind notes and question answers.", [
       "Pick 📷 Photos, 💌 Kind notes or ❓ Answers. Newest first.",
@@ -210,9 +218,9 @@
       return;
     }
     // Vetting is owners only; hosts get Events.
-    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions" || t[0] === "games")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
     // Things waiting for someone, per tab (shown as a count on the tab and its group).
-    const waiting = { reports: sum.openReports || 0, vetting: (sum.newForms || 0) + (sum.vetMatches || 0), confessions: sum.newConfessions || 0, volunteers: sum.newVolunteers || 0, feedback: sum.newFeedback || 0 };
+    const waiting = { reports: sum.openReports || 0, vetting: (sum.newForms || 0) + (sum.vetMatches || 0), confessions: sum.newConfessions || 0, games: sum.newTodCards || 0, volunteers: sum.newVolunteers || 0, feedback: sum.newFeedback || 0 };
     const allowed = new Set(tabs.map((t) => t[0]));
     const label = Object.fromEntries(tabs);
     const groups = GROUPS.map(([id, name, ids]) => [id, name, ids.filter((t) => allowed.has(t))]).filter((g) => g[2].length);
@@ -232,7 +240,7 @@
     (nav.hidden ? groupNav : nav).append(pageHelp);
     app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, feedback, backlog, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, games, feedback, backlog, activity, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -269,14 +277,48 @@
     }));
   }
 
+  // Reported Truth or Dare answers: hide the photo, take it off the wall, mark it NSFW, or say it's fine.
+  const TR_OUT = { restore: "✅ Restored", nsfw: "🔞 Marked NSFW", remove_photo: "🗑 Photo removed", unshare: "🙈 Taken off the wall", keep_hidden: "🔒 Kept hidden" };
+  async function todReports(holder, refresh) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    let d; try { d = await pb.send("/api/vc/mod/tod-reports", {}); } catch (err) { holder.replaceChildren(); return; }
+    if (!d.items.length) { holder.replaceChildren(); return; }
+    const act = async (it, action) => {
+      if (action === "remove_photo" && !confirm("Remove this photo for good?")) return;
+      try { await pb.send(`/api/vc/mod/tod-reports/${it.play.id}`, { method: "POST", body: { action } }); toast(TR_OUT[action]); refresh(); } catch (err) { toast(errMsg(err), true); }
+    };
+    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `🎲 Reported Truth or Dare answers (${d.items.length})`), ...d.items.map((it) => {
+      const p = it.play;
+      let shown = false;
+      const media = p.proof ? h("div", { class: "pr-media blurred" }, h("img", { src: pb.files.getURL(p, p.proof, { thumb: "400x400" }), alt: "" }),
+        h("button", { type: "button", class: "pr-reveal", onclick: (e) => { shown = !shown; media.classList.toggle("blurred", !shown); e.currentTarget.textContent = shown ? "Blur" : "Tap to view"; } }, "Tap to view")) : h("div", {});
+      return h("section", { class: "panel mod-report pr-card" },
+        h("div", { class: p.proof ? "pr-grid" : "" }, p.proof ? media : "",
+          h("div", {},
+            h("p", { class: "mod-who", style: "margin-top:0" }, "Played by ", p.by ? personChip(p.by) : h("i", {}, "member deleted"),
+              p.flagged ? h("span", { class: "att-tag" }, "🔒 Hidden from members") : p.shared ? h("span", { class: "att-tag" }, "👀 On the wall") : h("span", { class: "att-tag" }, "Not on the wall"), p.nsfw ? h("span", { class: "att-tag" }, "NSFW") : null),
+            h("p", { class: "faint", style: "margin:4px 0" }, (p.kind === "dare" ? "🎯 Dare: " : "💭 Truth: ") + p.text),
+            p.answer ? h("p", { class: "mod-cb-text" }, p.answer) : null,
+            h("ul", { class: "pr-list" }, it.reports.map((r) => h("li", {}, h("b", {}, PR_L[r.reason] || r.reason), " · ", r.reporter ? personChip(r.reporter) : h("i", {}, "deleted"),
+              h("small", { class: "faint" }, ` · ${when(r.created)}`), r.note ? h("div", { class: "faint" }, "“" + r.note + "”") : null))),
+            h("div", { class: "actions" },
+              p.proof ? h("button", { type: "button", class: "btn small danger", onclick: () => act(it, "remove_photo") }, "🗑 Remove photo") : null,
+              h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "unshare") }, "🙈 Take off the wall"),
+              h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "keep_hidden") }, "🔒 Keep hidden"),
+              p.proof ? h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "nsfw") }, "🔞 Mark NSFW") : null,
+              h("button", { type: "button", class: "btn small gold", onclick: () => act(it, "restore") }, "✅ It's fine")))));
+    }));
+  }
+
   async function reports(body) {
     const { h, pb, toast, personChip, errMsg } = deps();
     const data = await pb.send("/api/vc/mod/reports", {});
     const act = async (path, payload, msg) => { try { await pb.send(path, { method: "POST", body: payload }); toast(msg); reports(body); } catch (err) { toast(errMsg(err), true); } };
-    const photoHolder = h("div", {});
+    const photoHolder = h("div", {}), todHolder = h("div", {});
     photoReports(photoHolder, () => reports(body));
-    if (!data.reports.length) { body.replaceChildren(photoHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
-    body.replaceChildren(photoHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
+    todReports(todHolder, () => reports(body));
+    if (!data.reports.length) { body.replaceChildren(photoHolder, todHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
+    body.replaceChildren(photoHolder, todHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
       const who = r.reported;
       const lines = String(r.message || "").split("\n").filter(Boolean).map((l) => h("p", { class: /^Them:/.test(l) ? "them" : "rep" }, l.replace(/^Them:/, `${who ? who.display_name : "Them"}:`).replace(/^Reporter:/, `${r.reporter ? r.reporter.display_name : "Reporter"}:`)));
       return h("section", { class: "panel mod-report" + (r.handled ? " handled" : "") },
@@ -745,6 +787,51 @@
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
   }
 
+  // ---------- games: the Truth or Dare deck (hosts and up) ----------
+  let todView = "pending";
+  async function games(body) {
+    const { h, pb, toast, errMsg, personChip } = deps();
+    const d = await pb.send("/api/vc/mod/tod?status=" + todView, {});
+    const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
+    const heatL = Object.fromEntries(HEAT);
+    const tab = document.querySelector('.mod-tabs a[href="/admin/games"]');
+    if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.pending) tab.append(h("span", { class: "nav-badge" }, String(d.counts.pending))); }
+    const save = async (c, patch, msg) => { try { await pb.send(`/api/vc/mod/tod/${c.id}`, { method: "POST", body: patch }); toast(msg); games(body); } catch (err) { toast(errMsg(err), true); } };
+    const sel = (opts, v) => h("select", {}, opts.map(([k, l]) => h("option", { value: k, selected: k === v }, l)));
+    const row = (c) => {
+      const kind = sel([["truth", "💭 Truth"], ["dare", "🎯 Dare"]], c.kind), heat = sel(HEAT, c.heat);
+      const text = h("textarea", { rows: 2, maxlength: 300 }, c.text);
+      const edit = h("div", { class: "tod-edit", hidden: true }, h("div", { class: "row2" }, kind, heat), text,
+        h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: () => save(c, { kind: kind.value, heat: heat.value, text: text.value }, "Saved") }, "Save")));
+      return h("div", { class: "mod-cb" },
+        h("div", { class: "mod-cb-meta" }, h("b", {}, (c.kind === "dare" ? "🎯 Dare" : "💭 Truth") + " · " + (heatL[c.heat] || c.heat)),
+          c.author ? h("span", {}, " · idea from ", personChip(c.author)) : null,
+          h("small", { class: "faint" }, ` · ${when(c.created)}${c.reviewed_by && todView !== "pending" ? " · " + c.reviewed_by : ""}`)),
+        h("p", { class: "mod-cb-text" }, c.text), edit,
+        h("div", { class: "actions", style: "margin:6px 0 0" },
+          todView !== "approved" ? h("button", { type: "button", class: "btn small gold", onclick: () => save(c, { status: "approved", kind: kind.value, heat: heat.value, text: text.value }, "✅ In the deck") }, "✅ Add to deck") : null,
+          todView === "pending" ? h("button", { type: "button", class: "btn small ghost", onclick: () => save(c, { status: "rejected" }, "Not added") }, "🙅 Not this one") : null,
+          todView === "approved" ? h("button", { type: "button", class: "btn small ghost", onclick: () => save(c, { status: "retired" }, "Retired") }, "📦 Retire") : null,
+          h("button", { type: "button", class: "btn small ghost", onclick: () => { edit.hidden = !edit.hidden; } }, "✏️ Edit")));
+    };
+    // Add a card straight into the deck.
+    const nk = sel([["truth", "💭 Truth"], ["dare", "🎯 Dare"]], "truth"), nh = sel(HEAT, "mild");
+    const nt = h("textarea", { rows: 2, maxlength: 300, placeholder: "Write a truth question or a dare…" });
+    const addForm = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add a card"),
+      h("div", { class: "row2" }, nk, nh), nt,
+      h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: async () => {
+        try { await pb.send("/api/vc/mod/tod", { method: "POST", body: { kind: nk.value, heat: nh.value, text: nt.value } }); toast("Added to the deck"); games(body); } catch (err) { toast(errMsg(err), true); }
+      } }, "Add")));
+    const VIEWS = [["pending", "⏳ Member ideas"], ["approved", "🃏 In the deck"], ["rejected", "🙅 Not added"], ["retired", "📦 Retired"]];
+    body.replaceChildren(h("section", { class: "panel" },
+      h("h2", {}, "🎲 Truth or Dare deck"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} member${d.players === 1 ? " is" : "s are"} playing. Members can suggest cards; they wait here until a host adds them. Cards that touch someone's limits are never dealt to them. Edit before adding if a card needs a tweak. Members play at `,
+        h("a", { href: "/truthordare", "data-nav": "" }, location.origin + "/truthordare"), "."),
+      addForm,
+      h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(todView === k), onclick: () => { todView = k; games(body); } }, `${l} (${d.counts[k]})`))),
+      d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, todView === "pending" ? "No ideas waiting. 🌙" : "Nothing here.")));
+  }
+
   // ---------- applicants from the old sheet who haven't made a profile yet (owners only) ----------
   let npView = "vetted", npQ = "";
   async function noprofile(body) {
@@ -1110,7 +1197,7 @@
 
   // ---------- activity: busy times, who's most active, what gets used (admins and owners) ----------
   let actRange = 30, actHeat = "online", actSort = "overall", actAll = false;
-  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box", network: "🤝 Networking", volunteer: "🙋 Volunteer form",
+  const PAGE_LABEL = { members: "👥 Member list", profile: "🪪 Profiles", playroom: "🎲 Playroom", events: "📅 Events", hunt: "🏹 The Hunt", whispers: "🤫 Whispers", confessions: "💌 Confession Box", truthordare: "🎲 Truth or Dare", bingo: "🔢 Kink Bingo", match: "🎭 Mystery Match", network: "🤝 Networking", volunteer: "🙋 Volunteer form",
     edit: "✏️ Editing their profile", question: "❓ Question of the week", vetting: "📝 Vetting form", admin: "🛡️ Admin" };
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const DOW_LONG = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];

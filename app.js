@@ -8,7 +8,7 @@
 
   const app = document.getElementById("app");
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "truthordare", "tod", "bingo", "match", "mystery", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
   // Relationship styles: [value, label, group, what it means]. Members pick up to 5.
@@ -459,6 +459,7 @@
     if (path.startsWith("hunt/")) return { name: "huntgame", id: path.slice(5) };
     if (path === "whispers") return { name: "whispers" };
     if (path === "confessions" || path === "confess") return { name: "confessions" };
+    if (path === "truthordare" || path === "tod") return { name: "truthordare" };
     if (path === "network" || path === "networking") return { name: "network" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
     if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };   // old address
@@ -482,10 +483,11 @@
     if (!me()) return Promise.resolve(null);
     if (pendingAsk && !fresh && Date.now() - pendingAt < 15000) return pendingAsk;
     pendingAt = Date.now();
-    pendingAsk = Promise.all([pb.send("/api/vc/hunts", {}).catch(() => null), pb.send("/api/vc/whispers", {}).catch(() => null)]).then(([hu, wh]) => {
-      const hunts = hu ? hu.hunts : [], chats = wh ? wh.chats : [];
+    pendingAsk = Promise.all([pb.send("/api/vc/hunts", {}).catch(() => null), pb.send("/api/vc/whispers", {}).catch(() => null), pb.send("/api/vc/games/pending", {}).catch(() => null)]).then(([hu, wh, gm]) => {
+      const hunts = hu ? hu.hunts : [], chats = wh ? wh.chats : [], games = gm || {};
       const invites = hunts.filter((x) => x.invitedMe), turns = hunts.filter((x) => x.myTurn), unread = chats.filter((x) => x.status === "active" && x.unread);
-      return { invites, turns, unread, hunt: invites.length + turns.length, total: invites.length + turns.length + unread.length };
+      const extra = (games.tod ? 1 : 0);
+      return { invites, turns, unread, games, hunt: invites.length + turns.length, total: invites.length + turns.length + unread.length + extra };
     });
     return pendingAsk;
   }
@@ -498,7 +500,7 @@
   }
   setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
   // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
-  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", network: "network", edit: "edit", question: "question", vetting: "vetting", volunteer: "volunteer", mod: "admin" };
+  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", truthordare: "truthordare", network: "network", edit: "edit", question: "question", vetting: "vetting", volunteer: "volunteer", mod: "admin" };
   function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
   // Every 2 minutes while the site is on screen (that also keeps the green "online" dot fresh).
   setInterval(() => { if (document.visibilityState === "visible") seen(); }, 120000);
@@ -556,6 +558,7 @@
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "confessions") return me() ? await window.VCConfess.render(app) : renderLogin("/confessions");
+      if (r.name === "truthordare") return me() ? await window.VCTod.render(app) : renderLogin("/truthordare");
       if (r.name === "network") return me() ? await window.VCNetwork.render(app) : renderLogin("/network");
       if (r.name === "whisper") return me() ? await window.VCWhisper.renderChat(app, r.id) : renderLogin("/whispers/" + r.id);
       if (r.name === "mod") return me() ? await window.VCMod.render(app, r.tab) : renderLogin("/admin");
@@ -660,7 +663,11 @@
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🤝"),
       h("span", { class: "game-txt" }, h("b", {}, "Networking"), h("span", {}, "Find members who share your kinks and your romantic side, and join interest circles. Opt in to play.")),
       h("span", { class: "game-go" }, "Open"));
-    grid.prepend(huntTile, whisperTile, confessTile, netTile);
+    const todTile = h("a", { class: "game hunt-game", href: "/truthordare", "data-nav": "" },
+      h("span", { class: "game-emoji", "aria-hidden": "true" }, "🎲"),
+      h("span", { class: "game-txt" }, h("b", {}, "Truth or Dare Roulette"), h("span", {}, "A truth or a dare every day at the heat you pick, never touching your limits. Answer, add a photo if you dare, keep your streak and chase the weekly crown. Opt in to play.")),
+      h("span", { class: "game-go" }, "Play"));
+    grid.prepend(todTile, huntTile, whisperTile, confessTile, netTile);
     // Flag the tiles when something is waiting on you.
     getPending(true).then((p) => {
       if (!p) return;
@@ -673,6 +680,7 @@
       if (p.hunt) flag(huntTile, p.hunt === 1 ? (p.invites.length ? `🔔 ${name(p.invites[0])} invited you` : `⚡ Your move against ${name(p.turns[0])}`)
         : [p.invites.length ? `🔔 ${p.invites.length} invite${p.invites.length === 1 ? "" : "s"}` : "", p.turns.length ? `⚡ ${p.turns.length} waiting on your move` : ""].filter(Boolean).join(" · "),
         p.hunt === 1 ? "/hunt/" + (p.invites[0] || p.turns[0]).id : null);
+      if (p.games && p.games.tod) flag(todTile, p.games.tod === "spin" ? "🎰 Today's card is waiting" : "🎯 Your card needs an answer");
       if (p.unread.length) flag(whisperTile, p.unread.length === 1 ? `💬 ${p.unread[0].them} whispered to you` : `💬 ${p.unread.length} new whispers`,
         p.unread.length === 1 ? "/whispers/" + p.unread[0].id : null);
     });
@@ -2278,7 +2286,7 @@
   }
   // Report a photo or video. A minor or missing consent hides it straight away until an admin has looked.
   const PHOTO_REPORT = [["minor", "🚸 Shows someone under 18"], ["consent", "🙅 Shows someone who didn't agree to be posted"], ["nsfw", "🔞 Explicit but not marked NSFW"], ["guidelines", "📜 Breaks the community guidelines another way"], ["other", "💬 Something else"]];
-  function reportPhoto(ph, onDone) {
+  function reportPhoto(ph, onDone, path) {
     if (!me()) { toast("Log in to report a photo.", true); return; }
     let reason = "";
     const modal = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "pr_title", style: "z-index:95" });
@@ -2291,7 +2299,7 @@
       if (!reason) return toast("Pick a reason.", true);
       send.disabled = true;
       try {
-        const r = await pb.send(`/api/vc/photos/${ph.id}/report`, { method: "POST", body: { reason, note: note.value } });
+        const r = await pb.send(path || `/api/vc/photos/${ph.id}/report`, { method: "POST", body: { reason, note: note.value } });
         close(); toast(r.hidden ? "Thank you. It's hidden until an admin reviews it." : "Thank you. The admins will take a look."); if (onDone) onDone(r);
       } catch (err) { toast(errMsg(err), true); send.disabled = false; }
     });
@@ -3152,6 +3160,7 @@
   }
   if (window.VCWhisper) window.VCWhisper.deps = { h, pb, toast, go, me, errMsg, personChip };
   if (window.VCConfess) window.VCConfess.deps = { h, pb, toast, go, me, errMsg };
+  if (window.VCTod) window.VCTod.deps = { h, pb, toast, go, me, errMsg, personChip, fileUrl, openViewer, reportPhoto };
   if (window.VCNetwork) window.VCNetwork.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, fileUrl };
   if (window.VCMod) window.VCMod.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, copyText };
   if (window.VCHunt) window.VCHunt.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, parseTags, copyText, limitsBody };
