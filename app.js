@@ -567,7 +567,7 @@
     if (!user) {
       // Visitors land on the events calendar; About is the group page (or the sign-up pitch).
       nav.append(
-        h("a", { class: "btn small ghost" + (here === "events" || here === "home" ? " current" : ""), href: "/events", "data-nav": "" }, "Events"),
+        h("a", { class: "btn small ghost" + (here === "events" ? " current" : ""), href: "/events", "data-nav": "" }, "Events"),
         h("a", { class: "btn small ghost" + (here === "group" ? " current" : ""), href: "/velvetcollar", "data-nav": "" }, "About"),
         h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"),
         h("a", { class: "btn small gold", href: "/join", "data-nav": "" }, "Join"));
@@ -600,7 +600,7 @@
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
       checkConsent().then(volNews).then(announce);
-      if (r.name === "home") return me() ? await renderDirectory() : await renderEvents();
+      if (r.name === "home") return me() ? await renderDirectory() : await renderEvents(true);
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
       if (r.name === "playroom") return await renderPlayroom();
@@ -754,7 +754,8 @@
   }
 
   // ---------- events (added by admins in the dashboard) ----------
-  async function renderEvents() {
+  // `landing`: the welcome page visitors see at / (what's coming up, and a way into the calendar).
+  async function renderEvents(landing) {
     document.title = "Events · Velvet Collar";
     const data = await pb.send("/api/vc/events", {});
     const guest = !me();
@@ -947,17 +948,26 @@
         guest ? h("div", { class: "cal-legend" }, KINDS.filter(([k]) => k !== "going" && k !== "bday").map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)))
           : h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine));
     // Visitors: a short welcome, then the next events in full, then the calendar to browse (folded on phones).
+    if (guest && !landing) {
+      app.replaceChildren(
+        h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Events calendar"),
+          h("p", { class: "muted" }, "Tap a day to see what's on. Locations and who's going are shown to members."),
+          h("div", { class: "actions" }, h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Join us"),
+            h("small", { class: "faint" }, "You'll need the join code from the group chat."))),
+        calPanel(), listHead, list);
+      return;
+    }
     if (guest) {
-      const next = data.upcoming.slice(0, 6);
-      const browse = h("details", { class: "browse-month" }, h("summary", {}, h("b", {}, "📅 Browse by month")), calPanel(), listHead, list);
-      browse.open = window.innerWidth >= 760;
+      const next = data.upcoming.slice(0, 4);
+      const browse = h("div", { class: "actions see-cal" }, h("a", { class: "btn", href: "/events", "data-nav": "" }, "📅 See the full calendar →"));
       app.replaceChildren(
         h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Velvet Collar events"),
           h("p", { class: "muted" }, "Munches, game nights and play parties from Sacramento's 21+ kink community. Locations and who's going are shown to members."),
           h("div", { class: "actions" }, h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Join us"),
             h("small", { class: "faint" }, "You'll need the join code from the group chat."))),
         h("section", { class: "coming-up" }, h("h2", {}, "✨ Coming up"),
-          next.length ? h("div", { class: "events" }, next.map((ev) => eventCard(ev, true))) : h("p", { class: "muted" }, "Nothing on the calendar yet. Check back soon!")),
+          next.length ? h("div", { class: "events" }, next.map((ev) => eventCard(ev, true))) : h("p", { class: "muted" }, "Nothing on the calendar yet. Check back soon!"),
+          data.upcoming.length > next.length ? h("p", { class: "faint", style: "margin:8px 0 0" }, `+ ${data.upcoming.length - next.length} more coming up`) : null),
         browse);
       return;
     }
