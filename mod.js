@@ -192,6 +192,8 @@
       "Type a question and pick the day it starts. Queue a few ahead and they go live by themselves.",
       "The newest question whose start day has arrived is the live one (🟢 live now).",
       "Hide or delete questions; deleting removes their answers too.",
+      "📚 Question bank: tap Use this (or 🎲 Pick one for me) to drop a ready-made question into the box, pick the day, then Add question.",
+      "Queued bank questions move to Used so they don't come up again. ↩️ Put back makes one available again; ➕ Add to the bank takes a paste, one per line.",
     ], []],
     ["activity", "📈 Activity", "activity", "When people are on the site and what they use.", [
       "Pick the last 7, 30 or 90 days. The numbers compare with the period before.",
@@ -1337,9 +1339,10 @@
   }
 
   // ---------- question of the week ----------
+  let bankUsed = false;
   async function question(body) {
     const { h, pb, toast, errMsg } = deps();
-    const data = await pb.send("/api/vc/mod/questions", {});
+    const [data, bank] = await Promise.all([pb.send("/api/vc/mod/questions", {}), pb.send("/api/vc/mod/qotw-bank" + (bankUsed ? "?used=1" : ""), {}).catch(() => null)]);
     const nextMonday = (() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.toISOString().slice(0, 10); })();
     const text = h("input", { type: "text", maxlength: 140, placeholder: "What's a kink you'd never have guessed you'd love?" });
     const starts = h("input", { type: "date", value: nextMonday });
@@ -1350,6 +1353,31 @@
     });
     const now = Date.now();
     const live = data.questions.find((q) => !q.hidden && Date.parse(String(q.starts).replace(" ", "T")) <= now);
+    // The bank: personal questions ready to go. "Use this" puts one in the box above; adding it marks it used.
+    const use = (t) => { text.value = t; text.focus(); text.scrollIntoView({ behavior: "smooth", block: "center" }); toast("Pick the start day, then Add question."); };
+    const bankPanel = !bank ? "" : (() => {
+      const paste = h("textarea", { rows: 3, placeholder: "Paste questions, one per line (up to 140 characters each)." });
+      const addBox = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add to the bank"), paste,
+        h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: async () => {
+          try { const r = await pb.send("/api/vc/mod/qotw-bank", { method: "POST", body: { lines: paste.value } }); toast(`Added ${r.added}${r.skipped ? ` (${r.skipped} skipped: repeats or too long)` : ""}`); question(body); } catch (err) { toast(errMsg(err), true); }
+        } }, "Add")));
+      const rows = bank.items.map((q) => h("div", { class: "qb-row" },
+        h("span", { class: "qb-text" }, q.text, bankUsed && q.used_at ? h("small", { class: "faint" }, ` · used ${day(q.used_at)}`) : null),
+        h("span", { class: "actions", style: "margin:0" },
+          bankUsed ? h("button", { type: "button", class: "btn small ghost", onclick: async () => { try { await pb.send(`/api/vc/mod/qotw-bank/${q.id}`, { method: "POST", body: { used: false } }); toast("Back in the bank"); question(body); } catch (err) { toast(errMsg(err), true); } } }, "↩️ Put back")
+            : h("button", { type: "button", class: "btn small gold", onclick: () => use(q.text) }, "Use this"),
+          h("button", { type: "button", class: "btn small ghost", "aria-label": "Delete", title: "Delete", onclick: async () => { if (!confirm("Delete this question from the bank?")) return; try { await pb.send(`/api/vc/mod/qotw-bank/${q.id}`, { method: "DELETE" }); question(body); } catch (err) { toast(errMsg(err), true); } } }, "🗑"))));
+      const unusedList = bankUsed ? [] : bank.items;
+      return h("section", { class: "panel" },
+        h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "📚 Question bank"),
+          !bankUsed && unusedList.length ? h("button", { type: "button", class: "btn small ghost", onclick: () => use(unusedList[Math.floor(Math.random() * unusedList.length)].text) }, "🎲 Pick one for me") : null),
+        h("p", { class: "faint" }, "Personal, getting-to-know-you questions ready to send out. Tap Use this, pick the day, and add it. Once it's queued it moves to Used, so it won't come up again."),
+        h("div", { class: "pills" },
+          h("button", { type: "button", class: "pill", "aria-pressed": String(!bankUsed), onclick: () => { bankUsed = false; question(body); } }, `Ready (${bank.unused})`),
+          h("button", { type: "button", class: "pill", "aria-pressed": String(bankUsed), onclick: () => { bankUsed = true; question(body); } }, `Used (${bank.used})`)),
+        addBox,
+        rows.length ? h("div", { class: "qb-list" }, rows) : h("p", { class: "muted" }, bankUsed ? "Nothing used yet." : "The bank is empty. Add some questions!"));
+    })();
     body.replaceChildren(
       h("section", { class: "panel" }, h("h2", {}, "Queue a question"),
         h("p", { class: "faint", style: "margin-top:-6px" }, "The newest question whose start day has arrived is the one members see. Queue a few ahead and they'll go live by themselves."),
@@ -1363,7 +1391,7 @@
           h("span", { class: "actions", style: "margin:0" },
             h("button", { type: "button", class: "btn small ghost", onclick: async () => { try { await pb.send(`/api/vc/mod/questions/${q.id}`, { method: "POST", body: { hidden: !q.hidden } }); question(body); } catch (err) { toast(errMsg(err), true); } } }, q.hidden ? "Show" : "Hide"),
             h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (!confirm("Delete this question and its answers?")) return; try { await pb.send(`/api/vc/mod/questions/${q.id}`, { method: "DELETE" }); toast("Deleted"); question(body); } catch (err) { toast(errMsg(err), true); } } }, "Delete")));
-      }) : h("p", { class: "muted" }, "No questions yet.")));
+      }) : h("p", { class: "muted" }, "No questions yet.")), bankPanel);
   }
 
   // ---------- content clean-up ----------
