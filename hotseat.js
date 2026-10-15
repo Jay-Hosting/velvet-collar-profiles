@@ -167,6 +167,7 @@
         info.textContent = r.total ? `${r.total} answer${r.total === 1 ? "" : "s"}${archive.q ? " found" : ""}. Page ${r.page} of ${r.pages}.` : "";
         const redraw = () => list.replaceChildren(...(r.items.length ? r.items.map((a) => answerCard(a, redraw)) : [h("p", { class: "muted" }, archive.q ? "Nothing matches that." : "Nothing in the archive yet. Answers move here after a week on the wall.")]));
         redraw();
+        if (r.pages <= 1) { pager.replaceChildren(); return; }
         pager.replaceChildren(
           h("button", { type: "button", class: "btn small ghost", disabled: r.page <= 1, onclick: () => { archive.page--; load(); window.scrollTo(0, 0); } }, "‹ Newer"),
           h("button", { type: "button", class: "btn small ghost", disabled: r.page >= r.pages, onclick: () => { archive.page++; load(); window.scrollTo(0, 0); } }, "Older ›"));
@@ -174,7 +175,7 @@
       root.replaceChildren(
         h("section", { class: "playroom-head" }, h("h1", {}, "🗂️ Hot Seat archive"),
           h("p", { class: "muted" }, "Every answer from past weeks."),
-          h("button", { type: "button", class: "btn small ghost", onclick: () => { view = "play"; draw(); } }, "‹ Back to the game")),
+          h("button", { type: "button", class: "btn small ghost", style: "margin-top:8px", onclick: () => { view = "play"; draw(); } }, "‹ Back to the game")),
         search, info, list, pager);
       load();
     }

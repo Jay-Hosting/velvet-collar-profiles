@@ -2019,3 +2019,5 @@ label.check.is-off { opacity: .5; cursor: not-allowed; }
 img, video { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; }
 .ph, .viewer-media, .tod-proof, .pr-media, .mod-photos, .gallery-side, .hs-post { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .card-preview, .allow-save { -webkit-touch-callout: default; -webkit-user-drag: auto; }
+/* Messages inside the two-column walls span the full width instead of breaking across the columns. */
+.hs-wall > p, .tod-wall > p, .cb-wall > p { column-span: all; margin: 0; }
