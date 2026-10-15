@@ -5,12 +5,13 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["games", "🎲 Games"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["hotseat", "🔥 Hot Seat"], ["tod", "🎲 Truth or Dare"], ["bingo", "🔢 Kink Bingo"], ["match", "🎭 Mystery Match"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
   const GROUPS = [
     ["people", "👥 People", ["members", "vetting", "noprofile"]],
     ["events", "📅 Events", ["events", "volunteers"]],
-    ["moderation", "🛡️ Moderation", ["reports", "confessions", "games", "content"]],
+    ["moderation", "🛡️ Moderation", ["reports", "confessions", "content"]],
+    ["games", "🎲 Games", ["hotseat", "tod", "bingo", "match"]],
     ["ideas", "💡 Ideas", ["feedback", "backlog"]],
     ["site", "🏠 Site", ["announce", "group", "question"]],
     ["activity", "📈 Activity", ["activity"]],
@@ -60,7 +61,7 @@
     ], [
       "🗝️ Owners see everything, including vetting, volunteers and the old application sheet.",
       "🛡️ Admins see everything except those three.",
-      "🎪 Hosts only see Events, Confessions and Games.",
+      "🎪 Hosts only see Events, Confessions, and the Truth or Dare, Bingo and Mystery Match tabs.",
       "Everything here acts on real accounts and is saved straight away. Anything that can't be undone asks you first.",
     ]],
     ["members", "👥 All members", "members", "Everyone on the site, and a member card for each person.", [
@@ -139,18 +140,31 @@
       "Must-acknowledge ones jump the queue. If there are several, members see them one after another.",
       "Members who join later still get any announcement that's running, so end the ones that are over.",
     ]],
-    ["games", "🎲 Games", "games", "The Playroom games' moving parts. Hosts can use it too.", [
-      "🔥 Hot Seat (admins and owners): ➕ Add questions takes a paste, one per line. 20 sit on deck at a time and refill from ⏳ Queue at random.",
-      "Answered questions move to ✅ Answered with who answered them and when. ↩️ Put back in the queue lets them be asked again; 📦 Retire takes one out for good.",
-      "🎭 Mystery Match: weekly totals only. Who is paired with whom stays private, even from owners.",
-      "🔢 Kink Bingo: this month's numbers are at the bottom of the page. The squares are part of the site itself, so changing them needs a site update.",
-      "🎲 Truth or Dare: member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
-      "🛟 Players & safeword passes (admins and owners): passes refill every Monday on their own; Reset passes gives someone theirs back early, or use Reset everyone's passes.",
-      "➕ Add a card puts your own straight into the deck. 📦 Retire takes a card out without deleting it.",
-      "Heat levels: 🌸 Mild, 🌶️ Spicy, 🔥 Scorching. Players only get cards at or below the heat they chose.",
+    ["hotseat", "🔥 Hot Seat", "hotseat", "The Hot Seat question deck. Admins and owners only.", [
+      "➕ Add questions takes a paste, one per line. Numbers at the start are fine, and repeats are skipped.",
+      "20 questions sit 🃏 On deck at a time and refill from ⏳ Queue at random.",
+      "Answered questions move to ✅ Answered with who answered them and when. ↩️ Put back in the queue lets one be asked again; 📦 Retire takes it out for good.",
     ], [
+      "A question in someone's inbox can't be moved until it's answered or passed.",
+      "Reported questions and answers show up in ⚑ Reports.",
+    ]],
+    ["tod", "🎲 Truth or Dare", "tod", "The Truth or Dare deck and players. Hosts can use it too.", [
+      "Member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
+      "➕ Add a card puts your own straight into the deck. 📦 Retire takes a card out without deleting it.",
+      "🛟 Players & safeword passes (admins and owners): passes refill every Monday on their own; Reset passes gives someone theirs back early.",
+    ], [
+      "Heat levels: 🌸 Mild, 🌶️ Spicy, 🔥 Scorching. Players only get cards at or below the heat they chose.",
       "Cards that touch a member's limits are never dealt to them, so tag-worthy words (rope, impact, photo…) help.",
-      "Reported answers and photos show up in ⚑ Reports.",
+    ]],
+    ["bingo", "🔢 Kink Bingo", "bingo", "How this month's bingo cards are going.", [
+      "Shows how many opened a card, ticked something, got a line or a blackout, and the most-ticked squares.",
+    ], [
+      "The squares are part of the site itself, so changing them needs a site update.",
+    ]],
+    ["match", "🎭 Mystery Match", "match", "This week's Mystery Match, in totals only.", [
+      "Shows how many are playing, pairs this week, pairs talking and reveals.",
+    ], [
+      "Who is paired with whom stays private, even from owners. Reports show up in ⚑ Reports marked [Mystery Match].",
     ]],
     ["content", "🧹 Content", "content", "Clean up photos, kind notes and question answers.", [
       "Pick 📷 Photos, 💌 Kind notes or ❓ Answers. Newest first.",
@@ -232,13 +246,14 @@
       return;
     }
     // Vetting is owners only; hosts get Events.
-    const tabs = (sum.mod ? TABS : TABS.filter((t) => t[0] === "events" || t[0] === "confessions" || t[0] === "games")).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
+    const tabs = (sum.mod ? TABS : TABS.filter((t) => ["events", "confessions", "tod", "bingo", "match"].includes(t[0]))).filter((t) => (t[0] !== "vetting" && t[0] !== "volunteers" && t[0] !== "noprofile") || sum.owner);
     // Things waiting for someone, per tab (shown as a count on the tab and its group).
-    const waiting = { reports: sum.openReports || 0, vetting: (sum.newForms || 0) + (sum.vetMatches || 0), confessions: sum.newConfessions || 0, games: sum.newTodCards || 0, volunteers: sum.newVolunteers || 0, feedback: sum.newFeedback || 0 };
+    const waiting = { reports: sum.openReports || 0, vetting: (sum.newForms || 0) + (sum.vetMatches || 0), confessions: sum.newConfessions || 0, tod: sum.newTodCards || 0, volunteers: sum.newVolunteers || 0, feedback: sum.newFeedback || 0 };
     const allowed = new Set(tabs.map((t) => t[0]));
     const label = Object.fromEntries(tabs);
     const groups = GROUPS.map(([id, name, ids]) => [id, name, ids.filter((t) => allowed.has(t))]).filter((g) => g[2].length);
     // No tab in the link (or one this person can't open): start where something is waiting, else People (or Events for hosts).
+    if (tab === "games") tab = allowed.has("hotseat") ? "hotseat" : "tod";
     if (!allowed.has(tab)) tab = tabs.map((t) => t[0]).find((t) => waiting[t]) || (allowed.has("members") ? "members" : tabs[0][0]);
     const open = groups.find((g) => g[2].includes(tab));
     const badge = (n) => (n ? h("span", { class: "nav-badge" }, String(n)) : null);
@@ -253,7 +268,7 @@
     const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", title: "How this page works, and everything else", onclick: () => openGuide(allowed, tab) }, "📖 Admin guide");
     app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, games, feedback, backlog, activity, announce, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, hotseat: (b) => { gameTab = "hotseat"; return games(b); }, tod: (b) => { gameTab = "tod"; return games(b); }, bingo: (b) => { gameTab = "bingo"; return games(b); }, match: (b) => { gameTab = "match"; return games(b); }, feedback, backlog, activity, announce, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -895,11 +910,13 @@
         d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, "Nothing sent yet.")));
   }
 
+  // ---------- games: each game is its own tab (gameTab says which) ----------
+  let gameTab = "tod";
   // ---------- games: Hot Seat questions (admins and owners) ----------
   let hsView = "active";
   function hotSeatPanel(d) {
     const { h, pb, toast, errMsg, personChip } = deps();
-    const refresh = () => render(document.getElementById("app"), "games");
+    const refresh = () => render(document.getElementById("app"), "hotseat");
     const set = async (q, patch, msg) => { try { await pb.send(`/api/vc/mod/hotseat/${q.id}`, { method: "POST", body: patch }); toast(msg); refresh(); } catch (err) { toast(errMsg(err), true); } };
     const paste = h("textarea", { rows: 4, placeholder: "Paste new questions, one per line. Numbers at the start are fine; repeats are skipped." });
     const add = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add questions"), paste,
@@ -938,7 +955,7 @@
     const [d, tp, bg, mm, hs] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null), pb.send("/api/vc/mod/hotseat?status=" + hsView, {}).catch(() => null)]);
     const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
     const heatL = Object.fromEntries(HEAT);
-    const tab = document.querySelector('.mod-tabs a[href="/admin/games"]');
+    const tab = document.querySelector('.mod-tabs a[href="/admin/tod"]');
     if (tab) { tab.querySelector(".nav-badge")?.remove(); if (d.counts.pending) tab.append(h("span", { class: "nav-badge" }, String(d.counts.pending))); }
     const save = async (c, patch, msg) => { try { await pb.send(`/api/vc/mod/tod/${c.id}`, { method: "POST", body: patch }); toast(msg); games(body); } catch (err) { toast(errMsg(err), true); } };
     const sel = (opts, v) => h("select", {}, opts.map(([k, l]) => h("option", { value: k, selected: k === v }, l)));
@@ -982,7 +999,7 @@
           : h("p", { class: "muted" }, "Nobody's playing yet."));
     }
     const VIEWS = [["pending", "⏳ Member ideas"], ["approved", "🃏 In the deck"], ["rejected", "🙅 Not added"], ["retired", "📦 Retired"]];
-    body.replaceChildren(hs ? hotSeatPanel(hs) : "", h("section", { class: "panel" },
+    const parts = [hs ? hotSeatPanel(hs) : h("p", { class: "muted" }, "Hot Seat questions are for admins and owners."), h("section", { class: "panel" },
       h("h2", {}, "🎲 Truth or Dare deck"),
       h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} member${d.players === 1 ? " is" : "s are"} playing. Members can suggest cards; they wait here until a host adds them. Cards that touch someone's limits are never dealt to them. Edit before adding if a card needs a tweak. Members play at `,
         h("a", { href: "/truthordare", "data-nav": "" }, location.origin + "/truthordare"), "."),
@@ -1006,7 +1023,10 @@
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.players)), h("small", {}, "playing")),
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.pairs)), h("small", {}, "pairs this week")),
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.talking)), h("small", {}, "pairs talking")),
-          h("span", { class: "tod-stat" }, h("b", {}, String(mm.reveals || mm.lastWeekReveals)), h("small", {}, mm.reveals ? "reveals" : "reveals last week")))) : "");
+          h("span", { class: "tod-stat" }, h("b", {}, String(mm.reveals || mm.lastWeekReveals)), h("small", {}, mm.reveals ? "reveals" : "reveals last week")))) : ""];
+    // Each game has its own tab under 🎲 Games.
+    const show = { hotseat: [0], tod: [1, 2], bingo: [3], match: [4] }[gameTab] || [1, 2];
+    body.replaceChildren(...show.map((i) => parts[i]).filter(Boolean));
   }
 
   // ---------- applicants from the old sheet who haven't made a profile yet (owners only) ----------
