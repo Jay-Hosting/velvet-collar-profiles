@@ -9,6 +9,7 @@
     enm: "ENM", kitchen_table: "Kitchen table poly", garden_party: "Garden party poly", parallel: "Parallel poly", hierarchical: "Hierarchical poly", non_hierarchical: "Non-hierarchical poly",
     polyfidelity: "Polyfidelity", triad: "Triad / throuple", quad: "Quad", polycule: "Polycule", mono_poly: "Mono/poly" };
   let tab = "matches", realm = "all";
+  const REALM_H = { kink: "⛓️ Kink", romance: "🌹 Romance", hobby: "🎨 Hobbies" };
 
   async function render(app) {
     const { h, pb, toast, errMsg } = deps();
@@ -28,8 +29,8 @@
     // ---- picking circles (used by setup and "My interests") ----
     function picker(sel) {
       const wrap = h("div", { class: "net-picker" });
-      const drawP = () => wrap.replaceChildren(...["kink", "romance"].map((r) => h("div", { class: "net-realm" },
-        h("h3", {}, r === "kink" ? "⛓️ Kink" : "🌹 Romance"),
+      const drawP = () => wrap.replaceChildren(...["kink", "romance", "hobby"].map((r) => h("div", { class: "net-realm" },
+        h("h3", {}, REALM_H[r]),
         h("div", { class: "pills" }, d.circles.filter((c) => c.realm === r).map((c) => h("button", { type: "button", class: "pill" + (d.suggested.includes(c.key) && !sel.has(c.key) ? " net-sugg" : ""), "aria-pressed": String(sel.has(c.key)),
           title: d.suggested.includes(c.key) ? "Suggested from your profile" : "", onclick: () => { sel.has(c.key) ? sel.delete(c.key) : sel.add(c.key); drawP(); } }, `${c.emoji} ${c.label}`))))));
       drawP();
@@ -104,7 +105,7 @@
       const best = Math.max(1, ...list.map(scoreOf));
       const chips = (arr, cls) => arr.map((x) => h("span", { class: "net-chip " + cls }, x));
       const card = (m) => {
-        const circ = realm === "hobby" ? [] : m.circles.filter((c) => realm === "all" || c.realm === realm);
+        const circ = m.circles.filter((c) => realm === "all" || c.realm === realm);
         const parts = (r) => [
           r.love.length ? h("div", { class: "net-row" }, h("b", {}, "💞 Both love"), chips(r.love, "love")) : null,
           r.enjoy.length ? h("div", { class: "net-row" }, h("b", {}, "😊 Both enjoy"), chips(r.enjoy.slice(0, 8), "enjoy")) : null,
@@ -147,7 +148,7 @@
         if (r) { d = await pb.send("/api/vc/network", {}); circles(holder); openCircle(c); }
       } }, mineSet.has(c.key) ? "Leave circle" : "🫶 Join circle");
       holder.replaceChildren(
-        ...["kink", "romance"].map((r) => h("section", { class: "panel" }, h("h2", {}, r === "kink" ? "⛓️ Kink circles" : "🌹 Romance circles"),
+        ...["kink", "romance", "hobby"].map((r) => h("section", { class: "panel" }, h("h2", {}, REALM_H[r] + " circles"),
           h("div", { class: "net-circles" }, d.circles.filter((c) => c.realm === r).map((c) => h("button", { type: "button", class: "net-circ" + (mineSet.has(c.key) ? " in" : ""), onclick: () => openCircle(c) },
             h("span", { class: "net-circ-e", "aria-hidden": "true" }, c.emoji), h("b", {}, c.label), h("small", {}, `${c.count} member${c.count === 1 ? "" : "s"}${mineSet.has(c.key) ? " · you're in" : ""}`)))))),
         view);
