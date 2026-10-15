@@ -5,13 +5,13 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["hotseat", "🔥 Hot Seat"], ["tod", "🎲 Truth or Dare"], ["bingo", "🔢 Kink Bingo"], ["match", "🎭 Mystery Match"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["hotseat", "🔥 Hot Seat"], ["tod", "🎲 Truth or Dare"], ["bingo", "🔢 Kink Bingo"], ["match", "🎭 Mystery Match"], ["peek", "🙈 Peekaboo"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
   const GROUPS = [
     ["people", "👥 People", ["members", "vetting", "noprofile"]],
     ["events", "📅 Events", ["events", "volunteers"]],
     ["moderation", "🛡️ Moderation", ["reports", "confessions", "content"]],
-    ["games", "🎲 Games", ["hotseat", "tod", "bingo", "match"]],
+    ["games", "🎲 Games", ["hotseat", "tod", "bingo", "match", "peek"]],
     ["ideas", "💡 Ideas", ["feedback", "backlog"]],
     ["site", "🏠 Site", ["announce", "group", "question"]],
     ["activity", "📈 Activity", ["activity"]],
@@ -161,6 +161,13 @@
     ], [
       "The squares are part of the site itself, so changing them needs a site update.",
     ]],
+    ["peek", "🙈 Peekaboo", "peek", "Peekaboo totals. Admins and owners only.", [
+      "Shows players, peeks in play, guesses and right guesses for the last 7 days.",
+      "Reported peeks show up in ⚑ Reports, where you can tap to view the photo and delete it, keep it hidden, or say it's fine.",
+    ], [
+      "Peeks are private to players. Admins can only open one after it's been reported, so playing admins can't peek at answers.",
+      "Reports for a minor, someone who didn't agree, or a visible face hide the peek straight away.",
+    ]],
     ["match", "🎭 Mystery Match", "match", "This week's Mystery Match, in totals only.", [
       "Shows how many are playing, pairs this week, pairs talking and reveals.",
     ], [
@@ -270,7 +277,7 @@
     const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", title: "How this page works, and everything else", onclick: () => openGuide(allowed, tab) }, "📖 Admin guide");
     app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, hotseat: (b) => { gameTab = "hotseat"; return games(b); }, tod: (b) => { gameTab = "tod"; return games(b); }, bingo: (b) => { gameTab = "bingo"; return games(b); }, match: (b) => { gameTab = "match"; return games(b); }, feedback, backlog, activity, announce, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, hotseat: (b) => { gameTab = "hotseat"; return games(b); }, tod: (b) => { gameTab = "tod"; return games(b); }, bingo: (b) => { gameTab = "bingo"; return games(b); }, match: (b) => { gameTab = "match"; return games(b); }, peek: (b) => { gameTab = "peek"; return games(b); }, feedback, backlog, activity, announce, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -340,6 +347,31 @@
     }));
   }
 
+  // Reported Peekaboo peeks: admins can open the photo (only once it's been reported) and decide.
+  async function peekReports(holder, refresh) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    let d; try { d = await pb.send("/api/vc/mod/peek-reports", {}); } catch (err) { holder.replaceChildren(); return; }
+    if (!d.items.length) { holder.replaceChildren(); return; }
+    const RL = { minor: "🚸 Someone under 18", consent: "🙅 Didn't agree to be posted", face: "🙂 Face showing", guidelines: "📜 Breaks the guidelines", other: "💬 Other" };
+    const act = async (it, action) => { if (action === "delete" && !confirm("Delete this peek and its photo for good?")) return; try { await pb.send(`/api/vc/mod/peek-reports/${it.post.id}`, { method: "POST", body: { action } }); toast({ restore: "Restored", delete: "Deleted", keep_hidden: "Kept hidden" }[action]); refresh(); } catch (err) { toast(errMsg(err), true); } };
+    const view = (it, box) => {
+      fetch(pb.baseURL.replace(/\/+$/, "") + `/api/vc/peek/posts/${it.post.id}/img/full`, { headers: { Authorization: pb.authStore.token }, cache: "no-store" })
+        .then((r) => (r.ok ? r.blob() : null)).then((b) => { if (b) box.replaceChildren(h("img", { src: URL.createObjectURL(b), alt: "Reported peek", class: "pk-img" })); });
+    };
+    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `🙈 Reported Peekaboo peeks (${d.items.length})`), ...d.items.map((it) => {
+      const media = h("div", { class: "pr-media blurred" }, h("button", { type: "button", class: "pr-reveal", onclick: () => { media.classList.remove("blurred"); view(it, media); } }, "Tap to view"));
+      return h("section", { class: "panel mod-report pr-card" }, h("div", { class: "pr-grid" }, media,
+        h("div", {},
+          h("p", { class: "mod-who", style: "margin-top:0" }, "Posted by ", it.post.owner ? personChip(it.post.owner) : h("i", {}, "deleted"), it.post.flagged ? h("span", { class: "att-tag" }, "🔒 Hidden") : h("span", { class: "att-tag" }, "👀 Still in play")),
+          it.post.hint ? h("p", { class: "faint" }, "💭 " + it.post.hint) : null,
+          h("ul", { class: "pr-list" }, it.reports.map((r) => h("li", {}, h("b", {}, RL[r.reason] || r.reason), " · ", r.reporter ? personChip(r.reporter) : h("i", {}, "deleted"), h("small", { class: "faint" }, ` · ${when(r.created)}`), r.note ? h("div", { class: "faint" }, "“" + r.note + "”") : null))),
+          h("div", { class: "actions" },
+            h("button", { type: "button", class: "btn small danger", onclick: () => act(it, "delete") }, "🗑 Delete it"),
+            h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "keep_hidden") }, "🔒 Keep hidden"),
+            h("button", { type: "button", class: "btn small gold", onclick: () => act(it, "restore") }, "✅ It's fine")))));
+    }));
+  }
+
   // Reported Hot Seat questions and answers.
   async function hsReports(holder, refresh) {
     const { h, pb, toast, personChip, errMsg } = deps();
@@ -362,12 +394,13 @@
     const { h, pb, toast, personChip, errMsg } = deps();
     const data = await pb.send("/api/vc/mod/reports", {});
     const act = async (path, payload, msg) => { try { await pb.send(path, { method: "POST", body: payload }); toast(msg); reports(body); } catch (err) { toast(errMsg(err), true); } };
-    const photoHolder = h("div", {}), todHolder = h("div", {}), hsHolder = h("div", {});
+    const photoHolder = h("div", {}), todHolder = h("div", {}), hsHolder = h("div", {}), pkHolder = h("div", {});
+    peekReports(pkHolder, () => reports(body));
     photoReports(photoHolder, () => reports(body));
     todReports(todHolder, () => reports(body));
     hsReports(hsHolder, () => reports(body));
-    if (!data.reports.length) { body.replaceChildren(photoHolder, todHolder, hsHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
-    body.replaceChildren(photoHolder, todHolder, hsHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
+    if (!data.reports.length) { body.replaceChildren(pkHolder, photoHolder, todHolder, hsHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
+    body.replaceChildren(pkHolder, photoHolder, todHolder, hsHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
       const who = r.reported;
       const lines = String(r.message || "").split("\n").filter(Boolean).map((l) => h("p", { class: /^Them:/.test(l) ? "them" : "rep" }, l.replace(/^Them:/, `${who ? who.display_name : "Them"}:`).replace(/^Reporter:/, `${r.reporter ? r.reporter.display_name : "Reporter"}:`)));
       return h("section", { class: "panel mod-report" + (r.handled ? " handled" : "") },
@@ -957,7 +990,7 @@
   let todView = "pending";
   async function games(body) {
     const { h, pb, toast, errMsg, personChip } = deps();
-    const [d, tp, bg, mm, hs] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null), pb.send("/api/vc/mod/hotseat?status=" + hsView, {}).catch(() => null)]);
+    const [d, tp, bg, mm, hs, pk] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null), pb.send("/api/vc/mod/hotseat?status=" + hsView, {}).catch(() => null), pb.send("/api/vc/mod/peek", {}).catch(() => null)]);
     const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
     const heatL = Object.fromEntries(HEAT);
     const tab = document.querySelector('.mod-tabs a[href="/admin/tod"]');
@@ -1030,7 +1063,15 @@
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.talking)), h("small", {}, "pairs talking")),
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.reveals || mm.lastWeekReveals)), h("small", {}, mm.reveals ? "reveals" : "reveals last week")))) : ""];
     // Each game has its own tab under 🎲 Games.
-    const show = { hotseat: [0], tod: [1, 2], bingo: [3], match: [4] }[gameTab] || [1, 2];
+    parts.push(pk ? h("section", { class: "panel" },
+      h("h2", {}, "🙈 Peekaboo"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Totals for the last 7 days. Peeks are private to players; admins only see one when it's been reported (in ⚑ Reports). Members play at ", h("a", { href: "/peekaboo", "data-nav": "" }, location.origin + "/peekaboo"), "."),
+      h("div", { class: "tod-stats" },
+        h("span", { class: "tod-stat" }, h("b", {}, String(pk.players)), h("small", {}, "playing")),
+        h("span", { class: "tod-stat" }, h("b", {}, String(pk.live)), h("small", {}, "peeks in play")),
+        h("span", { class: "tod-stat" }, h("b", {}, String(pk.guesses)), h("small", {}, "guesses")),
+        h("span", { class: "tod-stat" }, h("b", {}, String(pk.right)), h("small", {}, "right")))) : h("p", { class: "muted" }, "Peekaboo is for admins and owners."));
+    const show = { hotseat: [0], tod: [1, 2], bingo: [3], match: [4], peek: [5] }[gameTab] || [1, 2];
     body.replaceChildren(...show.map((i) => parts[i]).filter(Boolean));
   }
 
