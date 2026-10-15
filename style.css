@@ -2001,3 +2001,9 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .hs-anon { font-weight: 700; }
 .hs-hist { display: block; margin-top: 4px; }
 .tod-edit[hidden] { display: none; }
+/* Hot Seat deck: the whole card is the button, so the tap area and highlight fill it top to bottom. */
+.hs-card { display: flex; flex-direction: column; }
+.hs-card-q { flex: 1 1 auto; background: transparent !important; }
+.hs-card:not(.open):hover { background: rgba(236,197,237,.06); border-color: var(--line-strong); }
+.hs-card-q:hover { background: transparent; }
+@media (hover: none) { .hs-card:not(.open):hover { background: var(--panel); border-color: var(--line); } }
