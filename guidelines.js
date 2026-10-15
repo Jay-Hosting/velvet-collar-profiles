@@ -13,7 +13,7 @@ window.VCGuidelines = {
       "We are a sex-positive community where we encourage you to have fun and celebrate your wild side!",
       "In order for everyone to be able to celebrate everyone’s wild side, we ask that you be kind, respectful, open-minded, and nonjudgmental.",
       "No shaming. Including, but not limited to, kink, body, sexuality, gender, color, cultural, relationship-style!",
-      "Must be 18 years or older.",
+      "Must be 21 years or older.",
       "All members are required to abide by consensual contact practices.",
       "No stalking, harassing or bullying.",
       "Members may directly DM either @Nyycco or @TheOnlyLadyJ at any time.",
