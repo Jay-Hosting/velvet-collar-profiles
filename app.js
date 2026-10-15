@@ -743,13 +743,14 @@
       const draw = (ev) => {
         const past = isPast(ev);
         const ends = ev.ends ? parseDate(ev.ends) : null;
-        card.className = "event k-" + kind(ev) + (past ? " past" : "");
+        card.className = "event k-" + kind(ev) + (past ? " past" : "") + (ev.notInterested ? " not-int" : "");
         card.replaceChildren(
           h("div", { class: "event-emoji", "aria-hidden": "true" }, ev.emoji || "📅"),
           h("div", { class: "event-body" },
             h("div", { class: "event-tags" },
               ev.mine ? h("span", { class: "ev-tag going" }, past ? "✓ You went" : "✓ You're going") : null,
               ev.interested ? h("span", { class: "ev-tag interested" }, "⭐ You're interested") : null,
+              ev.notInterested ? h("span", { class: "ev-tag" }, "🙈 Not interested") : null,
               ev.hosted ? h("span", { class: "ev-tag hosted" }, "💜 Hosted by Velvet Collar") : null,
               ev.volunteer ? h("a", { class: "ev-tag vol", href: "/volunteer", "data-nav": "" }, ev.volunteer.status === "approved" ? "🙋 You're volunteering" + (ev.volunteer.role.length ? ": " + ev.volunteer.role.map((r) => ({ setup: "setup", crew: "party crew", breakdown: "breakdown" })[r] || r).join(", ") : "") : "🙋 Volunteer form sent") : null,
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
@@ -768,19 +769,24 @@
             h("div", { class: "actions", style: "margin:10px 0 0" },
               past ? h("span", { class: "faint" }, `${ev.going} went`) : (() => {
                 // "I'm going" and "Interested" are one choice: tapping the one you picked clears it.
+                // "Not interested" hides it from your calendar (into the Not interested section); any other choice brings it back.
                 const set = async (status, btns) => {
                   btns.forEach((x) => { x.disabled = true; });
+                  const wasHidden = !!ev.notInterested;
                   try {
                     const upd = await pb.send("/api/vc/rsvp", { method: "POST", body: { event: ev.id, status } });
-                    Object.assign(ev, upd); draw(ev); drawGrid();
-                    toast(upd.mine ? "🎉 See you there!" : upd.interested ? "⭐ Marked as interested" : "Taken off the list");
+                    Object.assign(ev, upd);
+                    if (wasHidden !== !!ev.notInterested) { drawGrid(); drawList(); } else { draw(ev); drawGrid(); }
+                    toast(upd.notInterested ? "🙈 Hidden. It's under “Not interested” at the bottom if you change your mind." : upd.mine ? "🎉 See you there!" : upd.interested ? "⭐ Marked as interested" : wasHidden ? "👀 Back on your calendar" : "Taken off the list");
                   } catch (err) { toast(errMsg(err), true); btns.forEach((x) => { x.disabled = false; }); }
                 };
                 const go = h("button", { type: "button", class: "btn small " + (ev.mine ? "gold" : ""), "aria-pressed": String(!!ev.mine) }, ev.mine ? "✓ I'm going" : "I'm going");
                 const maybe = h("button", { type: "button", class: "btn small interested-btn" + (ev.interested ? " on" : ""), "aria-pressed": String(!!ev.interested) }, ev.interested ? "⭐ Interested" : "☆ Interested");
-                go.addEventListener("click", () => set(ev.mine ? "" : "going", [go, maybe]));
-                maybe.addEventListener("click", () => set(ev.interested ? "" : "interested", [go, maybe]));
-                return [go, maybe];
+                const nope = h("button", { type: "button", class: "btn small ghost not-int-btn", "aria-pressed": String(!!ev.notInterested), title: ev.notInterested ? "Put it back on your calendar" : "Hide it from your calendar" }, ev.notInterested ? "👀 Show it again" : "🙈 Not interested");
+                go.addEventListener("click", () => set(ev.mine ? "" : "going", [go, maybe, nope]));
+                maybe.addEventListener("click", () => set(ev.interested ? "" : "interested", [go, maybe, nope]));
+                nope.addEventListener("click", () => set(ev.notInterested ? "" : "not", [go, maybe, nope]));
+                return [go, maybe, nope];
               })(),
               past ? null : addMenu(ev),
               !past && ev.volunteers && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
@@ -799,7 +805,8 @@
     const listHead = h("div", { class: "toggle-row cal-list-head" });
     const list = h("div", { class: "events" });
     const monthKey = () => `${vy}-${String(vm).padStart(2, "0")}`;
-    const evsOn = (key) => all.filter((ev) => dayKey(parseDate(ev.starts)) === key);
+    // Events you said "Not interested" to stay off the calendar; they're listed at the bottom instead.
+    const evsOn = (key, withHidden) => all.filter((ev) => dayKey(parseDate(ev.starts)) === key && (withHidden || !ev.notInterested));
     function drawGrid() {
       title.textContent = new Date(Date.UTC(vy, vm - 1, 15)).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
       const first = new Date(Date.UTC(vy, vm - 1, 1)).getUTCDay(), days = new Date(Date.UTC(vy, vm, 0)).getUTCDate();
@@ -819,13 +826,16 @@
       grid.replaceChildren(...cells);
     }
     function drawList() {
-      const evs = picked ? evsOn(picked) : all.filter((ev) => dayKey(parseDate(ev.starts)).startsWith(monthKey()));
+      const inView = picked ? evsOn(picked, true) : all.filter((ev) => dayKey(parseDate(ev.starts)).startsWith(monthKey()));
+      const evs = inView.filter((ev) => !ev.notInterested), nope = inView.filter((ev) => ev.notInterested && !isPast(ev));
       const upcoming = evs.filter((ev) => !isPast(ev)), past = evs.filter(isPast).reverse();
       const label = picked ? new Date(picked + "T12:00:00Z").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }) : `All of ${title.textContent}`;
       listHead.replaceChildren(...[h("h2", { style: "margin:0" }, label), picked ? h("button", { type: "button", class: "btn small ghost", onclick: () => { picked = ""; drawGrid(); drawList(); } }, "Show the whole month") : null].filter(Boolean));
       const bds = picked ? bdaysOn(picked) : BD.filter((b) => bdMd(b, vy).startsWith(String(vm).padStart(2, "0") + "-")).sort((a, b) => bdMd(a, vy) < bdMd(b, vy) ? -1 : 1);
       list.replaceChildren(...bds.map((b) => bdayCard(b, vy)), ...upcoming.map(eventCard), ...past.map(eventCard));
       if (!evs.length && !bds.length) list.append(h("p", { class: "muted" }, picked ? "Nothing on this day." : "Nothing on the calendar this month yet. Keep an eye on the group chat!"));
+      if (nope.length) list.append(h("details", { class: "not-int-box" }, h("summary", {}, `🙈 Not interested (${nope.length})`),
+        h("p", { class: "faint", style: "margin:6px 0 10px" }, "Events you've hidden from your calendar. Tap “Show it again”, I'm going or Interested to bring one back."), ...nope.map(eventCard)));
     }
     const move = (n) => { vm += n; if (vm < 1) { vm = 12; vy--; } if (vm > 12) { vm = 1; vy++; } picked = ""; drawGrid(); drawList(); };
     const mine = () => data.upcoming.filter((ev) => ev.mine || ev.interested);
@@ -1231,7 +1241,7 @@
       pb.send("/api/vc/relationships", {}).catch(() => null),
     ]);
     const cards = [];
-    const next = ev && ev.upcoming[0];
+    const next = ev && ev.upcoming.find((x) => !x.notInterested);
     cards.push(h("a", { class: "week-card", href: "/events", "data-nav": "" },
       h("span", { class: "pq" }, "📅 Next event"),
       next ? [h("b", {}, `${next.emoji || ""} ${next.title}`.trim()), h("small", {}, fmtWhen(next.starts) + (next.going ? ` · ${next.going} going` : ""))]

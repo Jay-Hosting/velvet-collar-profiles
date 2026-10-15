@@ -1631,3 +1631,9 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .mb-flag.ok { border-color: rgba(120, 220, 150, .55); }
 .mb-flag.no { border-color: rgba(255, 120, 140, .55); opacity: .85; }
 .mb-row2 { display: grid; gap: 4px; }
+
+/* Events marked "Not interested" */
+.not-int-box { margin-top: 8px; border: 1px dashed var(--line); border-radius: 16px; padding: 10px 12px; }
+.not-int-box summary { cursor: pointer; font-weight: 600; }
+.event.not-int { opacity: .7; }
+.not-int-btn[aria-pressed="true"] { border-color: var(--gold); }
