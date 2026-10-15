@@ -1,4 +1,4 @@
-/* Peekaboo, built into the site. Players post a photo of part of themselves (zoomed in on one spot, or the full view);
+/* Peekaboob, built into the site. Players post a photo of part of themselves (zoomed in on one spot, or the full view);
    everyone else guesses whose it is from the players' profile photos. Photos come through the game's own address,
    which checks who's asking, so a zoomed-in peek never gives away the full photo until you've guessed it.
    Uses helpers app.js shares on window.VCPeek.deps. */
@@ -24,7 +24,7 @@
 
   async function render(app) {
     const { h, pb, toast, errMsg, personChip, miniAvatar, go } = deps();
-    document.title = "Peekaboo · Velvet Collar";
+    document.title = "Peekaboob · Velvet Collar";
     while (urls.length) URL.revokeObjectURL(urls.pop());
     let d = await pb.send("/api/vc/peek", {});
     const root = h("div", { class: "pk" });
@@ -62,7 +62,7 @@
           h("li", {}, "🔒 Only people who guess right find out it's you. Nobody can save the photos, and a zoomed peek never shows the full photo until someone guesses it."),
           h("li", {}, "🗑 Take a peek down whenever you like. It's gone for good, photo and all. Peeks finish after a week.")),
         d.hasPhoto ? h("div", { class: "actions" }, h("button", { type: "button", class: "btn gold", onclick: () => act("/api/vc/peek/settings", "POST", { opt: true }, "🙈 You're in!") }, "🙈 I'm in"))
-          : h("p", { class: "photo-needed" }, "📷 Peekaboo matches peeks to profile photos, so you'll need one first. ", h("a", { href: "/edit", "data-nav": "" }, "Add a profile photo")),
+          : h("p", { class: "photo-needed" }, "📷 Peekaboob matches peeks to profile photos, so you'll need one first. ", h("a", { href: "/edit", "data-nav": "" }, "Add a profile photo")),
         h("p", { class: "faint" }, `${d.players} member${d.players === 1 ? " is" : "s are"} playing.`));
     }
 
@@ -200,7 +200,7 @@
     }
 
     function draw() {
-      const head = h("section", { class: "playroom-head" }, h("h1", {}, "🙈 Peekaboo"), h("p", { class: "muted" }, "A peek of a body, a wall of profile photos. Whose is it?"));
+      const head = h("section", { class: "playroom-head" }, h("h1", {}, "🙈 Peekaboob"), h("p", { class: "muted" }, "A peek of a body, a wall of profile photos. Whose is it?"));
       if (!d.opt) { root.replaceChildren(head, joinPanel()); return; }
       const open = d.feed.filter((p) => !p.solved && p.triesLeft), done = d.feed.filter((p) => p.solved || !p.triesLeft);
       root.replaceChildren(head,
@@ -208,7 +208,7 @@
           open.length ? h("div", { class: "pk-feed" }, open.map(peekCard)) : h("p", { class: "muted" }, d.roster.length ? "You've guessed everything in play. Post a peek of your own to keep it going!" : "You're the first player. Post a peek and invite others to join!")),
         postPanel(), minePanel(), boardPanel(),
         done.length ? h("details", { class: "panel cb-mine" }, h("summary", {}, h("b", {}, `✅ Ones you've played (${done.length})`)), h("div", { class: "pk-feed", style: "margin-top:10px" }, done.map(peekCard))) : "",
-        h("p", { class: "faint", style: "text-align:center" }, h("button", { type: "button", class: "linkish", onclick: () => { if (confirm("Leave Peekaboo? Your peeks come down too.")) act("/api/vc/peek/settings", "POST", { opt: false }, "You've left Peekaboo."); } }, "Leave Peekaboo")));
+        h("p", { class: "faint", style: "text-align:center" }, h("button", { type: "button", class: "linkish", onclick: () => { if (confirm("Leave Peekaboob? Your peeks come down too.")) act("/api/vc/peek/settings", "POST", { opt: false }, "You've left Peekaboob."); } }, "Leave Peekaboob")));
     }
     draw();
     app.replaceChildren(root);

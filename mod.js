@@ -5,7 +5,7 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["hotseat", "🔥 Hot Seat"], ["tod", "🎲 Truth or Dare"], ["bingo", "🔢 Kink Bingo"], ["match", "🎭 Mystery Match"], ["peek", "🙈 Peekaboo"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["hotseat", "🔥 Hot Seat"], ["tod", "🎲 Truth or Dare"], ["bingo", "🔢 Kink Bingo"], ["match", "🎭 Mystery Match"], ["peek", "🙈 Peekaboob"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
   const GROUPS = [
     ["people", "👥 People", ["members", "vetting", "noprofile"]],
@@ -161,7 +161,7 @@
     ], [
       "The squares are part of the site itself, so changing them needs a site update.",
     ]],
-    ["peek", "🙈 Peekaboo", "peek", "Peekaboo totals. Admins and owners only.", [
+    ["peek", "🙈 Peekaboob", "peek", "Peekaboob totals. Admins and owners only.", [
       "Shows players, peeks in play, guesses and right guesses for the last 7 days.",
       "Reported peeks show up in ⚑ Reports, where you can tap to view the photo and delete it, keep it hidden, or say it's fine.",
     ], [
@@ -347,7 +347,7 @@
     }));
   }
 
-  // Reported Peekaboo peeks: admins can open the photo (only once it's been reported) and decide.
+  // Reported Peekaboob peeks: admins can open the photo (only once it's been reported) and decide.
   async function peekReports(holder, refresh) {
     const { h, pb, toast, personChip, errMsg } = deps();
     let d; try { d = await pb.send("/api/vc/mod/peek-reports", {}); } catch (err) { holder.replaceChildren(); return; }
@@ -358,7 +358,7 @@
       fetch(pb.baseURL.replace(/\/+$/, "") + `/api/vc/peek/posts/${it.post.id}/img/full`, { headers: { Authorization: pb.authStore.token }, cache: "no-store" })
         .then((r) => (r.ok ? r.blob() : null)).then((b) => { if (b) box.replaceChildren(h("img", { src: URL.createObjectURL(b), alt: "Reported peek", class: "pk-img" })); });
     };
-    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `🙈 Reported Peekaboo peeks (${d.items.length})`), ...d.items.map((it) => {
+    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `🙈 Reported Peekaboob peeks (${d.items.length})`), ...d.items.map((it) => {
       const media = h("div", { class: "pr-media blurred" }, h("button", { type: "button", class: "pr-reveal", onclick: () => { media.classList.remove("blurred"); view(it, media); } }, "Tap to view"));
       return h("section", { class: "panel mod-report pr-card" }, h("div", { class: "pr-grid" }, media,
         h("div", {},
@@ -1064,13 +1064,13 @@
           h("span", { class: "tod-stat" }, h("b", {}, String(mm.reveals || mm.lastWeekReveals)), h("small", {}, mm.reveals ? "reveals" : "reveals last week")))) : ""];
     // Each game has its own tab under 🎲 Games.
     parts.push(pk ? h("section", { class: "panel" },
-      h("h2", {}, "🙈 Peekaboo"),
-      h("p", { class: "faint", style: "margin-top:-6px" }, "Totals for the last 7 days. Peeks are private to players; admins only see one when it's been reported (in ⚑ Reports). Members play at ", h("a", { href: "/peekaboo", "data-nav": "" }, location.origin + "/peekaboo"), "."),
+      h("h2", {}, "🙈 Peekaboob"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, "Totals for the last 7 days. Peeks are private to players; admins only see one when it's been reported (in ⚑ Reports). Members play at ", h("a", { href: "/peekaboob", "data-nav": "" }, location.origin + "/peekaboob"), "."),
       h("div", { class: "tod-stats" },
         h("span", { class: "tod-stat" }, h("b", {}, String(pk.players)), h("small", {}, "playing")),
         h("span", { class: "tod-stat" }, h("b", {}, String(pk.live)), h("small", {}, "peeks in play")),
         h("span", { class: "tod-stat" }, h("b", {}, String(pk.guesses)), h("small", {}, "guesses")),
-        h("span", { class: "tod-stat" }, h("b", {}, String(pk.right)), h("small", {}, "right")))) : h("p", { class: "muted" }, "Peekaboo is for admins and owners."));
+        h("span", { class: "tod-stat" }, h("b", {}, String(pk.right)), h("small", {}, "right")))) : h("p", { class: "muted" }, "Peekaboob is for admins and owners."));
     const show = { hotseat: [0], tod: [1, 2], bingo: [3], match: [4], peek: [5] }[gameTab] || [1, 2];
     body.replaceChildren(...show.map((i) => parts[i]).filter(Boolean));
   }

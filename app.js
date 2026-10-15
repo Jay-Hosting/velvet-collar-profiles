@@ -16,7 +16,7 @@
   new MutationObserver((list) => { for (const m of list) for (const n of m.addedNodes) { if (n.nodeType !== 1) continue; if (n.tagName === "VIDEO") noSave(n); else n.querySelectorAll && n.querySelectorAll("video").forEach(noSave); } })
     .observe(document.body, { childList: true, subtree: true });
   const nav = document.getElementById("nav");
-  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "truthordare", "tod", "bingo", "match", "mystery", "hotseat", "peek", "peekaboo", "_"];
+  const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "truthordare", "tod", "bingo", "match", "mystery", "hotseat", "peek", "peekaboo", "peekaboob", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
   // Relationship style (up to 3) and relationship types between members. A type is what the other person is to you.
   // Relationship styles: [value, label, group, what it means]. Members pick up to 5.
@@ -513,7 +513,7 @@
     if (path === "truthordare" || path === "tod") return { name: "truthordare" };
     if (path === "bingo") return { name: "bingo" };
     if (path === "hotseat" || path === "hot-seat") return { name: "hotseat" };
-    if (path === "peek" || path === "peekaboo") return { name: "peek" };
+    if (path === "peek" || path === "peekaboo" || path === "peekaboob") return { name: "peek" };
     if (path === "match" || path === "mystery") return { name: "match" };
     if (path === "network" || path === "networking") return { name: "network" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
@@ -619,7 +619,7 @@
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "confessions") return me() ? await window.VCConfess.render(app) : renderLogin("/confessions");
       if (r.name === "match") return me() ? await window.VCMatch.render(app) : renderLogin("/match");
-      if (r.name === "peek") return me() ? await window.VCPeek.render(app) : renderLogin("/peekaboo");
+      if (r.name === "peek") return me() ? await window.VCPeek.render(app) : renderLogin("/peekaboob");
       if (r.name === "hotseat") return me() ? await window.VCHotSeat.render(app) : renderLogin("/hotseat");
       if (r.name === "bingo") return me() ? await window.VCBingo.render(app) : renderLogin("/bingo");
       if (r.name === "truthordare") return me() ? await window.VCTod.render(app) : renderLogin("/truthordare");
@@ -743,9 +743,9 @@
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🔥"),
       h("span", { class: "game-txt" }, h("b", {}, "Hot Seat"), h("span", {}, "Pick a question from the deck and put another player in the hot seat. Answers go on the wall for a week, then into the archive. Opt in to play.")),
       h("span", { class: "game-go" }, "Play"));
-    const peekTile = h("a", { class: "game hunt-game", href: "/peekaboo", "data-nav": "" },
+    const peekTile = h("a", { class: "game hunt-game", href: "/peekaboob", "data-nav": "" },
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🙈"),
-      h("span", { class: "game-txt" }, h("b", {}, "Peekaboo"), h("span", {}, "Post a peek of yourself, zoomed in or full view, and everyone guesses whose it is from the profile photos. Spicy, blurred until tapped, players only. Opt in to play.")),
+      h("span", { class: "game-txt" }, h("b", {}, "Peekaboob"), h("span", {}, "Post a peek of yourself, zoomed in or full view, and everyone guesses whose it is from the profile photos. Spicy, blurred until tapped, players only. Opt in to play.")),
       h("span", { class: "game-go" }, "Play"));
     grid.prepend(hotTile, peekTile, todTile, matchTile, bingoTile, huntTile, whisperTile, confessTile, netTile);
     // Flag the tiles when something is waiting on you.
