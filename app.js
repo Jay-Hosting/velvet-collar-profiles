@@ -1568,7 +1568,7 @@
   async function openShare(p, photos) {
     const pics = [];
     if (p.avatar) pics.push({ key: "avatar", thumb: fileUrl(p, p.avatar, "200x200"), full: fileUrl(p, p.avatar), nsfw: false, label: "Profile photo" });
-    (photos || []).forEach((ph, i) => pics.push({ key: ph.id, thumb: fileUrl(ph, ph.image, "400x400"), full: fileUrl(ph, ph.image, "1200x0"), nsfw: !!ph.nsfw, label: ph.caption || "Photo " + (i + 1) }));
+    (photos || []).filter((ph) => !isVid(ph)).forEach((ph, i) => pics.push({ key: ph.id, thumb: fileUrl(ph, ph.image, "400x400"), full: fileUrl(ph, ph.image, "1200x0"), nsfw: !!ph.nsfw, label: ph.caption || "Photo " + (i + 1) }));
     const picked = new Set(pics.filter((x) => !x.nsfw).slice(0, 3).map((x) => x.key));
     const on = Object.fromEntries(SHARE_PARTS.map(([k, , d]) => [k, d]));
     let kj = null;
@@ -2048,6 +2048,7 @@
 
     // Side column: the things people open a profile for. First on phones, beside the text on desktop.
     const side = [];
+    if (photos.length) side.push(gallerySide(photos));
     const songList = Array.isArray(p.songs) && p.songs.length ? p.songs : p.song ? [{ url: p.song, title: "" }] : [];
     const song = playlistEl(songList);
     if (song) side.push(h("section", { class: "keyring song" }, h("h2", {}, songList.length > 1 ? "🎵 My vibe playlist" : "🎵 My vibe"), song));
@@ -2106,7 +2107,6 @@
     }
     const vouchHolder = h("div", {});
     main.push(vouchHolder);
-    if (photos.length) main.push(gallerySection(photos));
     const notesHolder = h("div", {});
     main.push(notesHolder);
 
@@ -2220,29 +2220,69 @@
     return h("section", { class: "prose vouch-box" }, h("h2", {}, "Vouches"), ...parts);
   }
 
-  function gallerySection(photos) {
+  // ---------- photos & videos: a compact box in the side column, and a full-screen viewer ----------
+  const isVid = (ph) => /\.(mp4|mov|webm|m4v)$/i.test(ph.image || "");
+  // A square preview: the photo's thumbnail, or the video's first frame with a ▶.
+  function mediaThumb(ph) {
+    if (!isVid(ph)) return h("img", { src: fileUrl(ph, ph.image, "400x400"), alt: ph.caption || "", loading: "lazy" });
+    return h("span", { class: "vid-thumb" }, h("video", { src: fileUrl(ph, ph.image) + "#t=0.5", preload: "metadata", muted: true, playsinline: true, tabindex: "-1", "aria-hidden": "true" }), h("span", { class: "vid-play", "aria-hidden": "true" }, "▶"));
+  }
+  function gallerySide(photos) {
+    const SHOW = 9;
     const anyNsfw = photos.some((x) => x.nsfw);
-    const grid = h("div", { class: "gallery" });
-    const tiles = photos.map((ph, i) => {
-      const tile = h("button", { class: "ph" + (ph.nsfw ? " nsfw" : ""), type: "button", "aria-label": ph.nsfw ? "NSFW photo, tap to reveal" : (ph.caption || "Photo " + (i + 1)) },
-        h("img", { src: fileUrl(ph, ph.image, "400x400"), alt: ph.caption || "", loading: "lazy" }),
-        ph.nsfw ? h("div", { class: "veil" }, h("span", {}, "NSFW · TAP TO SHOW")) : null);
-      tile.addEventListener("click", () => {
-        if (ph.nsfw && !tile.classList.contains("revealed")) { tile.classList.add("revealed"); return; }
-        openLightbox(fileUrl(ph, ph.image, "1200x0"), ph.caption);
-      });
-      grid.append(tile);
-      return tile;
-    });
-    let shown = false;
-    const toggle = anyNsfw ? h("button", { class: "btn small", type: "button", onclick: (e) => {
-      shown = !shown;
-      tiles.forEach((t) => t.classList.contains("nsfw") && t.classList.toggle("revealed", shown));
-      e.currentTarget.textContent = shown ? "Blur NSFW" : "Show all NSFW";
-    } }, "Show all NSFW") : null;
-    return h("section", { class: "prose photos" },
-      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, "Photos"), toggle),
+    let showNsfw = false;
+    const grid = h("div", { class: "gallery-side" });
+    const vids = photos.filter(isVid).length;
+    const draw = () => grid.replaceChildren(...photos.slice(0, SHOW).map((ph, i) => {
+      const more = i === SHOW - 1 && photos.length > SHOW ? photos.length - SHOW + 1 : 0;
+      const veiled = ph.nsfw && !showNsfw;
+      return h("button", { type: "button", class: "ph" + (veiled ? " nsfw" : "") + (isVid(ph) ? " is-vid" : ""), "aria-label": more ? `See all ${photos.length}` : veiled ? "NSFW, tap to view" : (ph.caption || (isVid(ph) ? "Video " : "Photo ") + (i + 1)),
+        onclick: () => openViewer(photos, i, showNsfw) },
+        mediaThumb(ph),
+        veiled ? h("div", { class: "veil" }, h("span", {}, isVid(ph) ? "▶ NSFW" : "NSFW")) : null,
+        more ? h("div", { class: "ph-more" }, `+${more}`) : null);
+    }));
+    draw();
+    const toggle = anyNsfw ? h("button", { class: "btn small ghost", type: "button", onclick: (e) => { showNsfw = !showNsfw; draw(); e.currentTarget.textContent = showNsfw ? "Blur NSFW" : "Show NSFW"; } }, "Show NSFW") : null;
+    return h("section", { class: "keyring photos-side" },
+      h("div", { class: "toggle-row" }, h("h2", { style: "margin:0" }, vids ? "📸 Photos & videos" : "📸 Photos", h("small", { class: "faint" }, ` ${photos.length}`)), toggle),
       grid);
+  }
+  // Full-screen viewer: ‹ › (or arrow keys, or swipe) to flip through, NSFW stays blurred until tapped.
+  function openViewer(items, start, showNsfw) {
+    let i = start;
+    const revealed = new Set();
+    const stage = h("div", { class: "viewer-stage" });
+    const cap = h("div", { class: "viewer-cap" });
+    const count = h("span", { class: "viewer-count" });
+    const modal = h("div", { class: "viewer", role: "dialog", "aria-modal": "true", "aria-label": "Photos and videos" });
+    const close = () => { modal.remove(); document.removeEventListener("keydown", key); };
+    const go = (d) => { i = (i + d + items.length) % items.length; draw(); };
+    const key = (e) => { if (e.key === "Escape") close(); else if (e.key === "ArrowLeft") go(-1); else if (e.key === "ArrowRight") go(1); };
+    const draw = () => {
+      const ph = items[i];
+      const veiled = ph.nsfw && !showNsfw && !revealed.has(ph.id);
+      const media = isVid(ph)
+        ? h("video", { src: fileUrl(ph, ph.image), controls: true, playsinline: true, preload: "metadata", autoplay: !veiled })
+        : h("img", { src: fileUrl(ph, ph.image, "1200x0"), alt: ph.caption || "" });
+      stage.replaceChildren(h("div", { class: "viewer-media" + (veiled ? " veiled" : "") }, media,
+        veiled ? h("button", { type: "button", class: "viewer-reveal", onclick: () => { revealed.add(ph.id); draw(); } }, "NSFW · tap to show") : null));
+      cap.textContent = ph.caption || "";
+      count.textContent = items.length > 1 ? `${i + 1} / ${items.length}` : "";
+    };
+    let x0 = null;
+    stage.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+    stage.addEventListener("touchend", (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); });
+    modal.addEventListener("click", (e) => { if (e.target === modal || e.target === stage) close(); });
+    const nav = items.length > 1;
+    modal.append(
+      h("div", { class: "viewer-top" }, count, h("button", { type: "button", class: "btn iconbtn", "aria-label": "Close", onclick: close }, "✕")),
+      nav ? h("button", { type: "button", class: "viewer-nav prev", "aria-label": "Previous", onclick: () => go(-1) }, "‹") : "",
+      stage,
+      nav ? h("button", { type: "button", class: "viewer-nav next", "aria-label": "Next", onclick: () => go(1) }, "›") : "",
+      cap);
+    document.body.append(modal); document.addEventListener("keydown", key);
+    draw();
   }
 
   function openLightbox(src, cap) {
@@ -2693,13 +2733,16 @@
     // photos
     const photoGrid = h("div", { class: "ph-edit" });
     const newNsfw = h("input", { type: "checkbox", checked: true });
-    const phInput = h("input", { type: "file", accept: "image/*", multiple: true, class: "sr", id: "photoInput" });
+    const phInput = h("input", { type: "file", accept: "image/*,video/mp4,video/quicktime,video/webm,.mov,.mp4,.m4v,.webm", multiple: true, class: "sr", id: "photoInput" });
     phInput.addEventListener("change", async () => {
       const files = [...phInput.files]; phInput.value = "";
       for (const f of files) {
-        if (photos.length >= 30) { toast("Galleries are limited to 30 photos", true); break; }
+        if (photos.length >= 30) { toast("Galleries are limited to 30 photos and videos", true); break; }
+        const vid = /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name);
+        if (vid && f.size > 50 * 1024 * 1024) { toast(`${f.name} is over 50 MB. Try a shorter clip.`, true); continue; }
+        if (!vid && f.size > 12 * 1024 * 1024) { toast(`${f.name} is over 12 MB.`, true); continue; }
         try {
-          toast("Uploading " + f.name + "…");
+          toast((vid ? "Uploading video " : "Uploading ") + f.name + (vid ? "… this can take a minute" : "…"));
           const fd = new FormData();
           fd.append("owner", rec.id); fd.append("image", f); fd.append("nsfw", newNsfw.checked ? "true" : "false");
           fd.append("sort", String(photos.length));
@@ -2707,7 +2750,7 @@
           drawPhotos();
         } catch (err) { toast(errMsg(err), true); }
       }
-      toast("Photos saved");
+      toast("Gallery saved");
     });
     function drawPhotos() {
       try { drawGlow(); } catch {}   // not set up yet on the first draw
@@ -2725,20 +2768,20 @@
             catch (err) { toast(errMsg(err), true); }
           };
           return h("div", { class: "ph-card" },
-            h("img", { src: fileUrl(ph, ph.image, "400x400"), alt: ph.caption || "" }),
+            h("span", { class: "ph-media" }, mediaThumb(ph)),
             h("div", { class: "ctl" }, cap,
               h("div", { class: "line" },
                 h("label", { class: "check" }, nsfw, "NSFW"),
                 h("span", {},
                   h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Move earlier", onclick: () => move(-1) }, "←"),
                   h("button", { type: "button", class: "btn iconbtn ghost", "aria-label": "Move later", onclick: () => move(1) }, "→"),
-                  h("button", { type: "button", class: "btn iconbtn danger", "aria-label": "Delete photo", onclick: async () => {
-                    if (!confirm("Delete this photo?")) return;
+                  h("button", { type: "button", class: "btn iconbtn danger", "aria-label": "Delete", onclick: async () => {
+                    if (!confirm(isVid(ph) ? "Delete this video?" : "Delete this photo?")) return;
                     try { await pb.collection("photos").delete(ph.id); photos = photos.filter((x) => x.id !== ph.id); drawPhotos(); toast("Photo deleted"); }
                     catch (err) { toast(errMsg(err), true); }
                   } }, "🗑")))));
         }),
-        h("label", { class: "upload", for: "photoInput" }, h("span", {}, h("b", {}, "+ Add photos"), h("br"), h("small", {}, "JPG, PNG, WebP or GIF, up to 12 MB"))),
+        h("label", { class: "upload", for: "photoInput" }, h("span", {}, h("b", {}, "+ Add photos or videos"), h("br"), h("small", {}, "Photos up to 12 MB · videos (MP4, MOV, WebM) up to 50 MB"))),
       );
     }
     drawPhotos();

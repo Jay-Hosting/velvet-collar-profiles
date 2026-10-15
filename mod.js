@@ -1059,7 +1059,9 @@
     const who = (m) => (m ? personChip(m) : h("i", {}, "deleted member"));
     if (!data.items.length) { holder.replaceChildren(h("p", { class: "muted" }, "Nothing here.")); return; }
     if (kind === "photos") holder.replaceChildren(h("div", { class: "mod-photos" }, data.items.map((it) => h("figure", {},
-      h("a", { href: pb.files.getURL(it, it.image), target: "_blank", rel: "noopener" }, h("img", { src: pb.files.getURL(it, it.image, { thumb: "240x240" }), alt: it.caption || "Photo", loading: "lazy", class: it.nsfw ? "nsfw" : "" })),
+      h("a", { href: pb.files.getURL(it, it.image), target: "_blank", rel: "noopener" }, /\.(mp4|mov|webm|m4v)$/i.test(it.image)
+        ? h("video", { src: pb.files.getURL(it, it.image) + "#t=0.5", preload: "metadata", muted: true, class: it.nsfw ? "nsfw" : "", title: "Video: open to play" })
+        : h("img", { src: pb.files.getURL(it, it.image, { thumb: "240x240" }), alt: it.caption || "Photo", loading: "lazy", class: it.nsfw ? "nsfw" : "" })),
       h("figcaption", {}, who(it.owner), h("small", { class: "faint" }, ` ${day(it.created)}${it.nsfw ? " · NSFW" : ""}`), del(it, "photo"))))));
     else if (kind === "notes") holder.replaceChildren(...data.items.map((it) => h("div", { class: "mod-event" },
       h("div", {}, h("p", { style: "margin:0 0 4px" }, `“${it.text}”`), h("small", { class: "faint" }, "To ", ), it.to ? who(it.to) : "", h("small", { class: "faint" }, " · from "), who(it.from),
