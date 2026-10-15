@@ -243,6 +243,49 @@
 
   // ---------- volunteer news: owners' decisions, shown once ----------
   let volChecked = false;
+  // Announcements from the admins: shown on login and on every page change until seen (or, for must-read ones, acknowledged).
+  let annOpen = false;
+  async function announce() {
+    if (annOpen || consentOpen || !me() || document.querySelector(".modal")) return;
+    let d; try { d = await pb.send("/api/vc/announcements/pending", { requestKey: null }); } catch { return; }
+    if (!d.item || annOpen || consentOpen || document.querySelector(".modal")) return;
+    annOpen = true;
+    const a = d.item, ack = a.kind === "ack";
+    const modal = h("div", { class: "modal ann-modal" + (ack ? " ack" : " fun"), role: "dialog", "aria-modal": "true", "aria-labelledby": "ann_title" });
+    const msg = h("p", { class: "form-msg", role: "alert" });
+    const done = async (goTo) => {
+      try { await pb.send(`/api/vc/announcements/${a.id}/seen`, { method: "POST", body: { ack: ack }, requestKey: null }); }
+      catch (err) { if (ack) { msg.textContent = errMsg(err); return; } }
+      modal.remove(); document.removeEventListener("keydown", key); annOpen = false;
+      if (goTo) go(goTo); else if (d.more) setTimeout(announce, 400);
+    };
+    const key = (e) => { if (e.key === "Escape" && !ack) done(); };
+    if (!ack) modal.addEventListener("click", (e) => { if (e.target === modal) done(); });
+    const link = a.link && (a.link.startsWith("/") ? a.link : safeUrl(a.link));
+    const linkBtn = link ? (a.link.startsWith("/")
+      ? h("button", { type: "button", class: "btn" + (ack ? " ghost" : " gold"), onclick: () => (ack ? go(link) : done(link)) }, a.link_label || "Take a look")
+      : h("a", { class: "btn" + (ack ? " ghost" : " gold"), href: link, target: "_blank", rel: "noopener" }, (a.link_label || "Open link") + " ↗")) : null;
+    const box = h("div", { class: "modal-box ann-box" },
+      ack ? null : h("button", { type: "button", class: "btn small ghost ann-x", "aria-label": "Close", onclick: () => done() }, "✕"),
+      h("div", { class: "ann-emoji", "aria-hidden": "true" }, a.emoji || (ack ? "📣" : "🎉")),
+      h("p", { class: "ann-kicker" }, ack ? "Please read: from the Velvet Collar team" : "News from Velvet Collar"),
+      h("h2", { id: "ann_title" }, a.title),
+      a.body ? h("div", { class: "ann-body" }, a.body) : null,
+      a.by ? h("p", { class: "faint ann-by" }, `— ${a.by}${d.more ? ` · ${d.more} more after this` : ""}`) : null,
+      msg);
+    if (ack) {
+      const chk = h("input", { type: "checkbox", id: "ann_ok" });
+      const okBtn = h("button", { type: "button", class: "btn gold", disabled: true, onclick: () => done() }, "✅ I acknowledge");
+      chk.addEventListener("change", () => { okBtn.disabled = !chk.checked; });
+      box.append(h("label", { class: "check", for: "ann_ok" }, chk, h("span", {}, "I've read and understood this.")),
+        h("div", { class: "actions ann-actions" }, linkBtn, okBtn));
+    } else {
+      box.append(h("div", { class: "actions ann-actions" }, h("button", { type: "button", class: "btn" + (linkBtn ? " ghost" : " gold"), onclick: () => done() }, "Got it 💜"), linkBtn));
+    }
+    modal.append(box);
+    document.body.append(modal); document.addEventListener("keydown", key);
+  }
+
   async function volNews() {
     if (volChecked || consentOpen || !me()) return;
     volChecked = true;
@@ -556,7 +599,7 @@
     try {
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
-      checkConsent().then(volNews);
+      checkConsent().then(volNews).then(announce);
       if (r.name === "home") return me() ? await renderDirectory() : await renderEvents();
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);

@@ -5,14 +5,14 @@
   "use strict";
   const deps = () => window.VCMod.deps;
   const BADGES = [["owner", "🗝️ Owner"], ["admin", "🛡️ Admin"], ["host", "🎪 Host"], ["welcomer", "🤗 Welcomer"], ["helper", "🛠️ Helper"], ["vip", "👑 VIP"]];
-  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["games", "🎲 Games"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
+  const TABS = [["reports", "⚑ Reports"], ["members", "👥 Members"], ["vetting", "✅ Vetting"], ["volunteers", "🙋 Volunteers"], ["noprofile", "📜 No profile yet"], ["events", "📅 Events"], ["confessions", "💌 Confessions"], ["games", "🎲 Games"], ["feedback", "💡 Feedback"], ["backlog", "📋 Backlog"], ["activity", "📈 Activity"], ["announce", "📣 Announcements"], ["group", "🏠 Group page"], ["question", "❓ Question"], ["content", "🧹 Content"]];
   // The tabs, grouped so the page stays tidy: a row of groups, then the tabs inside the open group.
   const GROUPS = [
     ["people", "👥 People", ["members", "vetting", "noprofile"]],
     ["events", "📅 Events", ["events", "volunteers"]],
     ["moderation", "🛡️ Moderation", ["reports", "confessions", "games", "content"]],
     ["ideas", "💡 Ideas", ["feedback", "backlog"]],
-    ["site", "🏠 Site", ["group", "question"]],
+    ["site", "🏠 Site", ["announce", "group", "question"]],
     ["activity", "📈 Activity", ["activity"]],
   ];
   const SUB_LABEL = { members: "👥 All members", events: "📅 Calendar", question: "❓ Question of the week" };
@@ -130,6 +130,15 @@
     ], [
       "Nobody, including owners, can see who wrote a confession.",
     ]],
+    ["announce", "📣 Announcements", "announce", "Send a pop-up to every member. Admins and owners only.", [
+      "Pick 🎉 Just for fun (shows once, then it's gone) or ✅ Must acknowledge (pops up on every page until they tick I've read this and tap I acknowledge).",
+      "Add an emoji, a title and your message. A button can take people to a page on the site (like /bingo or /events) or a link starting https://.",
+      "It shows the next time each member logs in or opens a page. 👀 Preview shows you exactly what they'll see.",
+      "Each one shows how many have seen or acknowledged it, and who hasn't yet. ⏹ End stops it showing; 🗑 Delete removes it.",
+    ], [
+      "Must-acknowledge ones jump the queue. If there are several, members see them one after another.",
+      "Members who join later still get any announcement that's running, so end the ones that are over.",
+    ]],
     ["games", "🎲 Games", "games", "The Playroom games' moving parts. Hosts can use it too.", [
       "🎭 Mystery Match: weekly totals only. Who is paired with whom stays private, even from owners.",
       "🔢 Kink Bingo: this month's numbers are at the bottom of the page. The squares are part of the site itself, so changing them needs a site update.",
@@ -242,7 +251,7 @@
     const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", title: "How this page works, and everything else", onclick: () => openGuide(allowed, tab) }, "📖 Admin guide");
     app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
-    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, games, feedback, backlog, activity, group, question, content })[tab](body); }
+    try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, games, feedback, backlog, activity, announce, group, question, content })[tab](body); }
     catch (err) { body.replaceChildren(h("p", { class: "muted" }, errMsg(err))); }
   }
 
@@ -787,6 +796,82 @@
         h("a", { href: "/confessions", "data-nav": "" }, location.origin + "/confessions"), "."),
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(cbView === k), onclick: () => { cbView = k; confessions(body); } }, `${l} (${d.counts[k]})`))),
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, cbView === "pending" ? "Nothing waiting. 🌙" : "Nothing here.")));
+  }
+
+  // ---------- announcements: pop-ups for every member (admins and owners) ----------
+  async function announce(body) {
+    const { h, pb, toast, errMsg, personChip } = deps();
+    const d = await pb.send("/api/vc/mod/announcements", {});
+    let kind = "fun";
+    const emoji = h("input", { type: "text", maxlength: 16, placeholder: "🎉", "aria-label": "Emoji", class: "ann-emoji-in" });
+    const title = h("input", { type: "text", maxlength: 120, placeholder: "Title, like “Kink Bingo is here!”", "aria-label": "Title" });
+    const text = h("textarea", { rows: 5, maxlength: 3000, placeholder: "Your message to everyone…", "aria-label": "Message" });
+    const link = h("input", { type: "text", maxlength: 500, placeholder: "Button link (optional): /bingo or https://…", "aria-label": "Button link" });
+    const label = h("input", { type: "text", maxlength: 60, placeholder: "Button text, like “Play now”", "aria-label": "Button text" });
+    const ends = h("input", { type: "date", "aria-label": "Stop showing after" });
+    const kinds = h("div", { class: "pills" });
+    const drawK = () => kinds.replaceChildren(...[["fun", "🎉 Just for fun", "Shows once, then it's gone."], ["ack", "✅ Must acknowledge", "Pops up on every page until they acknowledge it."]].map(([k, l, t]) =>
+      h("button", { type: "button", class: "pill", "aria-pressed": String(kind === k), title: t, onclick: () => { kind = k; drawK(); } }, l)));
+    drawK();
+    const payload = () => {
+      // Shown until 11:59 PM that night (your own time zone).
+      const e = ends.value ? new Date(ends.value + "T23:59:00").toISOString().replace("T", " ") : "";
+      return { emoji: emoji.value.trim(), title: title.value.trim(), body: text.value.trim(), kind, link: link.value.trim(), link_label: label.value.trim(), ends: e };
+    };
+    const preview = () => {
+      const p = payload();
+      if (!p.title) return toast("Add a title first.", true);
+      const modal = h("div", { class: "modal ann-modal " + p.kind, role: "dialog", "aria-modal": "true" });
+      const close = () => modal.remove();
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+      modal.append(h("div", { class: "modal-box ann-box" },
+        h("p", { class: "ann-preview-tag" }, "👀 Preview: this is what members will see"),
+        h("div", { class: "ann-emoji", "aria-hidden": "true" }, p.emoji || (p.kind === "ack" ? "📣" : "🎉")),
+        h("p", { class: "ann-kicker" }, p.kind === "ack" ? "Please read: from the Velvet Collar team" : "News from Velvet Collar"),
+        h("h2", {}, p.title), p.body ? h("div", { class: "ann-body" }, p.body) : null,
+        p.kind === "ack" ? h("label", { class: "check" }, h("input", { type: "checkbox", disabled: true }), h("span", {}, "I've read and understood this.")) : null,
+        h("div", { class: "actions ann-actions" },
+          p.link ? h("span", { class: "btn ghost" }, p.link_label || (p.link.startsWith("/") ? "Take a look" : "Open link ↗")) : null,
+          h("button", { type: "button", class: "btn gold", onclick: close }, "Close preview"))));
+      document.body.append(modal);
+    };
+    const send = h("button", { type: "button", class: "btn gold" }, "📣 Send to everyone");
+    send.addEventListener("click", async () => {
+      const p = payload();
+      if (!p.title) return toast("Add a title first.", true);
+      if (!confirm(p.kind === "ack" ? "Send this to every member? It will pop up on every page until each person acknowledges it." : "Send this to every member? It pops up the next time they open the site.")) return;
+      send.disabled = true;
+      try { await pb.send("/api/vc/mod/announcements", { method: "POST", body: p }); toast("📣 Sent!"); announce(body); } catch (err) { toast(errMsg(err), true); send.disabled = false; }
+    });
+    const set = async (a, patch, msg) => { try { await pb.send(`/api/vc/mod/announcements/${a.id}`, { method: "POST", body: patch }); toast(msg); announce(body); } catch (err) { toast(errMsg(err), true); } };
+    const del = async (a) => { if (!confirm("Delete this announcement and its read receipts?")) return; try { await pb.send(`/api/vc/mod/announcements/${a.id}`, { method: "DELETE" }); toast("Deleted"); announce(body); } catch (err) { toast(errMsg(err), true); } };
+    const row = (a) => {
+      const ack = a.kind === "ack", n = ack ? a.acked : a.seen;
+      return h("div", { class: "mod-cb ann-row" + (a.active ? "" : " ended") },
+        h("div", { class: "mod-cb-meta" }, h("b", {}, `${a.emoji || (ack ? "📣" : "🎉")} ${a.title}`),
+          h("span", { class: "att-tag" }, ack ? "✅ Must acknowledge" : "🎉 Just for fun"),
+          h("span", { class: "att-tag" }, a.active ? "🟢 Showing" : "⏹ Ended"),
+          h("small", { class: "faint" }, ` · ${when(a.created)}${a.by ? " · " + a.by : ""}${a.ends && a.active ? " · until " + when(a.ends) : ""}`)),
+        a.body ? h("p", { class: "mod-cb-text" }, a.body) : null,
+        h("div", { class: "ann-meter" }, h("span", { style: `width:${a.total ? Math.round((n / a.total) * 100) : 0}%` })),
+        h("small", { class: "faint" }, `${n} of ${a.total} members ${ack ? "acknowledged" : "have seen it"}`),
+        a.missing.length && a.active ? h("details", { class: "ann-missing" }, h("summary", { class: "faint" }, `${ack ? "Still to acknowledge" : "Haven't seen it yet"} (${a.total - n})`),
+          h("div", { class: "pills" }, a.missing.map(personChip))) : null,
+        h("div", { class: "actions", style: "margin:6px 0 0" },
+          a.active ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(a, { active: false }, "Ended") }, "⏹ End") : h("button", { type: "button", class: "btn small ghost", onclick: () => set(a, { active: true, ends: "" }, "Showing again") }, "▶️ Show again"),
+          h("button", { type: "button", class: "btn small ghost danger", onclick: () => del(a) }, "🗑 Delete")));
+    };
+    body.replaceChildren(
+      h("section", { class: "panel ann-compose" },
+        h("h2", {}, "📣 Send an announcement"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "It pops up for every member the next time they log in or open a page."),
+        h("span", { class: "label" }, "Type"), kinds,
+        h("div", { class: "ann-title-row" }, emoji, title), text,
+        h("div", { class: "row2" }, link, label),
+        h("label", { class: "ann-ends" }, h("span", { class: "faint" }, "Stop showing after (optional) "), ends),
+        h("div", { class: "actions" }, h("button", { type: "button", class: "btn ghost", onclick: preview }, "👀 Preview"), send)),
+      h("section", { class: "panel" }, h("h2", {}, "Sent"),
+        d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, "Nothing sent yet.")));
   }
 
   // ---------- games: the Truth or Dare deck (hosts and up) ----------

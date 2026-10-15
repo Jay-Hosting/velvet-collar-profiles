@@ -1865,3 +1865,33 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .browse-month[open] > summary::after { content: "▴"; }
 .guest-rsvp { display: inline-flex; align-items: center; gap: 4px; }
 .guest-rsvp .linkish { color: var(--gold); }
+
+/* ---------- Announcements ---------- */
+.ann-modal { z-index: 96; }
+.ann-box { position: relative; width: min(480px, 100%); text-align: center; display: grid; gap: 10px; padding-top: 26px; }
+.ann-modal.fun .ann-box { background: linear-gradient(165deg, #2e2546, #3a1f35); border-color: var(--gold); }
+.ann-modal.ack .ann-box { border-color: #f2c45a; }
+.ann-x { position: absolute; top: 10px; right: 10px; }
+.ann-emoji { font-size: 3rem; line-height: 1; }
+.ann-modal.fun .ann-emoji { animation: ann-pop .6s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes ann-pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.ann-kicker { margin: 0; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.ann-box h2 { margin: 0; font-family: var(--serif); }
+.ann-body { text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; max-height: 45vh; overflow-y: auto; padding: 4px 2px; }
+.ann-by { margin: 0; text-align: right; }
+.ann-box .check { justify-content: center; text-align: left; }
+.ann-actions { justify-content: center; margin: 4px 0 0; flex-wrap: wrap; }
+.ann-preview-tag { margin: 0; font-size: .8rem; color: #f2c45a; font-weight: 700; }
+.ann-compose { display: grid; gap: 8px; }
+.ann-title-row { display: grid; grid-template-columns: 70px 1fr; gap: 8px; }
+.ann-emoji-in { text-align: center; font-size: 1.2rem; }
+.ann-ends { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ann-ends input { width: auto; }
+.ann-row.ended { opacity: .7; }
+.ann-meter { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 8px; }
+.ann-meter span { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+.ann-missing { margin-top: 4px; }
+.ann-missing summary { cursor: pointer; }
+.ann-missing .pills { margin-top: 6px; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+.ann-box .form-msg:empty { display: none; }
