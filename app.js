@@ -2013,13 +2013,16 @@
         look.mood_emoji || look.mood_text ? h("div", { class: "mood" }, look.mood_emoji ? h("span", { class: "em" }, look.mood_emoji) : null, look.mood_text) : null,
         h("div", { class: "chips" },
           p.pronouns ? h("span", { class: "chip" }, p.pronouns) : null,
+          p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
+          // Relationship styles share one chip: "💞 Polyamorous · Kitchen table poly · ENM" (hover for what each means).
+          (p.rel_style || []).length ? (() => {
+            const sts = p.rel_style.map((v) => REL_STYLES.find((x) => x[0] === v) || [v, v, "", ""]);
+            return h("span", { class: "chip", title: sts.map((st) => `${st[1]}: ${st[3]}`).join("\n") }, "💞 " + sts.map((st) => st[1].replace(/^Ethically non-monogamous \(ENM\)$/, "ENM")).join(" · "));
+          })() : null,
+          p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
           p.birthday ? (daysToBday(p.birthday) === 0
             ? h("span", { class: "chip gold bday-today" }, "🎉 Birthday today!" + (ageOf(p) ? ` · ${ageOf(p)}` : ""))
-            : h("span", { class: "chip", title: "Birthday" }, "🎂 " + bdayText(p.birthday) + (ageOf(p) ? ` · ${ageOf(p)}` : ""))) : null,
-          p.dynamic ? h("span", { class: "chip gold" }, p.dynamic) : null,
-          (p.rel_style || []).map((v) => { const st = REL_STYLES.find((x) => x[0] === v) || []; return h("span", { class: "chip", title: st[3] || "Relationship style" }, "💞 " + (st[1] || v)); }),
-          p.location ? h("span", { class: "chip" }, "📍 " + p.location) : null,
-          null),
+            : h("span", { class: "chip", title: "Birthday" }, "🎂 " + bdayText(p.birthday) + (ageOf(p) ? ` · ${ageOf(p)}` : ""))) : null),
         badgeHolder,
         (data.relationships || []).length ? h("div", { class: "rel-row", "aria-label": "Relationships" }, data.relationships.map((r) => {
           const [, e, l] = relType(r.type);
@@ -2027,16 +2030,17 @@
         })) : null,
         matchHolder,
         h("div", { class: "actions" },
-          data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"), h("button", { class: "btn", onclick: () => openCard(p) }, "🖼️ Profile card"),
+          data.isOwner ? [h("a", { class: "btn gold", href: "/edit", "data-nav": "" }, "Edit my page"),
             vet.vetted ? null : h("a", { class: "btn ghost", href: "/vetting", "data-nav": "", title: "For play parties that need it" }, "✅ Get vetted")]
             : tgUser ? h("a", { class: "btn gold", href: "https://t.me/" + encodeURIComponent(tgUser), target: "_blank", rel: "noopener" }, "Message on Telegram") : null,
           data.isOwner ? null : crushHolder,
           data.isOwner ? null : huntHolder,
           // Sharing: your own page, or anyone's if you're an admin or owner.
           data.isOwner || canShareOthers() ? [
-            shareButton({ url: profileUrl(p.slug), title: p.display_name, extra: [data.isOwner
-              ? ["📸", "Post with photos", "Write a post, pick which bits to include and add photos from your gallery.", () => openShare(p, photos)]
-              : ["📝", "Copy a ready-made post", "A fun post about them with their link, ready to paste in Telegram.", () => copyPost(p, false)]] })] : null),
+            shareButton({ url: profileUrl(p.slug), title: p.display_name, extra: data.isOwner
+              ? [["🖼️", "Profile card", "A picture of your page with a QR code, to save or post anywhere.", () => openCard(p)],
+                 ["📸", "Post with photos", "Write a post, pick which bits to include and add photos from your gallery.", () => openShare(p, photos)]]
+              : [["📝", "Copy a ready-made post", "A fun post about them with their link, ready to paste in Telegram.", () => copyPost(p, false)]] })] : null),
         reactHolder));
 
     const blocks = [];

@@ -1637,3 +1637,16 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .not-int-box summary { cursor: pointer; font-weight: 600; }
 .event.not-int { opacity: .7; }
 .not-int-btn[aria-pressed="true"] { border-color: var(--gold); }
+
+/* Profile header: buttons stay top right; everything under the name uses the full width so rows line up. */
+@media (min-width: 761px) {
+  .profile-card .profile-head > .actions { grid-row: 1 / span 2; }
+  .profile-card .profile-head > .looking,
+  .profile-card .profile-head > .mood,
+  .profile-card .profile-head > .chips,
+  .profile-card .profile-head > .badges,
+  .profile-card .profile-head > .staff-vet,
+  .profile-card .profile-head > .rel-row,
+  .profile-card .profile-head > .react-holder { grid-column: 2 / span 2; }
+  .profile-card .profile-head > .mood { justify-self: start; }
+}
