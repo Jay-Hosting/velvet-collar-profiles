@@ -131,6 +131,7 @@
       "Nobody, including owners, can see who wrote a confession.",
     ]],
     ["games", "🎲 Games", "games", "The Playroom games' moving parts. Hosts can use it too.", [
+      "🎭 Mystery Match: weekly totals only. Who is paired with whom stays private, even from owners.",
       "🔢 Kink Bingo: this month's numbers are at the bottom of the page. The squares are part of the site itself, so changing them needs a site update.",
       "🎲 Truth or Dare: member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
       "➕ Add a card puts your own straight into the deck. 📦 Retire takes a card out without deleting it.",
@@ -792,7 +793,7 @@
   let todView = "pending";
   async function games(body) {
     const { h, pb, toast, errMsg, personChip } = deps();
-    const [d, bg] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/bingo", {}).catch(() => null)]);
+    const [d, bg, mm] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null)]);
     const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
     const heatL = Object.fromEntries(HEAT);
     const tab = document.querySelector('.mod-tabs a[href="/admin/games"]');
@@ -839,7 +840,15 @@
           h("span", { class: "tod-stat" }, h("b", {}, String(bg.players)), h("small", {}, "ticked something")),
           h("span", { class: "tod-stat" }, h("b", {}, String(bg.lines)), h("small", {}, "got a line")),
           h("span", { class: "tod-stat" }, h("b", {}, String(bg.full)), h("small", {}, "blackouts"))),
-        bg.top.length ? h("div", {}, h("h3", {}, "Most ticked (honour system)"), h("div", { class: "pills" }, bg.top.map((t) => h("span", { class: "att-tag" }, `${t.text} · ${t.count}`)))) : null) : "");
+        bg.top.length ? h("div", {}, h("h3", {}, "Most ticked (honour system)"), h("div", { class: "pills" }, bg.top.map((t) => h("span", { class: "att-tag" }, `${t.text} · ${t.count}`)))) : null) : "",
+      mm ? h("section", { class: "panel" },
+        h("h2", {}, "🎭 Mystery Match this week"),
+        h("p", { class: "faint", style: "margin-top:-6px" }, "Totals only. Nobody, including admins, can see who's matched with whom. Reports from a match show up in ⚑ Reports with the Whispers ones, marked [Mystery Match]. Members play at ", h("a", { href: "/match", "data-nav": "" }, location.origin + "/match"), "."),
+        h("div", { class: "tod-stats" },
+          h("span", { class: "tod-stat" }, h("b", {}, String(mm.players)), h("small", {}, "playing")),
+          h("span", { class: "tod-stat" }, h("b", {}, String(mm.pairs)), h("small", {}, "pairs this week")),
+          h("span", { class: "tod-stat" }, h("b", {}, String(mm.talking)), h("small", {}, "pairs talking")),
+          h("span", { class: "tod-stat" }, h("b", {}, String(mm.reveals || mm.lastWeekReveals)), h("small", {}, mm.reveals ? "reveals" : "reveals last week")))) : "");
   }
 
   // ---------- applicants from the old sheet who haven't made a profile yet (owners only) ----------

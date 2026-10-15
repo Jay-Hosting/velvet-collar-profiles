@@ -461,6 +461,7 @@
     if (path === "confessions" || path === "confess") return { name: "confessions" };
     if (path === "truthordare" || path === "tod") return { name: "truthordare" };
     if (path === "bingo") return { name: "bingo" };
+    if (path === "match" || path === "mystery") return { name: "match" };
     if (path === "network" || path === "networking") return { name: "network" };
     if (path.startsWith("whispers/")) return { name: "whisper", id: path.slice(9) };
     if (path === "mod" || path.startsWith("mod/")) return { name: "mod", tab: path.slice(4) };   // old address
@@ -487,7 +488,7 @@
     pendingAsk = Promise.all([pb.send("/api/vc/hunts", {}).catch(() => null), pb.send("/api/vc/whispers", {}).catch(() => null), pb.send("/api/vc/games/pending", {}).catch(() => null)]).then(([hu, wh, gm]) => {
       const hunts = hu ? hu.hunts : [], chats = wh ? wh.chats : [], games = gm || {};
       const invites = hunts.filter((x) => x.invitedMe), turns = hunts.filter((x) => x.myTurn), unread = chats.filter((x) => x.status === "active" && x.unread);
-      const extra = (games.tod ? 1 : 0) + (games.bingo ? 1 : 0);
+      const extra = (games.tod ? 1 : 0) + (games.bingo ? 1 : 0) + (games.match ? 1 : 0);
       return { invites, turns, unread, games, hunt: invites.length + turns.length, total: invites.length + turns.length + unread.length + extra };
     });
     return pendingAsk;
@@ -501,7 +502,7 @@
   }
   setInterval(() => { if (me() && document.visibilityState === "visible") drawNavBadge(true); }, 90000);
   // Activity for the Admin "Activity" tab: which section was opened, and a beat every 5 minutes while the site is on screen.
-  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", truthordare: "truthordare", bingo: "bingo", network: "network", edit: "edit", question: "question", vetting: "vetting", volunteer: "volunteer", mod: "admin" };
+  const PAGE_OF = { home: "members", profile: "profile", playroom: "playroom", events: "events", hunt: "hunt", huntgame: "hunt", whispers: "whispers", whisper: "whispers", confessions: "confessions", truthordare: "truthordare", bingo: "bingo", match: "match", network: "network", edit: "edit", question: "question", vetting: "vetting", volunteer: "volunteer", mod: "admin" };
   function seen(page) { if (me()) pb.send("/api/vc/seen", { method: "POST", body: { page: page || "" }, requestKey: null }).catch(() => {}); }
   // Every 2 minutes while the site is on screen (that also keeps the green "online" dot fresh).
   setInterval(() => { if (document.visibilityState === "visible") seen(); }, 120000);
@@ -559,6 +560,7 @@
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "confessions") return me() ? await window.VCConfess.render(app) : renderLogin("/confessions");
+      if (r.name === "match") return me() ? await window.VCMatch.render(app) : renderLogin("/match");
       if (r.name === "bingo") return me() ? await window.VCBingo.render(app) : renderLogin("/bingo");
       if (r.name === "truthordare") return me() ? await window.VCTod.render(app) : renderLogin("/truthordare");
       if (r.name === "network") return me() ? await window.VCNetwork.render(app) : renderLogin("/network");
@@ -673,7 +675,11 @@
       h("span", { class: "game-emoji", "aria-hidden": "true" }, "🔢"),
       h("span", { class: "game-txt" }, h("b", {}, "Kink Bingo"), h("span", {}, "A fresh 5×5 card every month: munches, kind notes, vouches and a few spicy squares. Five in a row gets a shout-out, a full card gets legend status.")),
       h("span", { class: "game-go" }, "Play"));
-    grid.prepend(todTile, bingoTile, huntTile, whisperTile, confessTile, netTile);
+    const matchTile = h("a", { class: "game hunt-game", href: "/match", "data-nav": "" },
+      h("span", { class: "game-emoji", "aria-hidden": "true" }, "🎭"),
+      h("span", { class: "game-txt" }, h("b", {}, "Mystery Match"), h("span", {}, "Every Monday you're secretly paired with someone who shares your kinks, romance or hobbies. Chat all week under aliases, then reveal on Sunday if you both say yes. Opt in to play.")),
+      h("span", { class: "game-go" }, "Play"));
+    grid.prepend(todTile, matchTile, bingoTile, huntTile, whisperTile, confessTile, netTile);
     // Flag the tiles when something is waiting on you.
     getPending(true).then((p) => {
       if (!p) return;
@@ -686,6 +692,7 @@
       if (p.hunt) flag(huntTile, p.hunt === 1 ? (p.invites.length ? `🔔 ${name(p.invites[0])} invited you` : `⚡ Your move against ${name(p.turns[0])}`)
         : [p.invites.length ? `🔔 ${p.invites.length} invite${p.invites.length === 1 ? "" : "s"}` : "", p.turns.length ? `⚡ ${p.turns.length} waiting on your move` : ""].filter(Boolean).join(" · "),
         p.hunt === 1 ? "/hunt/" + (p.invites[0] || p.turns[0]).id : null);
+      if (p.games && p.games.match) flag(matchTile, { new: "🎭 You have a new mystery match", unread: "💬 Your mystery match wrote to you", reveal: "🎭 It's reveal day!" }[p.games.match] || "🎭");
       if (p.games && p.games.bingo) flag(bingoTile, "🆕 This month's card is ready");
       if (p.games && p.games.tod) flag(todTile, p.games.tod === "spin" ? "🎰 Today's card is waiting" : "🎯 Your card needs an answer");
       if (p.unread.length) flag(whisperTile, p.unread.length === 1 ? `💬 ${p.unread[0].them} whispered to you` : `💬 ${p.unread.length} new whispers`,
@@ -3167,6 +3174,7 @@
   }
   if (window.VCWhisper) window.VCWhisper.deps = { h, pb, toast, go, me, errMsg, personChip };
   if (window.VCConfess) window.VCConfess.deps = { h, pb, toast, go, me, errMsg };
+  if (window.VCMatch) window.VCMatch.deps = { h, pb, toast, go, me, errMsg, personChip };
   if (window.VCBingo) window.VCBingo.deps = { h, pb, toast, go, me, errMsg, personChip };
   if (window.VCTod) window.VCTod.deps = { h, pb, toast, go, me, errMsg, personChip, fileUrl, openViewer, reportPhoto };
   if (window.VCNetwork) window.VCNetwork.deps = { h, pb, toast, go, me, errMsg, personChip, miniAvatar, fileUrl };
