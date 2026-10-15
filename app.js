@@ -2737,7 +2737,7 @@
     phInput.addEventListener("change", async () => {
       const files = [...phInput.files]; phInput.value = "";
       for (const f of files) {
-        if (photos.length >= 30) { toast("Galleries are limited to 30 photos and videos", true); break; }
+        if (photos.length >= 100) { toast("Galleries are limited to 100 photos and videos", true); break; }
         const vid = /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name);
         if (vid && f.size > 50 * 1024 * 1024) { toast(`${f.name} is over 50 MB. Try a shorter clip.`, true); continue; }
         if (!vid && f.size > 12 * 1024 * 1024) { toast(`${f.name} is over 12 MB.`, true); continue; }
@@ -2781,7 +2781,7 @@
                     catch (err) { toast(errMsg(err), true); }
                   } }, "🗑")))));
         }),
-        h("label", { class: "upload", for: "photoInput" }, h("span", {}, h("b", {}, "+ Add photos or videos"), h("br"), h("small", {}, "Photos up to 12 MB · videos (MP4, MOV, WebM) up to 50 MB"))),
+        h("label", { class: "upload", for: "photoInput" }, h("span", {}, h("b", {}, "+ Add photos or videos"), h("br"), h("small", {}, `${photos.length} of 100 · photos up to 12 MB · up to 10 videos (MP4, MOV, WebM), 50 MB each`))),
       );
     }
     drawPhotos();
