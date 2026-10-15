@@ -1855,3 +1855,13 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .cu-txt small { color: var(--faint); font-size: .78rem; }
 .event.flash { animation: ev-flash 1.6s ease-out; }
 @keyframes ev-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: none; } }
+.guest-head .actions { align-items: center; gap: 12px; }
+.coming-up .events { margin-top: 0; }
+.browse-month { margin: 8px 0 0; }
+.browse-month > summary { cursor: pointer; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); list-style: none; }
+.browse-month > summary::-webkit-details-marker { display: none; }
+.browse-month > summary::after { content: "▾"; float: right; color: var(--faint); }
+.browse-month[open] > summary { margin-bottom: 12px; }
+.browse-month[open] > summary::after { content: "▴"; }
+.guest-rsvp { display: inline-flex; align-items: center; gap: 4px; }
+.guest-rsvp .linkish { color: var(--gold); }

@@ -767,8 +767,8 @@
     };
 
     // ---- one event ----
-    const eventCard = (ev) => {
-      const card = h("article", { class: "event", id: "ev_" + ev.id });
+    const eventCard = (ev, noId) => {
+      const card = h("article", noId ? { class: "event" } : { class: "event", id: "ev_" + ev.id });
       const draw = (ev) => {
         const past = isPast(ev);
         const ends = ev.ends ? parseDate(ev.ends) : null;
@@ -785,7 +785,7 @@
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
               ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
             h("h2", {}, ev.title),
-            h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : ev.whereHidden ? h("span", { class: "faint" }, " · 📍 Location shown to members") : null),
+            h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
             ev.description ? h("p", { class: "event-desc" }, ev.description) : null,
             guest ? null : h("div", { class: "event-people" },
               ev.people.slice(0, 12).map(personChip),
@@ -796,9 +796,8 @@
               (ev.intPeople || []).slice(0, 12).map(personChip),
               ev.intOthers ? h("span", { class: "faint" }, `+${ev.intOthers} more`) : null) : null,
             h("div", { class: "actions", style: "margin:10px 0 0" },
-              past ? h("span", { class: "faint" }, `${ev.going} went`) : guest ? [
-                h("button", { type: "button", class: "btn small gold", onclick: () => toLogin("/login") }, "Log in to RSVP"),
-                h("button", { type: "button", class: "btn small ghost", onclick: () => toLogin("/join") }, "New? Join")] : (() => {
+              past ? h("span", { class: "faint" }, `${ev.going} went`) : guest ? h("span", { class: "faint guest-rsvp" }, "🔒 Members can RSVP · ",
+                h("button", { type: "button", class: "linkish", onclick: () => toLogin("/login") }, "Log in")) : (() => {
                 // "I'm going" and "Interested" are one choice: tapping the one you picked clears it.
                 // "Not interested" hides it from your calendar (into the Not interested section); any other choice brings it back.
                 const set = async (status, btns) => {
@@ -895,20 +894,7 @@
           h("span", { class: "cu-txt" }, h("b", {}, (ev.emoji ? ev.emoji + " " : "") + ev.title),
             h("small", {}, new Date(t).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: TZ }) + (ev.going ? ` · ${ev.going} going` : "") + (ev.mine ? " · ✓ you're going" : ""))));
       })) : h("p", { class: "muted", style: "margin:0" }, "Nothing on the calendar yet. Keep an eye on the group chat!"));
-    app.replaceChildren(
-      guest ? h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Velvet Collar events"),
-        h("p", { class: "muted" }, "Munches, game nights and play parties from Sacramento's 21+ kink community. Anyone can see what's coming up. Members can RSVP, see who's going and where it is."),
-        h("div", { class: "actions" },
-          h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Make my profile"),
-          h("button", { type: "button", class: "btn", onclick: () => toLogin("/login") }, "Log in"),
-          h("a", { class: "btn ghost", href: "/velvetcollar", "data-nav": "" }, "About us")),
-        h("p", { class: "faint", style: "margin:0" }, "You'll need the join code from the group chat."))
-      : h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
-        h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
-        h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →")),
-        h("p", { class: "vf-cta" }, "🙋 Want to help make our events happen? ", h("a", { href: "/volunteer", "data-nav": "" }, "Volunteer at an event →"))),
-      comingUp,
-      h("section", { class: "panel cal" },
+    const calPanel = () => h("section", { class: "panel cal" },
         h("div", { class: "cal-bar" },
           h("button", { type: "button", class: "btn small ghost", "aria-label": "Previous month", onclick: () => move(-1) }, "‹"),
           title,
@@ -916,8 +902,28 @@
           h("button", { type: "button", class: "btn small ghost cal-today", onclick: () => { [vy, vm] = today.split("-").map(Number); picked = ""; drawGrid(); drawList(); } }, "Today")),
         grid,
         guest ? h("div", { class: "cal-legend" }, KINDS.filter(([k]) => k !== "going" && k !== "bday").map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)))
-          : h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine)),
-      listHead, list);
+          : h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine));
+    // Visitors: a short welcome, then the next events in full, then the calendar to browse (folded on phones).
+    if (guest) {
+      const next = data.upcoming.slice(0, 6);
+      const browse = h("details", { class: "browse-month" }, h("summary", {}, h("b", {}, "📅 Browse by month")), calPanel(), listHead, list);
+      browse.open = window.innerWidth >= 760;
+      app.replaceChildren(
+        h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Velvet Collar events"),
+          h("p", { class: "muted" }, "Munches, game nights and play parties from Sacramento's 21+ kink community. Locations and who's going are shown to members."),
+          h("div", { class: "actions" }, h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Join us"),
+            h("small", { class: "faint" }, "You'll need the join code from the group chat."))),
+        h("section", { class: "coming-up" }, h("h2", {}, "✨ Coming up"),
+          next.length ? h("div", { class: "events" }, next.map((ev) => eventCard(ev, true))) : h("p", { class: "muted" }, "Nothing on the calendar yet. Check back soon!")),
+        browse);
+      return;
+    }
+    app.replaceChildren(
+      h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
+        h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
+        h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →")),
+        h("p", { class: "vf-cta" }, "🙋 Want to help make our events happen? ", h("a", { href: "/volunteer", "data-nav": "" }, "Volunteer at an event →"))),
+      comingUp, calPanel(), listHead, list);
   }
 
   // ---------- the group's own profile page (/velvetcollar). Admins and owners edit it on the Admin page. ----------
