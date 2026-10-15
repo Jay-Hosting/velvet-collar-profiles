@@ -56,7 +56,7 @@
       "The top row is the sections: 👥 People, 📅 Events, 🛡️ Moderation, 💡 Ideas, 🏠 Site and 📈 Activity. Tap one and its pages show in the row underneath.",
       "A pink number means something is waiting for you. It adds up on the section and on the 🛡️ Admin button in the menu.",
       "Plain “Admin” opens the first page with something waiting, so you can work through the queue.",
-      "The ❓ button next to the pages row opens this guide at the page you're on.",
+      "📖 Admin guide opens on the page you're on. Use the menu at the top of the guide to jump to any other topic.",
     ], [
       "🗝️ Owners see everything, including vetting, volunteers and the old application sheet.",
       "🛡️ Admins see everything except those three.",
@@ -184,14 +184,17 @@
     const close = () => { modal.remove(); document.removeEventListener("keydown", key); };
     const key = (e) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") go(cur + 1); if (e.key === "ArrowLeft") go(cur - 1); };
     modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
-    const nav = h("div", { class: "pills guide-nav", role: "tablist", "aria-label": "Guide topics" });
+    // Topics in a dropdown (the list is long), with Back / Next to step through in order.
+    const nav = h("select", { class: "guide-select", "aria-label": "Guide topic", onchange: () => go(+nav.value) }, parts.map((g, j) => h("option", { value: String(j) }, g[1])));
+    const count = h("small", { class: "faint" });
     const page = h("div", { class: "guide-page" });
     const prev = h("button", { type: "button", class: "btn ghost", onclick: () => go(cur - 1) }, "← Back");
     const next = h("button", { type: "button", class: "btn gold", onclick: () => (cur === parts.length - 1 ? close() : go(cur + 1)) });
     const go = (i) => {
       cur = Math.max(0, Math.min(parts.length - 1, i));
       const [id, title, , intro, steps, tips] = parts[cur];
-      nav.replaceChildren(...parts.map((g, j) => h("button", { type: "button", class: "pill", role: "tab", "aria-selected": String(j === cur), "aria-pressed": String(j === cur), onclick: () => go(j) }, g[1])));
+      nav.value = String(cur);
+      count.textContent = `${cur + 1} of ${parts.length}`;
       page.replaceChildren(
         h("h2", { id: "ag_title", style: "margin:0" }, title),
         h("p", { class: "muted", style: "margin:4px 0 0" }, intro),
@@ -199,14 +202,11 @@
         tips.length ? h("div", { class: "guide-tips" }, h("b", {}, "Good to know"), h("ul", {}, tips.map((t) => h("li", {}, t)))) : "");
       prev.disabled = cur === 0;
       next.textContent = cur === parts.length - 1 ? "Done 💜" : "Next →";
-      // Bring the current topic into view in the strip (without scrolling the page itself).
-      const on = nav.querySelector('[aria-selected="true"]');
-      if (on) { const l = on.offsetLeft, r = l + on.offsetWidth; if (l < nav.scrollLeft) nav.scrollLeft = l - 8; else if (r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = r - nav.clientWidth + 8; }
       page.scrollTop = 0;
     };
     modal.append(h("div", { class: "modal-box guide-box" },
       h("div", { class: "toggle-row" }, h("b", {}, "📖 Admin guide"), h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
-      nav, page, h("div", { class: "actions", style: "margin:0;justify-content:space-between" }, prev, h("small", { class: "faint" }, ""), next)));
+      nav, page, h("div", { class: "guide-foot" }, prev, count, next)));
     document.body.append(modal); document.addEventListener("keydown", key);
     go(cur);
   }
@@ -238,9 +238,8 @@
     const nav = h("div", { class: "pills mod-tabs", role: "tablist", "aria-label": "Pages in this section", hidden: !open || open[2].length < 2 }, (open ? open[2] : []).map((id) =>
       h("a", { class: "pill", href: "/admin/" + id, "data-nav": "", role: "tab", "aria-selected": String(id === tab), "aria-pressed": String(id === tab) },
         SUB_LABEL[id] || label[id], badge(waiting[id]))));
-    const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", onclick: () => openGuide(allowed, "start") }, "📖 Admin guide");
-    const pageHelp = h("button", { type: "button", class: "pill guide-q", "aria-label": "How this page works", title: "How this page works", onclick: () => openGuide(allowed, tab) }, "❓");
-    (nav.hidden ? groupNav : nav).append(pageHelp);
+    // One way in: the guide opens on the page you're looking at; pick any other topic from its menu.
+    const helpBtn = h("button", { type: "button", class: "btn small ghost guide-btn", title: "How this page works, and everything else", onclick: () => openGuide(allowed, tab) }, "📖 Admin guide");
     app.replaceChildren(h("section", { class: "mod-head" }, h("div", { class: "toggle-row" }, h("h1", {}, "🛡️ Admin"), helpBtn),
       h("p", { class: "muted" }, sum.mod ? "Everything here acts on the real accounts. Be kind, be careful." : "As a host you can add and edit events.")), groupNav, nav, body);
     try { await ({ reports, members: (b) => members(b, sum), vetting, volunteers, noprofile, events, confessions, games, feedback, backlog, activity, group, question, content })[tab](body); }

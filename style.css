@@ -1551,14 +1551,13 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 /* ---------- Admin guide ---------- */
 .guide-box { width: min(640px, 100%); max-width: 100%; max-height: min(88vh, 760px); display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
 .guide-box > * { min-width: 0; max-width: 100%; }
-.guide-nav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; position: relative; }
-.guide-nav .pill { flex: none; font-size: .82rem; }
-.guide-page { overflow-y: auto; min-height: 0; flex: 1; padding-right: 4px; }
+.guide-select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.guide-page { overflow-y: auto; min-height: 0; flex: 1; padding: 2px 4px 8px 0; overscroll-behavior: contain; }
+.guide-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .guide-steps { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 8px; line-height: 1.5; }
 .guide-tips { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
 .guide-tips ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
 .mod-head .toggle-row h1 { margin: 0; }
-.pill.guide-q { margin-left: auto; }
 
 /* ---------- hobby picker ---------- */
 .hobby-field { display: grid; gap: 8px; }
