@@ -140,6 +140,8 @@
       "Members who join later still get any announcement that's running, so end the ones that are over.",
     ]],
     ["games", "🎲 Games", "games", "The Playroom games' moving parts. Hosts can use it too.", [
+      "🔥 Hot Seat (admins and owners): ➕ Add questions takes a paste, one per line. 20 sit on deck at a time and refill from ⏳ Queue at random.",
+      "Answered questions move to ✅ Answered with who answered them and when. ↩️ Put back in the queue lets them be asked again; 📦 Retire takes one out for good.",
       "🎭 Mystery Match: weekly totals only. Who is paired with whom stays private, even from owners.",
       "🔢 Kink Bingo: this month's numbers are at the bottom of the page. The squares are part of the site itself, so changing them needs a site update.",
       "🎲 Truth or Dare: member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
@@ -321,15 +323,34 @@
     }));
   }
 
+  // Reported Hot Seat questions and answers.
+  async function hsReports(holder, refresh) {
+    const { h, pb, toast, personChip, errMsg } = deps();
+    let d; try { d = await pb.send("/api/vc/mod/hotseat-reports", {}); } catch (err) { holder.replaceChildren(); return; }
+    if (!d.items.length) { holder.replaceChildren(); return; }
+    const RL = { harassment: "😣 Harassing or unwanted", consent: "🙅 Shares something without consent", guidelines: "📜 Breaks the guidelines", other: "💬 Other" };
+    const act = async (it, action) => { try { await pb.send(`/api/vc/mod/hotseat-reports/${it.ask.id}`, { method: "POST", body: { action } }); toast(action === "hide" ? "Hidden" : "Restored"); refresh(); } catch (err) { toast(errMsg(err), true); } };
+    holder.replaceChildren(h("h2", { class: "mod-sec-h" }, `🔥 Reported Hot Seat questions (${d.items.length})`), ...d.items.map((it) => h("section", { class: "panel mod-report" },
+      h("p", { class: "mod-who", style: "margin-top:0" }, "Asked by ", it.ask.from ? personChip(it.ask.from) : h("i", {}, "deleted"), it.ask.anon ? " (anonymously)" : "", " · to ", it.ask.to ? personChip(it.ask.to) : h("i", {}, "deleted"),
+        it.ask.flagged ? h("span", { class: "att-tag" }, "🔒 Hidden") : null),
+      h("p", { class: "faint", style: "margin:4px 0" }, "❓ " + it.ask.question),
+      it.ask.answer ? h("p", { class: "mod-cb-text" }, it.ask.answer) : h("p", { class: "faint" }, "(not answered)"),
+      h("ul", { class: "pr-list" }, it.reports.map((r) => h("li", {}, h("b", {}, RL[r.reason] || r.reason), " · ", r.reporter ? personChip(r.reporter) : h("i", {}, "deleted"), h("small", { class: "faint" }, ` · ${when(r.created)}`), r.note ? h("div", { class: "faint" }, "“" + r.note + "”") : null))),
+      h("div", { class: "actions" },
+        h("button", { type: "button", class: "btn small ghost", onclick: () => act(it, "hide") }, "🙈 Hide it"),
+        h("button", { type: "button", class: "btn small gold", onclick: () => act(it, "restore") }, "✅ It's fine")))));
+  }
+
   async function reports(body) {
     const { h, pb, toast, personChip, errMsg } = deps();
     const data = await pb.send("/api/vc/mod/reports", {});
     const act = async (path, payload, msg) => { try { await pb.send(path, { method: "POST", body: payload }); toast(msg); reports(body); } catch (err) { toast(errMsg(err), true); } };
-    const photoHolder = h("div", {}), todHolder = h("div", {});
+    const photoHolder = h("div", {}), todHolder = h("div", {}), hsHolder = h("div", {});
     photoReports(photoHolder, () => reports(body));
     todReports(todHolder, () => reports(body));
-    if (!data.reports.length) { body.replaceChildren(photoHolder, todHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
-    body.replaceChildren(photoHolder, todHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
+    hsReports(hsHolder, () => reports(body));
+    if (!data.reports.length) { body.replaceChildren(photoHolder, todHolder, hsHolder, h("section", { class: "panel" }, h("h2", { class: "mod-sec-h", style: "margin-top:0" }, "🤫 Whisper reports"), h("p", { class: "muted", style: "margin:0" }, "No reports. 🌙 All quiet."))); return; }
+    body.replaceChildren(photoHolder, todHolder, hsHolder, h("h2", { class: "mod-sec-h" }, "🤫 Whisper reports"), ...data.reports.map((r) => {
       const who = r.reported;
       const lines = String(r.message || "").split("\n").filter(Boolean).map((l) => h("p", { class: /^Them:/.test(l) ? "them" : "rep" }, l.replace(/^Them:/, `${who ? who.display_name : "Them"}:`).replace(/^Reporter:/, `${r.reporter ? r.reporter.display_name : "Reporter"}:`)));
       return h("section", { class: "panel mod-report" + (r.handled ? " handled" : "") },
@@ -874,11 +895,47 @@
         d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, "Nothing sent yet.")));
   }
 
+  // ---------- games: Hot Seat questions (admins and owners) ----------
+  let hsView = "active";
+  function hotSeatPanel(d) {
+    const { h, pb, toast, errMsg, personChip } = deps();
+    const refresh = () => render(document.getElementById("app"), "games");
+    const set = async (q, patch, msg) => { try { await pb.send(`/api/vc/mod/hotseat/${q.id}`, { method: "POST", body: patch }); toast(msg); refresh(); } catch (err) { toast(errMsg(err), true); } };
+    const paste = h("textarea", { rows: 4, placeholder: "Paste new questions, one per line. Numbers at the start are fine; repeats are skipped." });
+    const add = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add questions"), paste,
+      h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: async () => {
+        try { const r = await pb.send("/api/vc/mod/hotseat", { method: "POST", body: { lines: paste.value } }); toast(`Added ${r.added} to the queue${r.dupes ? ` (${r.dupes} already there)` : ""}`); refresh(); } catch (err) { toast(errMsg(err), true); }
+      } }, "Add to the queue")));
+    const VIEWS = [["active", `🃏 On deck (${d.counts.active + d.counts.asked})`], ["queued", `⏳ Queue (${d.counts.queued})`], ["answered", `✅ Answered (${d.counts.answered})`], ["retired", `📦 Retired (${d.counts.retired})`]];
+    const hist = (q) => q.history && q.history.length ? h("small", { class: "faint hs-hist" }, "Answered by ", ...q.history.flatMap((x, i) => [i ? ", " : "", x.to ? x.to.display_name : "a member", ` (${when(x.at)})`])) : null;
+    const row = (q) => {
+      const edit = h("textarea", { rows: 2, maxlength: 400 }, q.text);
+      const editBox = h("div", { class: "tod-edit", hidden: true }, edit, h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: () => set(q, { text: edit.value }, "Saved") }, "Save")));
+      return h("div", { class: "mod-cb" },
+        h("p", { class: "mod-cb-text", style: "margin:0" }, q.text),
+        q.status === "asked" ? h("span", { class: "att-tag" }, "📥 In someone's inbox") : null,
+        hist(q), editBox,
+        h("div", { class: "actions", style: "margin:6px 0 0" },
+          q.status === "answered" || q.status === "retired" ? h("button", { type: "button", class: "btn small gold", onclick: () => set(q, { status: "queued" }, "Back in the queue") }, "↩️ Put back in the queue") : null,
+          q.status === "queued" ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(q, { status: "active" }, "On deck now") }, "🃏 Put on deck now") : null,
+          q.status === "active" ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(q, { status: "queued" }, "Back in the queue") }, "⏳ Back to the queue") : null,
+          q.status !== "retired" && q.status !== "asked" ? h("button", { type: "button", class: "btn small ghost", onclick: () => set(q, { status: "retired" }, "Retired") }, "📦 Retire") : null,
+          h("button", { type: "button", class: "btn small ghost", onclick: () => { editBox.hidden = !editBox.hidden; } }, "✏️ Edit")));
+    };
+    return h("section", { class: "panel" },
+      h("h2", {}, "🔥 Hot Seat questions"),
+      h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} playing · ${d.waiting} question${d.waiting === 1 ? "" : "s"} waiting in inboxes. ${d.deckSize} questions sit on deck at a time and refill from the queue at random. Once a question is answered it moves to ✅ Answered and isn't asked again until you put it back in the queue. Members play at `,
+        h("a", { href: "/hotseat", "data-nav": "" }, location.origin + "/hotseat"), "."),
+      add,
+      h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(hsView === k), onclick: () => { hsView = k; refresh(); } }, l))),
+      d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, "Nothing here."));
+  }
+
   // ---------- games: the Truth or Dare deck (hosts and up) ----------
   let todView = "pending";
   async function games(body) {
     const { h, pb, toast, errMsg, personChip } = deps();
-    const [d, tp, bg, mm] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null)]);
+    const [d, tp, bg, mm, hs] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null), pb.send("/api/vc/mod/hotseat?status=" + hsView, {}).catch(() => null)]);
     const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
     const heatL = Object.fromEntries(HEAT);
     const tab = document.querySelector('.mod-tabs a[href="/admin/games"]');
@@ -925,7 +982,7 @@
           : h("p", { class: "muted" }, "Nobody's playing yet."));
     }
     const VIEWS = [["pending", "⏳ Member ideas"], ["approved", "🃏 In the deck"], ["rejected", "🙅 Not added"], ["retired", "📦 Retired"]];
-    body.replaceChildren(h("section", { class: "panel" },
+    body.replaceChildren(hs ? hotSeatPanel(hs) : "", h("section", { class: "panel" },
       h("h2", {}, "🎲 Truth or Dare deck"),
       h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} member${d.players === 1 ? " is" : "s are"} playing. Members can suggest cards; they wait here until a host adds them. Cards that touch someone's limits are never dealt to them. Edit before adding if a card needs a tweak. Members play at `,
         h("a", { href: "/truthordare", "data-nav": "" }, location.origin + "/truthordare"), "."),
