@@ -2984,9 +2984,10 @@
     phInput.addEventListener("change", async () => {
       const files = [...phInput.files]; phInput.value = "";
       if (!rulesOk) { toast("Please read and tick the upload rules first.", true); photoRules.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
-      for (const f of files) {
+      for (let f of files) {
         if (photos.length >= 100) { toast("Galleries are limited to 100 photos and videos", true); break; }
         const vid = /^video\//.test(f.type) || /\.(mp4|mov|webm|m4v)$/i.test(f.name);
+        if (!vid && window.VCShrink) f = await window.VCShrink(f);
         if (vid && f.size > 50 * 1024 * 1024) { toast(`${f.name} is over 50 MB. Try a shorter clip.`, true); continue; }
         if (!vid && f.size > 12 * 1024 * 1024) { toast(`${f.name} is over 12 MB.`, true); continue; }
         try {
@@ -3069,7 +3070,7 @@
         fd.append("play_links", JSON.stringify(readPlayLinks()));
         fd.append("prompts", JSON.stringify(readPrompts()));
         fd.append("care", JSON.stringify(readCare()));
-        if (avatarFile) fd.append("avatar", avatarFile);
+        if (avatarFile) fd.append("avatar", window.VCShrink ? await window.VCShrink(avatarFile, { max: 1200 }) : avatarFile);
         else if (removeAvatar) fd.append("avatar", "");
         const updated = await pb.collection("members").update(rec.id, fd);
         pb.authStore.save(pb.authStore.token, updated);

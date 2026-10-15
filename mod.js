@@ -1274,7 +1274,7 @@
         prev.replaceChildren(src ? h("img", { src, alt: "" }) : h("span", { class: "faint" }, "No image"));
       };
       const pick = h("input", { type: "file", accept: "image/jpeg,image/png,image/webp,image/gif", hidden: true });
-      pick.addEventListener("change", () => { if (pick.files[0]) { if (pick.files[0].size > 10 * 1024 * 1024) return toast("That image is over 10 MB", true); st.file = pick.files[0]; st.remove = false; draw(); } });
+      pick.addEventListener("change", () => { if (pick.files[0]) { if (pick.files[0].size > 40 * 1024 * 1024) return toast("That image is over 40 MB", true); st.file = pick.files[0]; st.remove = false; draw(); } });
       draw();
       return h("div", { class: "field" }, h("span", { class: "label" }, label), prev,
         h("div", { class: "actions", style: "margin:6px 0 0" },
@@ -1317,7 +1317,7 @@
       for (const k of ["name", "tagline", "location", "about"]) fd.append(k, f[k].value.trim());
       for (const k of ["public", "show_team", "show_events"]) fd.append(k, f[k].checked ? "true" : "false");
       fd.append("links", JSON.stringify(links)); fd.append("sections", JSON.stringify(sections));
-      for (const k of ["logo", "cover"]) { if (imgs[k].file) fd.append(k, imgs[k].file); if (imgs[k].remove) fd.append(k + "_remove", "true"); }
+      for (const k of ["logo", "cover"]) { if (imgs[k].file) fd.append(k, window.VCShrink ? await window.VCShrink(imgs[k].file, { max: k === "logo" ? 1000 : 2400 }) : imgs[k].file); if (imgs[k].remove) fd.append(k + "_remove", "true"); }
       save.disabled = true; save.textContent = "Saving…";
       try { await pb.send("/api/vc/mod/group", { method: "POST", body: fd }); toast("🏠 Group page saved"); group(body); }
       catch (err) { toast(errMsg(err), true); save.disabled = false; save.textContent = "Save group page"; }

@@ -120,7 +120,7 @@
       if (p.proof) showPrev(deps().fileUrl(proofItem(p), p.proof, "400x400"));
       file.addEventListener("change", () => {
         const f = file.files[0]; if (!f) return;
-        if (f.size > 12 * 1024 * 1024) { toast("Photos can be up to 12 MB.", true); file.value = ""; return; }
+        if (f.size > 40 * 1024 * 1024) { toast("That photo is too big (over 40 MB).", true); file.value = ""; return; }
         removePhoto = false; showPrev(URL.createObjectURL(f));
       });
       const nsfw = h("input", { type: "checkbox", checked: !!p.nsfw });
@@ -132,7 +132,7 @@
         send.disabled = true;
         const fd = new FormData();
         fd.append("answer", text.value.trim()); fd.append("nsfw", String(nsfw.checked)); fd.append("shared", String(shared.checked));
-        if (file.files[0]) fd.append("proof", file.files[0]);
+        if (file.files[0]) fd.append("proof", window.VCShrink ? await window.VCShrink(file.files[0]) : file.files[0]);
         if (removePhoto) fd.append("removePhoto", "true");
         try {
           await pb.send("/api/vc/tod/answer", { method: "POST", body: fd });
