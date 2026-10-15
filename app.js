@@ -919,8 +919,11 @@
     } }, "📅 Add all my events");
 
     drawGrid(); drawList();
+    // A link to a day (/events?day=2026-10-24) opens the calendar on that day.
+    const askDay = new URLSearchParams(location.search).get("day") || "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(askDay)) { [vy, vm] = askDay.split("-").map(Number); picked = askDay; drawGrid(); drawList(); }
     // Start on the month of the next event if this month has nothing coming up.
-    const next = data.upcoming[0];
+    const next = askDay ? null : data.upcoming[0];
     const bdaySoon = BD.some((b) => `${vy}-${bdMd(b, vy)}` >= today && `${vy}-${bdMd(b, vy)}`.startsWith(monthKey()));
     if (next && !bdaySoon && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
     // ---- coming up: the next few events, tap one to jump to it ----
@@ -958,17 +961,56 @@
       return;
     }
     if (guest) {
-      const next = data.upcoming.slice(0, 4);
-      const browse = h("div", { class: "actions see-cal" }, h("a", { class: "btn", href: "/events", "data-nav": "" }, "📅 See the full calendar →"));
+      // The welcome page: the next event as an invitation, the rest as a short run of dates, and how to join.
+      const fmt = (t, o) => new Date(t).toLocaleString(undefined, Object.assign({ timeZone: TZ }, o));
+      const timeRange = (ev) => { const a = parseDate(ev.starts), b = ev.ends ? parseDate(ev.ends) : 0; return fmt(a, { hour: "numeric", minute: "2-digit" }) + (b ? " to " + fmt(b, { hour: "numeric", minute: "2-digit" }) : ""); };
+      const dayHref = (ev) => "/events?day=" + dayKey(parseDate(ev.starts));
+      const tagFor = (ev) => ev.vetting === "required" ? h("span", { class: "lp-tag vetonly" }, "Vetted members only") : ev.hosted ? h("span", { class: "lp-tag hosted" }, "Hosted by Velvet Collar") : ev.vetting === "offered" ? h("span", { class: "lp-tag vet" }, "Get vetted here") : null;
+      const [first, ...rest] = data.upcoming;
+      const ticket = first ? (() => {
+        const t = parseDate(first.starts);
+        return h("article", { class: "lp-ticket k-" + kind(first), "aria-label": "Next event: " + first.title },
+          h("div", { class: "lp-stub" },
+            h("span", { class: "lp-stub-dow" }, fmt(t, { weekday: "long" })),
+            h("span", { class: "lp-stub-day" }, fmt(t, { day: "numeric" })),
+            h("span", { class: "lp-stub-mon" }, fmt(t, { month: "long" }))),
+          h("div", { class: "lp-ticket-body" },
+            h("p", { class: "lp-next" }, "Next up"),
+            h("h2", {}, (first.emoji ? first.emoji + " " : "") + first.title),
+            h("p", { class: "lp-time" }, timeRange(first) + " " + TZ_LABEL),
+            first.description ? h("p", { class: "lp-desc" }, first.description) : null,
+            tagFor(first),
+            h("div", { class: "lp-ticket-actions" }, ...addMenu(first),
+              h("a", { class: "lp-link", href: dayHref(first), "data-nav": "" }, "See it on the calendar"))));
+      })() : h("article", { class: "lp-ticket empty" }, h("div", { class: "lp-ticket-body" }, h("h2", {}, "Nothing posted yet"), h("p", { class: "lp-desc" }, "New munches and parties show up here as soon as the hosts add them.")));
+      const run = rest.slice(0, 5);
       app.replaceChildren(
-        h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Velvet Collar events"),
-          h("p", { class: "muted" }, "Munches, game nights and play parties from Sacramento's 21+ kink community. Locations and who's going are shown to members."),
-          h("div", { class: "actions" }, h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Join us"),
-            h("small", { class: "faint" }, "You'll need the join code from the group chat."))),
-        h("section", { class: "coming-up" }, h("h2", {}, "✨ Coming up"),
-          next.length ? h("div", { class: "events" }, next.map((ev) => eventCard(ev, true))) : h("p", { class: "muted" }, "Nothing on the calendar yet. Check back soon!"),
-          data.upcoming.length > next.length ? h("p", { class: "faint", style: "margin:8px 0 0" }, `+ ${data.upcoming.length - next.length} more coming up`) : null),
-        browse);
+        h("section", { class: "lp-hero" },
+          h("div", { class: "lp-intro" },
+            h("p", { class: "lp-where" }, "Sacramento, 21 and over"),
+            h("h1", {}, "Find your people, then find them in person."),
+            h("p", { class: "lp-lede" }, "Velvet Collar is a sex-positive kink community. We host munches, game nights, classes and play parties built on consent and curiosity."),
+            h("div", { class: "lp-cta" },
+              h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Join Velvet Collar"),
+              h("button", { type: "button", class: "btn ghost", onclick: () => toLogin("/login") }, "Log in"))),
+          ticket),
+        run.length ? h("section", { class: "lp-run" },
+          h("div", { class: "lp-run-head" }, h("h2", {}, "After that"), h("a", { class: "lp-link", href: "/events", "data-nav": "" }, "Full calendar")),
+          h("ol", { class: "lp-dates" }, run.map((ev) => {
+            const t = parseDate(ev.starts);
+            return h("li", {}, h("a", { class: "lp-date-row k-" + kind(ev), href: dayHref(ev), "data-nav": "" },
+              h("span", { class: "lp-d" }, h("b", {}, fmt(t, { day: "numeric" })), h("small", {}, fmt(t, { month: "short" }))),
+              h("span", { class: "lp-r" }, h("b", {}, (ev.emoji ? ev.emoji + " " : "") + ev.title), h("small", {}, fmt(t, { weekday: "long" }) + ", " + timeRange(ev))),
+              tagFor(ev)));
+          })),
+          data.upcoming.length > run.length + 1 ? h("p", { class: "faint lp-more" }, `${data.upcoming.length - run.length - 1} more on the calendar.`) : null) : null,
+        h("section", { class: "lp-join" },
+          h("h2", {}, "How to join"),
+          h("ol", { class: "lp-steps" },
+            h("li", {}, h("b", {}, "Get the join code"), h("span", {}, "It's shared in the Velvet Collar Telegram group chat.")),
+            h("li", {}, h("b", {}, "Make your profile"), h("span", {}, "Your kinks, limits, links and photos, on one page you control.")),
+            h("li", {}, h("b", {}, "RSVP and show up"), h("span", {}, "Members see where events are and who's going. Some play parties ask you to get vetted first."))),
+          h("p", { class: "lp-join-foot" }, h("a", { class: "lp-link", href: "/velvetcollar", "data-nav": "" }, "More about Velvet Collar"))));
       return;
     }
     app.replaceChildren(
