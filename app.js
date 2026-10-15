@@ -7,6 +7,14 @@
   pb.autoCancellation(false);
 
   const app = document.getElementById("app");
+  // Photos and videos can't be saved with right-click, long-press or drag (screenshots can't be blocked; this stops casual saving).
+  // The one exception is your own profile card, which is made to be saved.
+  const keep = (el) => el && el.closest && el.closest(".card-preview, .allow-save");
+  document.addEventListener("contextmenu", (e) => { const t = e.target; if ((t.tagName === "IMG" || t.tagName === "VIDEO" || (t.closest && t.closest(".ph, .viewer-media, .tod-proof, .pr-media, .mod-photos"))) && !keep(t)) e.preventDefault(); });
+  document.addEventListener("dragstart", (e) => { if ((e.target.tagName === "IMG" || e.target.tagName === "VIDEO") && !keep(e.target)) e.preventDefault(); });
+  const noSave = (v) => { v.setAttribute("controlsList", "nodownload noremoteplayback"); v.disablePictureInPicture = true; v.setAttribute("disablePictureInPicture", ""); };
+  new MutationObserver((list) => { for (const m of list) for (const n of m.addedNodes) { if (n.nodeType !== 1) continue; if (n.tagName === "VIDEO") noSave(n); else n.querySelectorAll && n.querySelectorAll("video").forEach(noSave); } })
+    .observe(document.body, { childList: true, subtree: true });
   const nav = document.getElementById("nav");
   const RESERVED = ["edit", "api", "admin", "login", "logout", "join", "signup", "settings", "playroom", "games", "index", "directory", "members", "assets", "vendor", "events", "question", "p", "hunt", "whispers", "mod", "vetting", "velvetcollar", "about", "group", "confessions", "confess", "network", "volunteer", "volunteers", "truthordare", "tod", "bingo", "match", "mystery", "_"];
   // "Looking for" choices: [value, emoji, label]. "open" and "nothing" each stand on their own.
