@@ -522,7 +522,12 @@
     const here = route().name;
     const playroom = h("a", { class: "btn small ghost playroom-link" + (here === "playroom" ? " current" : ""), href: "/playroom", "data-nav": "" }, "Playroom");
     if (!user) {
-      nav.append(playroom, h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"));
+      // Visitors land on the events calendar; About is the group page (or the sign-up pitch).
+      nav.append(
+        h("a", { class: "btn small ghost" + (here === "events" || here === "home" ? " current" : ""), href: "/events", "data-nav": "" }, "Events"),
+        h("a", { class: "btn small ghost" + (here === "group" ? " current" : ""), href: "/velvetcollar", "data-nav": "" }, "About"),
+        h("a", { class: "btn small ghost", href: "/login", "data-nav": "" }, "Log in"),
+        h("a", { class: "btn small gold", href: "/join", "data-nav": "" }, "Join"));
     } else {
       nav.append(
         playroom,
@@ -552,11 +557,11 @@
       if (me()) { try { await pb.collection("members").authRefresh(); } catch (e) { if (e.status === 401 || e.status === 404) pb.authStore.clear(); } renderNav(); }
       seen(PAGE_OF[r.name]);
       checkConsent().then(volNews);
-      if (r.name === "home") return me() ? await renderDirectory() : await renderGroup(renderLanding);
+      if (r.name === "home") return me() ? await renderDirectory() : await renderEvents();
       if (r.name === "edit") return me() ? await renderEditor() : renderLogin("/edit");
       if (r.name === "login" || r.name === "join") return me() ? go("/") : renderAuth(r.name);
       if (r.name === "playroom") return await renderPlayroom();
-      if (r.name === "events") return me() ? await renderEvents() : renderLogin("/events");
+      if (r.name === "events") return await renderEvents();
       if (r.name === "hunt") return me() ? await window.VCHunt.renderLobby(app, r.start) : renderLogin("/hunt");
       if (r.name === "whispers") return me() ? await window.VCWhisper.renderLobby(app) : renderLogin("/whispers");
       if (r.name === "confessions") return me() ? await window.VCConfess.render(app) : renderLogin("/confessions");
@@ -570,7 +575,7 @@
       if (r.name === "question") return me() ? await renderQuestion() : renderLogin("/question");
       if (r.name === "vetting") return me() ? await renderVetting() : renderLogin("/vetting");
       if (r.name === "volunteer") return me() ? await renderVolunteer() : renderLogin("/volunteer");
-      if (r.name === "group") return await renderGroup();
+      if (r.name === "group") return await renderGroup(me() ? undefined : renderLanding);
       return await renderProfile(r.slug);
     } catch (err) {
       // Busy for a moment: say so and try again by itself rather than showing an error.
@@ -709,6 +714,8 @@
   async function renderEvents() {
     document.title = "Events · Velvet Collar";
     const data = await pb.send("/api/vc/events", {});
+    const guest = !me();
+    const toLogin = (path) => { try { sessionStorage.setItem("vc_after_login", "/events"); } catch {} go(path); };
     const all = [...data.past.slice().reverse(), ...data.upcoming];
     const now = Date.now();
     const isPast = (ev) => { const end = parseDate(ev.ends) || (parseDate(ev.starts) + 6 * 3600e3); return end < now; };
@@ -778,18 +785,20 @@
               ev.vetting === "offered" ? h("a", { class: "ev-tag vet", href: "/vetting", "data-nav": "" }, "✅ Get vetted here") : null,
               ev.vetting === "required" ? h("a", { class: "ev-tag vetonly", href: "/vetting", "data-nav": "", title: "Fill in the vetting form first" }, "🔒 Vetted members only") : null),
             h("h2", {}, ev.title),
-            h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : null),
+            h("p", { class: "event-when" }, ends ? fmtWhen(ev.starts).replace(" " + TZ_LABEL, "") + " – " + timeShort(ends) : fmtWhen(ev.starts), ev.where ? h("span", {}, " · 📍 " + ev.where) : ev.whereHidden ? h("span", { class: "faint" }, " · 📍 Location shown to members") : null),
             ev.description ? h("p", { class: "event-desc" }, ev.description) : null,
-            h("div", { class: "event-people" },
+            guest ? null : h("div", { class: "event-people" },
               ev.people.slice(0, 12).map(personChip),
               ev.others ? h("span", { class: "faint" }, `+${ev.others} more`) : null,
               !ev.going && !ev.interestedCount ? h("span", { class: "faint" }, past ? "Nobody signed up." : "Be the first to say you're going!") : null),
-            ev.interestedCount ? h("div", { class: "event-people interested-row" },
+            ev.interestedCount && !guest ? h("div", { class: "event-people interested-row" },
               h("span", { class: "faint" }, "⭐ Interested:"),
               (ev.intPeople || []).slice(0, 12).map(personChip),
               ev.intOthers ? h("span", { class: "faint" }, `+${ev.intOthers} more`) : null) : null,
             h("div", { class: "actions", style: "margin:10px 0 0" },
-              past ? h("span", { class: "faint" }, `${ev.going} went`) : (() => {
+              past ? h("span", { class: "faint" }, `${ev.going} went`) : guest ? [
+                h("button", { type: "button", class: "btn small gold", onclick: () => toLogin("/login") }, "Log in to RSVP"),
+                h("button", { type: "button", class: "btn small ghost", onclick: () => toLogin("/join") }, "New? Join")] : (() => {
                 // "I'm going" and "Interested" are one choice: tapping the one you picked clears it.
                 // "Not interested" hides it from your calendar (into the Not interested section); any other choice brings it back.
                 const set = async (status, btns) => {
@@ -811,7 +820,7 @@
                 return [go, maybe, nope];
               })(),
               past ? null : addMenu(ev),
-              !past && ev.volunteers && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
+              !past && !guest && ev.volunteers && !ev.volunteer ? h("a", { class: "btn small ghost", href: "/volunteer?event=" + ev.id, "data-nav": "" }, "🙋 Volunteer") : null,
               ev.url && safeUrl(ev.url) ? h("a", { class: "btn small ghost", href: safeUrl(ev.url), target: "_blank", rel: "noopener" }, "Details ↗") : null,
               !past ? h("span", { class: "faint" }, `${ev.going} going` + (ev.interestedCount ? ` · ${ev.interestedCount} interested` : "")) : null)));
       };
@@ -871,11 +880,34 @@
     const next = data.upcoming[0];
     const bdaySoon = BD.some((b) => `${vy}-${bdMd(b, vy)}` >= today && `${vy}-${bdMd(b, vy)}`.startsWith(monthKey()));
     if (next && !bdaySoon && !all.some((ev) => !isPast(ev) && dayKey(parseDate(ev.starts)).startsWith(monthKey()))) { [vy, vm] = dayKey(parseDate(next.starts)).split("-").map(Number); drawGrid(); drawList(); }
+    // ---- coming up: the next few events, tap one to jump to it ----
+    const openEvent = (ev) => {
+      [vy, vm] = dayKey(parseDate(ev.starts)).split("-").map(Number); picked = dayKey(parseDate(ev.starts)); drawGrid(); drawList();
+      const el = document.getElementById("ev_" + ev.id); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600); }
+    };
+    const soon = data.upcoming.filter((ev) => !ev.notInterested).slice(0, 4);
+    const comingUp = h("section", { class: "coming-up" },
+      h("h2", {}, "✨ Coming up"),
+      soon.length ? h("div", { class: "cu-list" }, soon.map((ev) => {
+        const t = parseDate(ev.starts);
+        return h("button", { type: "button", class: "cu-card k-" + kind(ev), onclick: () => openEvent(ev) },
+          h("span", { class: "cu-date" }, h("b", {}, new Date(t).toLocaleDateString(undefined, { day: "numeric", timeZone: TZ })), h("small", {}, new Date(t).toLocaleDateString(undefined, { month: "short", timeZone: TZ }))),
+          h("span", { class: "cu-txt" }, h("b", {}, (ev.emoji ? ev.emoji + " " : "") + ev.title),
+            h("small", {}, new Date(t).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: TZ }) + (ev.going ? ` · ${ev.going} going` : "") + (ev.mine ? " · ✓ you're going" : ""))));
+      })) : h("p", { class: "muted", style: "margin:0" }, "Nothing on the calendar yet. Keep an eye on the group chat!"));
     app.replaceChildren(
-      h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
+      guest ? h("section", { class: "playroom-head guest-head" }, h("h1", {}, "Velvet Collar events"),
+        h("p", { class: "muted" }, "Munches, game nights and play parties from Sacramento's 21+ kink community. Anyone can see what's coming up. Members can RSVP, see who's going and where it is."),
+        h("div", { class: "actions" },
+          h("button", { type: "button", class: "btn gold", onclick: () => toLogin("/join") }, "Make my profile"),
+          h("button", { type: "button", class: "btn", onclick: () => toLogin("/login") }, "Log in"),
+          h("a", { class: "btn ghost", href: "/velvetcollar", "data-nav": "" }, "About us")),
+        h("p", { class: "faint", style: "margin:0" }, "You'll need the join code from the group chat."))
+      : h("section", { class: "playroom-head" }, h("h1", {}, "Events"),
         h("p", { class: "muted" }, "Munches, game nights and play parties. Tap a day to see what's on. Tap I'm going so people know who to look for, or Interested if you're thinking about it. Only members on the member list are shown by name."),
         h("p", { class: "vf-cta" }, "🔒 Some play parties need you to be vetted first. ", h("a", { href: "/vetting", "data-nav": "" }, "Fill in the vetting form →")),
         h("p", { class: "vf-cta" }, "🙋 Want to help make our events happen? ", h("a", { href: "/volunteer", "data-nav": "" }, "Volunteer at an event →"))),
+      comingUp,
       h("section", { class: "panel cal" },
         h("div", { class: "cal-bar" },
           h("button", { type: "button", class: "btn small ghost", "aria-label": "Previous month", onclick: () => move(-1) }, "‹"),
@@ -883,7 +915,8 @@
           h("button", { type: "button", class: "btn small ghost", "aria-label": "Next month", onclick: () => move(1) }, "›"),
           h("button", { type: "button", class: "btn small ghost cal-today", onclick: () => { [vy, vm] = today.split("-").map(Number); picked = ""; drawGrid(); drawList(); } }, "Today")),
         grid,
-        h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine)),
+        guest ? h("div", { class: "cal-legend" }, KINDS.filter(([k]) => k !== "going" && k !== "bday").map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)))
+          : h("div", { class: "cal-legend" }, KINDS.map(([k, l]) => h("span", {}, h("i", { class: "k-" + k, "aria-hidden": "true" }), l)), h("span", {}, h("i", { class: "k-int", "aria-hidden": "true" }), "You're interested"), allMine)),
       listHead, list);
   }
 
