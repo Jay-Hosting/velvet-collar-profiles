@@ -2007,3 +2007,4 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .hs-card:not(.open):hover { background: rgba(236,197,237,.06); border-color: var(--line-strong); }
 .hs-card-q:hover { background: transparent; }
 @media (hover: none) { .hs-card:not(.open):hover { background: var(--panel); border-color: var(--line); } }
+.hs-heat { margin-right: 6px; }

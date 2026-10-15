@@ -12,6 +12,9 @@
   };
   const REPORT = [["harassment", "😣 It's harassing or unwanted"], ["consent", "🙅 It shares something about someone without their OK"], ["guidelines", "📜 It breaks the community guidelines"], ["other", "💬 Something else"]];
   let view = "play", archive = { page: 1, q: "" };
+  // Deal the deck out mixed: mild, spicy, scorching, mild, spicy…
+  const mixed = (deck) => { const by = { mild: [], spicy: [], fire: [] }; for (const q of deck) (by[q.heat] || by.spicy).push(q); const out = []; while (by.mild.length || by.spicy.length || by.fire.length) for (const k of ["mild", "spicy", "fire"]) if (by[k].length) out.push(by[k].shift()); return out; };
+  const HEAT_E = { mild: "🌸", spicy: "🌶️", fire: "🔥" }, HEAT_L = { mild: "Mild", spicy: "Spicy", fire: "Scorching" };
 
   async function render(app) {
     const { h, pb, toast, errMsg, personChip } = deps();
@@ -87,10 +90,11 @@
           h("p", { class: "faint", style: "margin-top:-6px" }, `Tap a question, pick a player, send. Each question can only be answered once, so grab the good ones. ${d.deck.length} on deck right now.`),
           !people.length ? h("p", { class: "muted" }, "You're the only player so far. Invite someone to join!") : null,
           sentWaiting >= d.rules.maxSent ? h("p", { class: "muted" }, `You have ${sentWaiting} questions waiting on answers. You can send more once they're answered or passed.`) : null,
-          h("div", { class: "hs-deck" }, d.deck.map((q) => {
+          h("div", { class: "hs-deck" }, mixed(d.deck).map((q) => {
             const open = picked === q.id;
             const card = h("div", { class: "hs-card" + (open ? " open" : "") });
-            const pick = h("button", { type: "button", class: "hs-card-q", "aria-expanded": String(open), onclick: () => { picked = open ? "" : q.id; drawAsk(); } }, q.text);
+            const pick = h("button", { type: "button", class: "hs-card-q", "aria-expanded": String(open), onclick: () => { picked = open ? "" : q.id; drawAsk(); } },
+              h("span", { class: "hs-heat", title: HEAT_L[q.heat] || "", "aria-label": HEAT_L[q.heat] || "" }, HEAT_E[q.heat] || "🌶️"), q.text);
             card.append(pick);
             if (open && people.length) {
               const sel = h("select", { "aria-label": "Who should answer?" }, h("option", { value: "" }, "Who's in the hot seat?"),

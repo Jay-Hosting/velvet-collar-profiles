@@ -918,18 +918,21 @@
     const { h, pb, toast, errMsg, personChip } = deps();
     const refresh = () => render(document.getElementById("app"), "hotseat");
     const set = async (q, patch, msg) => { try { await pb.send(`/api/vc/mod/hotseat/${q.id}`, { method: "POST", body: patch }); toast(msg); refresh(); } catch (err) { toast(errMsg(err), true); } };
+    const HE = { mild: "🌸 Mild", spicy: "🌶️ Spicy", fire: "🔥 Scorching" };
     const paste = h("textarea", { rows: 4, placeholder: "Paste new questions, one per line. Numbers at the start are fine; repeats are skipped." });
-    const add = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add questions"), paste,
+    const heatSel = h("select", { "aria-label": "Heat for these questions" }, Object.entries(HE).map(([k, l]) => h("option", { value: k, selected: k === "spicy" }, l)));
+    const add = h("details", { class: "tod-add" }, h("summary", {}, "➕ Add questions"), h("label", { class: "ann-ends" }, h("span", { class: "faint" }, "How hot are they?"), heatSel), paste,
       h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: async () => {
-        try { const r = await pb.send("/api/vc/mod/hotseat", { method: "POST", body: { lines: paste.value } }); toast(`Added ${r.added} to the queue${r.dupes ? ` (${r.dupes} already there)` : ""}`); refresh(); } catch (err) { toast(errMsg(err), true); }
+        try { const r = await pb.send("/api/vc/mod/hotseat", { method: "POST", body: { lines: paste.value, heat: heatSel.value } }); toast(`Added ${r.added} to the queue${r.dupes ? ` (${r.dupes} already there)` : ""}`); refresh(); } catch (err) { toast(errMsg(err), true); }
       } }, "Add to the queue")));
     const VIEWS = [["active", `🃏 On deck (${d.counts.active + d.counts.asked})`], ["queued", `⏳ Queue (${d.counts.queued})`], ["answered", `✅ Answered (${d.counts.answered})`], ["retired", `📦 Retired (${d.counts.retired})`]];
     const hist = (q) => q.history && q.history.length ? h("small", { class: "faint hs-hist" }, "Answered by ", ...q.history.flatMap((x, i) => [i ? ", " : "", x.to ? x.to.display_name : "a member", ` (${when(x.at)})`])) : null;
     const row = (q) => {
       const edit = h("textarea", { rows: 2, maxlength: 400 }, q.text);
-      const editBox = h("div", { class: "tod-edit", hidden: true }, edit, h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: () => set(q, { text: edit.value }, "Saved") }, "Save")));
+      const eh = h("select", {}, Object.entries(HE).map(([k, l]) => h("option", { value: k, selected: k === q.heat }, l)));
+      const editBox = h("div", { class: "tod-edit", hidden: true }, eh, edit, h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: () => set(q, { text: edit.value, heat: eh.value }, "Saved") }, "Save")));
       return h("div", { class: "mod-cb" },
-        h("p", { class: "mod-cb-text", style: "margin:0" }, q.text),
+        h("p", { class: "mod-cb-text", style: "margin:0" }, (HE[q.heat] || "").split(" ")[0] + " " + q.text),
         q.status === "asked" ? h("span", { class: "att-tag" }, "📥 In someone's inbox") : null,
         hist(q), editBox,
         h("div", { class: "actions", style: "margin:6px 0 0" },
@@ -941,7 +944,7 @@
     };
     return h("section", { class: "panel" },
       h("h2", {}, "🔥 Hot Seat questions"),
-      h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} playing · ${d.waiting} question${d.waiting === 1 ? "" : "s"} waiting in inboxes. ${d.deckSize} questions sit on deck at a time and refill from the queue at random. Once a question is answered it moves to ✅ Answered and isn't asked again until you put it back in the queue. Members play at `,
+      h("p", { class: "faint", style: "margin-top:-6px" }, `${d.players} playing · ${d.waiting} question${d.waiting === 1 ? "" : "s"} waiting in inboxes. ${d.deckSize} questions sit on deck at a time (about 7 mild, 7 spicy and 6 scorching) and refill from the queue at random. In the queue: 🌸 ${d.queueHeats.mild} · 🌶️ ${d.queueHeats.spicy} · 🔥 ${d.queueHeats.fire}. Once a question is answered it moves to ✅ Answered and isn't asked again until you put it back in the queue. Members play at `,
         h("a", { href: "/hotseat", "data-nav": "" }, location.origin + "/hotseat"), "."),
       add,
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(hsView === k), onclick: () => { hsView = k; refresh(); } }, l))),
