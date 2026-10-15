@@ -9,7 +9,7 @@
   const KIND = { truth: ["💭", "Truth"], dare: ["🎯", "Dare"] };
   const RULES = [
     ["🔞", "Members only, 21 and older."],
-    ["🛟", "Safeword passes are no-questions-asked. Nobody sees that you passed, and your streak stays safe."],
+    ["🛟", "Safeword passes are no-questions-asked. Other members never see that you passed, and your streak stays safe."],
     ["📷", "Photos are optional. Only post yourself, or someone who said yes to being posted. Never anyone under 18."],
     ["🔞", "Tick NSFW on anything explicit so it stays blurred until someone taps."],
     ["🚪", "A dare is for you to do alone or with a partner who's already into it. It's never a reason to message someone who didn't ask."],
@@ -46,7 +46,7 @@
     const rulesBox = () => {
       const seen = store.get("vc_tod_rules") === "1";
       const box = h("details", { class: "panel cb-rules" }, h("summary", {}, h("b", {}, "📜 How it works"), h("small", { class: "faint" }, " · and the house rules")),
-        h("p", { class: "faint", style: "margin:6px 0" }, `Every day you get one card: pick truth, dare, or let the wheel decide. Cards come at your heat level (and a few milder ones), and anything touching your limits is never dealt to you. Answer before midnight Pacific to grow your streak. You get ${d.player.passes} safeword passes a week.`),
+        h("p", { class: "faint", style: "margin:6px 0" }, `Every day you get one card: pick truth, dare, or let the wheel decide. Cards come at your heat level (and a few milder ones), and anything touching your limits is never dealt to you. Answer before midnight Pacific to grow your streak. You get ${d.player.passes} safeword passes a week, and they refill every Monday.`),
         h("ul", {}, RULES.map(([e, t]) => h("li", {}, h("span", { "aria-hidden": "true" }, e), " ", t))),
         seen ? null : h("button", { type: "button", class: "btn small gold", onclick: () => { store.set("vc_tod_rules", "1"); box.open = false; } }, "Got it"));
       box.open = !seen;
@@ -79,7 +79,7 @@
         h("div", { class: "tod-stats" },
           h("span", { class: "tod-stat", title: "Days in a row" }, h("b", {}, `🔥 ${p.streak}`), h("small", {}, p.streak === 1 ? "day streak" : "day streak")),
           h("span", { class: "tod-stat", title: "Your best streak" }, h("b", {}, `🏅 ${p.best}`), h("small", {}, "best")),
-          h("span", { class: "tod-stat", title: "Safeword passes left this week" }, h("b", {}, `🛟 ${p.passesLeft}`), h("small", {}, `pass${p.passesLeft === 1 ? "" : "es"} left`)),
+          h("span", { class: "tod-stat", title: "Safeword passes left this week" }, h("b", {}, `🛟 ${p.passesLeft}`), h("small", {}, `pass${p.passesLeft === 1 ? "" : "es"} left · refill Mon`)),
           h("button", { type: "button", class: "tod-stat tod-stat-btn", "aria-label": "Change heat level", onclick: () => { heatBox.hidden = !heatBox.hidden; } }, h("b", {}, heatOf(p.heat)[1]), h("small", {}, heatOf(p.heat)[2] + " ✎"))),
         heatBox);
     }
@@ -146,7 +146,7 @@
         h("label", { class: "check" }, shared, " 📣 Share on the wall"),
         h("div", { class: "actions" }, send,
           editing ? h("button", { type: "button", class: "btn ghost", onclick: () => draw() }, "Cancel") : null,
-          !editing ? h("button", { type: "button", class: "btn ghost tod-pass", disabled: !d.player.passesLeft, title: d.player.passesLeft ? "" : "No passes left this week", onclick: async () => {
+          !editing ? h("button", { type: "button", class: "btn ghost tod-pass", disabled: !d.player.passesLeft, title: d.player.passesLeft ? "" : "No passes left. They refill on Monday.", onclick: async () => {
             try { await pb.send("/api/vc/tod/pass", { method: "POST" }); toast("🛟 Passed. No questions asked."); await load(); draw(); } catch (err) { toast(errMsg(err), true); }
           } }, `🛟 Safeword pass (${d.player.passesLeft} left)`) : null));
     }

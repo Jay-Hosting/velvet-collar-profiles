@@ -134,6 +134,7 @@
       "🎭 Mystery Match: weekly totals only. Who is paired with whom stays private, even from owners.",
       "🔢 Kink Bingo: this month's numbers are at the bottom of the page. The squares are part of the site itself, so changing them needs a site update.",
       "🎲 Truth or Dare: member card ideas wait in ⏳ Member ideas. ✅ Add to deck, ✏️ Edit first if it needs a tweak, or 🙅 Not this one.",
+      "🛟 Players & safeword passes (admins and owners): passes refill every Monday on their own; Reset passes gives someone theirs back early, or use Reset everyone's passes.",
       "➕ Add a card puts your own straight into the deck. 📦 Retire takes a card out without deleting it.",
       "Heat levels: 🌸 Mild, 🌶️ Spicy, 🔥 Scorching. Players only get cards at or below the heat they chose.",
     ], [
@@ -793,7 +794,7 @@
   let todView = "pending";
   async function games(body) {
     const { h, pb, toast, errMsg, personChip } = deps();
-    const [d, bg, mm] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null)]);
+    const [d, tp, bg, mm] = await Promise.all([pb.send("/api/vc/mod/tod?status=" + todView, {}), pb.send("/api/vc/mod/tod/players", {}).catch(() => null), pb.send("/api/vc/mod/bingo", {}).catch(() => null), pb.send("/api/vc/mod/match", {}).catch(() => null)]);
     const HEAT = [["mild", "🌸 Mild"], ["spicy", "🌶️ Spicy"], ["fire", "🔥 Scorching"]];
     const heatL = Object.fromEntries(HEAT);
     const tab = document.querySelector('.mod-tabs a[href="/admin/games"]');
@@ -824,6 +825,21 @@
       h("div", { class: "actions" }, h("button", { type: "button", class: "btn small gold", onclick: async () => {
         try { await pb.send("/api/vc/mod/tod", { method: "POST", body: { kind: nk.value, heat: nh.value, text: nt.value } }); toast("Added to the deck"); games(body); } catch (err) { toast(errMsg(err), true); }
       } }, "Add")));
+    // Players and their safeword passes (admins and owners only). Passes refill on their own every Monday.
+    function todPlayers(tp) {
+      const reset = async (id, name) => {
+        if (id === "all" && !confirm("Give every player all their safeword passes back for this week?")) return;
+        try { const r = await pb.send(`/api/vc/mod/tod/players/${id}/reset-passes`, { method: "POST" }); toast(id === "all" ? `🛟 Passes reset for ${r.count} players` : `🛟 ${name} has all ${tp.passes} passes again`); games(body); } catch (err) { toast(errMsg(err), true); }
+      };
+      const dl = new Date(tp.nextRefill + "T12:00:00Z").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+      return h("details", { class: "panel tod-players" }, h("summary", {}, h("b", {}, `🛟 Players & safeword passes (${tp.players.length})`)),
+        h("p", { class: "faint" }, `Everyone gets ${tp.passes} passes a week. They refill on their own every Monday (next: ${dl}). Reset gives someone their passes back early. Other members never see who passed.`),
+        tp.players.length ? h("div", { class: "actions" }, h("button", { type: "button", class: "btn small ghost", onclick: () => reset("all") }, "🛟 Reset everyone's passes")) : null,
+        tp.players.length ? h("div", { class: "mod-cb-list" }, tp.players.map((x) => h("div", { class: "mod-cb cb-row" },
+          h("span", { class: "mod-cb-meta" }, personChip(x.member), h("small", { class: "faint" }, `🛟 ${x.passesLeft}/${tp.passes} passes · 🔥 ${x.streak} day streak`)),
+          h("button", { type: "button", class: "btn small ghost", disabled: x.passesLeft >= tp.passes, onclick: () => reset(x.member.id, x.member.display_name) }, "Reset passes"))))
+          : h("p", { class: "muted" }, "Nobody's playing yet."));
+    }
     const VIEWS = [["pending", "⏳ Member ideas"], ["approved", "🃏 In the deck"], ["rejected", "🙅 Not added"], ["retired", "📦 Retired"]];
     body.replaceChildren(h("section", { class: "panel" },
       h("h2", {}, "🎲 Truth or Dare deck"),
@@ -832,6 +848,7 @@
       addForm,
       h("div", { class: "pills" }, VIEWS.map(([k, l]) => h("button", { type: "button", class: "pill", "aria-pressed": String(todView === k), onclick: () => { todView = k; games(body); } }, `${l} (${d.counts[k]})`))),
       d.items.length ? h("div", { class: "mod-cb-list" }, d.items.map(row)) : h("p", { class: "muted" }, todView === "pending" ? "No ideas waiting. 🌙" : "Nothing here.")),
+      tp ? todPlayers(tp) : "",
       bg ? h("section", { class: "panel" },
         h("h2", {}, "🔢 Kink Bingo this month"),
         h("p", { class: "faint", style: "margin-top:-6px" }, `Everyone gets a new card on the 1st, drawn from ${bg.squares} squares. Members play at `, h("a", { href: "/bingo", "data-nav": "" }, location.origin + "/bingo"), "."),
