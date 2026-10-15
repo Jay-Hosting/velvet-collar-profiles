@@ -1773,3 +1773,34 @@ a.att-tag.link-tag:hover, a.att-tag.link-tag:focus-visible { border-color: var(-
 .tod-edit { display: grid; gap: 6px; margin-top: 6px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .linkish { background: none; border: 0; padding: 0; color: var(--faint); text-decoration: underline; font: inherit; cursor: pointer; }
+
+/* ---------- Kink Bingo ---------- */
+.bingo { display: grid; gap: 14px; }
+.bingo > * { min-width: 0; }
+.bingo .panel { margin: 0; }
+.tod-stat-btn.active { border-color: var(--gold); background: var(--gold-soft); }
+.tod-stat-btn:disabled { opacity: .5; cursor: default; }
+.bingo-banner { text-align: center; font-weight: 800; font-size: 1.15rem; padding: 10px; border-radius: 14px; background: linear-gradient(90deg, #4a4272, #7a2848); border: 1px solid var(--gold); }
+.bingo-grid { width: 100%; max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 10px; border-radius: 18px; background: linear-gradient(160deg, #2b2540, #1f1a2b); border: 2px solid var(--line-strong); }
+.bingo-sq { position: relative; aspect-ratio: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px;
+  border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--text); font: inherit; cursor: pointer; overflow: hidden; text-align: center; transition: transform .12s, background .2s; }
+.bingo-sq:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--gold); }
+.bingo-sq.k-spicy { border-color: rgba(255, 120, 150, .35); }
+.bingo-sq.k-free { background: linear-gradient(150deg, #988ae3, #ecc5ed); color: #17141f; font-weight: 800; cursor: default; }
+.bingo-emo { font-size: 1.35rem; line-height: 1; }
+.bingo-txt { font-size: .74rem; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.bingo-auto { position: absolute; top: 3px; right: 4px; font-size: .65rem; }
+.bingo-sq.on:not(.k-free) { background: linear-gradient(150deg, #4a4272, #6b3a63); border-color: var(--gold); }
+.bingo-dab { position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(circle, rgba(236, 197, 237, .38), rgba(236, 197, 237, .12) 60%, transparent 70%); pointer-events: none; animation: bingo-dab .3s ease-out both; }
+@keyframes bingo-dab { from { transform: scale(1.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.bingo-sq.win { box-shadow: 0 0 0 2px #f2c45a, 0 0 14px rgba(242, 196, 90, .45); }
+.bingo-grid.swapping .bingo-sq:not(.on):not(.k-free) { animation: bingo-wiggle .6s ease-in-out infinite; border-style: dashed; }
+@keyframes bingo-wiggle { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@media (max-width: 520px) { .bingo-grid { gap: 4px; padding: 6px; } .bingo-txt { font-size: .58rem; -webkit-line-clamp: 3; } .bingo-emo { font-size: 1.1rem; } .bingo-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } .bingo-stats .tod-stat small { font-size: .62rem; } }
+.bingo-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 0; font-size: .8rem; }
+.bingo-shout h2 { margin-bottom: 8px; }
+.bingo-full { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.bingo-burst { position: fixed; inset: 0; pointer-events: none; z-index: 120; overflow: hidden; }
+.bingo-burst span { position: absolute; top: -40px; animation: bingo-fall 2.2s ease-in forwards; }
+@keyframes bingo-fall { to { transform: translateY(110vh) rotate(540deg); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .bingo-burst, .bingo-dab, .bingo-grid.swapping .bingo-sq { animation: none !important; } .bingo-burst { display: none; } .tod-wheel.spinning, .tod-card.big.dealt { animation: none; } }
