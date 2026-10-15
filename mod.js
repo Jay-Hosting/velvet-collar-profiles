@@ -63,14 +63,17 @@
       "🎪 Hosts only see Events and Confessions.",
       "Everything here acts on real accounts and is saved straight away. Anything that can't be undone asks you first.",
     ]],
-    ["members", "👥 All members", "members", "Find anyone, hide a profile, reset a password and give badges.", [
-      "Search by display name or profile name. With no search it lists the newest members first.",
-      "🙈 Hide takes a profile off the site for everyone except admins. Unhide brings it back exactly as it was.",
-      "🔑 Reset password makes a new temporary password, shown once, with a 📋 button that copies a ready-to-send message. Send it to them privately.",
-      "Badges: tap to give or take away. 🎪 Host gives access to Events and Confessions; 🛡️ Admin gives this whole page. Only owners can give 🗝️ Owner.",
-      "Each person shows whether they've agreed to the community guidelines and confirmed 21+, and whether they use Whispers and The Hunt (you can switch those off for them).",
+    ["members", "👥 All members", "members", "Everyone on the site, and a member card for each person.", [
+      "The list shows 25 at a time. Search by name, profile name or Telegram, and use Previous / Next for more.",
+      "Filters: 🟢 Online now, 🔥 Active this week, 🌱 New this week, 💤 Quiet 30+ days, 🛡️ Team, ⚠️ Missing 21+ / guidelines, 🙈 Hidden and 👻 Not on the list (owners also get ✅ Vetted / Not vetted).",
+      "Sort by 🔥 Recently active (online first), 🌱 Newest, 🔑 Last login or A–Z.",
+      "Tap anyone to open their member card: last active and last login, days active (7 / 30 / 90), time on the site, a 30-day activity chart, what time of day they're usually on, what they use most, what they've done, events they're going to and came to, how complete their profile is, and their account settings.",
+      "Owners also see vetting, their old application and any volunteering on the card.",
+      "Admin actions are at the bottom of the card: 🙈 hide or unhide the profile, 🔑 reset their password (copy the ready-made message and send it privately), badges, and turning off Whispers or The Hunt.",
     ], [
+      "Last login counts password logins from now on, so it shows “Not recorded yet” until someone next logs in.",
       "Hiding is the gentle option: nothing is deleted.",
+      "Whispers, crushes, confessions and anonymous feedback are never shown per person.",
     ]],
     ["vetting", "✅ Vetting", "vetting", "Who's vetted for play parties. Owners only.", [
       "📋 To review lists new vetting forms (oldest first) and anyone marked Needs vetting or Needs re-vetting.",
@@ -254,57 +257,153 @@
     }));
   }
 
-  // ---------- members ----------
+  // ---------- members: a paged list (filtered and sorted on the server) and a card for each member ----------
+  let mbF = "all", mbSort = "active", mbPage = 1, mbQ = "";
+  const agoM = (ts) => {
+    const t = Date.parse(String(ts || "").replace(" ", "T")); if (isNaN(t)) return "";
+    const s = (Date.now() - t) / 1000;
+    if (s < 90) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago";
+    const d = Math.round(s / 86400); return d < 30 ? d + (d === 1 ? " day ago" : " days ago") : d < 365 ? Math.round(d / 30) + " mo ago" : Math.round(d / 365) + " yr ago";
+  };
+  const VET_L = { vetted: "✅ Vetted", needs: "📝 Needs vetting", renew: "🔄 Re-vet", hold: "⏸️ On hold", denied: "🚫 Denied" };
+  const BADGE_E = { owner: "🗝️", admin: "🛡️", host: "🎪", welcomer: "🤗", helper: "🛠️", vip: "👑" };
   async function members(body, sum) {
-    const { h, pb, toast, personChip, errMsg, copyText } = deps();
-    const search = h("input", { type: "search", placeholder: "Search by name or profile name", "aria-label": "Search members" });
-    const list = h("div", { class: "mod-members" });
-    const out = h("div", {});
-    body.replaceChildren(h("section", { class: "panel" }, search, out, list));
-    let timer;
+    const { h, pb, errMsg, miniAvatar } = deps();
+    const F_LABEL = [["all", "Everyone"], ["online", "🟢 Online now"], ["active", "🔥 Active this week"], ["new", "🌱 New this week"], ["inactive", "💤 Quiet 30+ days"],
+      ["staff", "🛡️ Team"], ["consent", "⚠️ Missing 21+ / guidelines"], ["hidden", "🙈 Hidden"], ["unlisted", "👻 Not on the list"], ["vetted", "✅ Vetted"], ["unvetted", "Not vetted"]];
+    const search = h("input", { type: "search", placeholder: "Search by name, profile name or Telegram", "aria-label": "Search members", value: mbQ });
+    const sortSel = h("select", { "aria-label": "Sort", class: "mb-sort" }, [["active", "🔥 Recently active"], ["new", "🌱 Newest"], ["login", "🔑 Last login"], ["name", "A–Z"]].map(([v, l]) => h("option", { value: v }, l)));
+    sortSel.value = mbSort;
+    const pills = h("div", { class: "pills mb-filters" });
+    const info = h("p", { class: "faint", style: "margin:0" });
+    const list = h("div", { class: "mb-list" });
+    const pager = h("div", { class: "mb-pager" });
+    body.replaceChildren(h("section", { class: "panel" }, h("div", { class: "dir-search-row" }, search, sortSel), pills, info), h("section", { class: "panel mb-panel" }, list, pager));
+    const row = (m) => h("button", { type: "button", class: "mb-row" + (m.hidden ? " is-hidden" : ""), onclick: () => openCard(m.id, sum, () => load()) },
+      h("span", { class: "mb-av" }, miniAvatar(m, "mb-av-img"), m.online ? h("span", { class: "dot", title: "Online now" }) : null),
+      h("span", { class: "mb-main" },
+        h("span", { class: "mb-name" }, h("b", {}, m.display_name), " ", m.badges.map((b) => BADGE_E[b] ? h("span", { title: b }, BADGE_E[b]) : null)),
+        h("small", { class: "faint" }, `@${m.slug} · joined ${dayY(m.created)}`)),
+      h("span", { class: "mb-meta" },
+        h("span", { class: "mb-seen" + (m.online ? " on" : "") }, m.online ? "🟢 Online now" : m.lastSeen ? "Active " + agoM(m.lastSeen) : "Never active"),
+        h("small", { class: "faint" }, `${m.days30} day${m.days30 === 1 ? "" : "s"} active this month`)),
+      h("span", { class: "mb-flags" },
+        sum.owner && m.vetting ? h("span", { class: "att-tag" }, VET_L[m.vetting] || m.vetting) : null,
+        m.hidden ? h("span", { class: "att-tag" }, "🙈 Hidden") : null,
+        !m.listed ? h("span", { class: "att-tag", title: "Not on the member list" }, "👻") : null,
+        m.no21 || m.noGuidelines ? h("span", { class: "att-tag warn", title: [m.no21 ? "Hasn't confirmed 21+" : "", m.noGuidelines ? "Hasn't agreed to the guidelines" : ""].filter(Boolean).join(" · ") }, "⚠️") : null),
+      h("span", { class: "arrow", "aria-hidden": "true" }, "›"));
     const load = async () => {
-      let data; try { data = await pb.send("/api/vc/mod/members?q=" + encodeURIComponent(search.value.trim()), {}); } catch (err) { list.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
-      out.replaceChildren(h("p", { class: "faint" }, search.value.trim() ? `${data.members.length} found` : `Newest members first · ${data.total} in all`));
-      list.replaceChildren(...data.members.map(row));
+      let d;
+      try { d = await pb.send(`/api/vc/mod/members/list?f=${mbF}&sort=${mbSort}&page=${mbPage}&q=` + encodeURIComponent(mbQ), {}); }
+      catch (err) { list.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+      if (mbPage > d.pages) { mbPage = d.pages; return load(); }
+      pills.replaceChildren(...F_LABEL.filter(([k]) => d.counts[k] !== undefined).map(([k, l]) =>
+        h("button", { type: "button", class: "pill", "aria-pressed": String(mbF === k), onclick: () => { mbF = k; mbPage = 1; load(); } }, `${l} (${d.counts[k]})`)));
+      info.textContent = `${d.matched} of ${d.total} members${mbQ ? ` matching “${mbQ}”` : ""}. Tap anyone for their member card.`;
+      list.replaceChildren(...(d.items.length ? d.items.map(row) : [h("p", { class: "muted", style: "margin:0" }, "Nobody here.")]));
+      pager.replaceChildren(...(d.pages > 1 ? [
+        h("button", { type: "button", class: "btn small ghost", disabled: mbPage <= 1, onclick: () => { mbPage--; load(); list.scrollIntoView({ block: "start" }); } }, "‹ Previous"),
+        h("span", { class: "faint" }, `Page ${d.page} of ${d.pages}`),
+        h("button", { type: "button", class: "btn small ghost", disabled: mbPage >= d.pages, onclick: () => { mbPage++; load(); list.scrollIntoView({ block: "start" }); } }, "Next ›")] : []));
     };
-    const save = async (m, payload, msg) => {
-      try { const upd = await pb.send(`/api/vc/mod/members/${m.id}`, { method: "POST", body: payload }); toast(msg); Object.assign(m, upd); return true; }
+    let t;
+    search.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { mbQ = search.value.trim(); mbPage = 1; load(); }, 300); });
+    sortSel.addEventListener("change", () => { mbSort = sortSel.value; mbPage = 1; load(); });
+    load();
+  }
+
+  // One member's card: activity, what they've done, events, profile, account, vetting (owners) and admin actions.
+  async function openCard(id, sum, onChange) {
+    const { h, pb, toast, errMsg, copyText, miniAvatar } = deps();
+    const modal = h("div", { class: "modal mb-modal", role: "dialog", "aria-modal": "true", "aria-label": "Member card" });
+    const box = h("div", { class: "modal-box mb-card" }, h("p", { class: "faint" }, "Loading…"));
+    let changed = false;
+    const close = () => { modal.remove(); document.removeEventListener("keydown", esc); if (changed && onChange) onChange(); };
+    const esc = (e) => { if (e.key === "Escape") close(); };
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    modal.append(box); document.body.append(modal); document.addEventListener("keydown", esc);
+    const save = async (payload, msg) => {
+      try { await pb.send(`/api/vc/mod/members/${id}`, { method: "POST", body: payload }); toast(msg); changed = true; draw(); return true; }
       catch (err) { toast(errMsg(err), true); return false; }
     };
-    function row(m) {
-      const el = h("div", { class: "mod-member" + (m.hidden ? " is-hidden" : "") });
-      const draw = () => {
-        // Only an owner can give or remove the Owner badge.
-        const badgeRow = h("div", { class: "pills" }, BADGES.map(([id, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(m.badges.includes(id)),
-          disabled: id === "owner" && !(sum && sum.owner), title: id === "owner" && !(sum && sum.owner) ? "Only an owner can change this" : "",
-          onclick: async () => { const next = m.badges.includes(id) ? m.badges.filter((b) => b !== id) : [...m.badges, id]; if (await save(m, { badges: next }, "Badges updated")) draw(); } }, label)));
-        el.className = "mod-member" + (m.hidden ? " is-hidden" : "");
-        el.replaceChildren(
-          h("div", { class: "toggle-row" }, h("span", {}, personChip(m), h("small", { class: "faint" }, ` @${m.slug} · joined ${day(m.created)}`, m.hidden ? " · 🙈 hidden" : "", m.listed ? "" : " · not on the list")),
-            h("span", { class: "actions", style: "margin:0" },
-              h("button", { type: "button", class: "btn small " + (m.hidden ? "gold" : "ghost"), onclick: async () => { if (!m.hidden && !confirm(`Hide ${m.display_name}'s profile?`)) return; if (await save(m, { hidden: !m.hidden }, m.hidden ? "Unhidden" : "Hidden")) draw(); } }, m.hidden ? "Unhide" : "🙈 Hide"),
-              h("button", { type: "button", class: "btn small ghost", onclick: async () => {
-                if (!confirm(`Give ${m.display_name} a new temporary password? Their old one stops working.`)) return;
-                try {
-                  const r = await pb.send(`/api/vc/mod/members/${m.id}/password`, { method: "POST" });
-                  const msg = `Hi! Your temporary Velvet Collar password is ${r.password} . Log in with your profile name (${r.slug}) at ${location.origin}/login and change it in Settings.`;
-                  el.querySelector(".mod-pw")?.remove();
-                  el.append(h("div", { class: "mod-pw" }, h("p", {}, "New password: ", h("code", {}, r.password), " (shown once)"),
-                    h("button", { type: "button", class: "btn small", onclick: () => copyText(msg, "Copied a message to send them privately") }, "📋 Copy a message for them")));
-                } catch (err) { toast(errMsg(err), true); }
-              } }, "🔑 Reset password"))),
-          h("div", { class: "mod-row2" }, h("span", { class: "faint" }, "Badges:"), badgeRow),
-          h("div", { class: "mod-row2" }, h("span", { class: m.guidelines_at ? "faint" : "warn-text" }, m.guidelines_at ? `📜 Agreed to the community guidelines ${day(m.guidelines_at)}` : "📜 Hasn't agreed to the community guidelines (joined before the checkbox)"),
-            h("span", { class: m.age21_at ? "faint" : "warn-text" }, m.age21_at ? `🔞 Confirmed 21+ ${day(m.age21_at)}` : "🔞 Hasn't confirmed 21+")),
-          h("div", { class: "mod-row2" }, h("span", { class: "faint" }, `Whispers: ${m.whisper_opt ? "on" : "off"} · Hunt: ${m.hunt_opt}`),
-            m.whisper_opt ? h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (await save(m, { whisper_opt: false }, "Whispers off")) draw(); } }, "Turn off Whispers") : null,
-            m.hunt_opt !== "off" ? h("button", { type: "button", class: "btn small ghost", onclick: async () => { if (await save(m, { hunt_opt: "off" }, "Hunt off")) draw(); } }, "Turn off Hunt") : null));
-      };
-      draw();
-      return el;
-    }
-    search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 300); });
-    load();
+    const draw = async () => {
+      let d; try { d = await pb.send(`/api/vc/mod/members/${id}/card`, {}); } catch (err) { box.replaceChildren(h("p", { class: "muted" }, errMsg(err))); return; }
+      const m = d.member, a = d.activity;
+      const tile = (label, value, sub) => h("div", { class: "mb-tile" }, h("small", { class: "faint" }, label), h("b", {}, value), sub ? h("small", { class: "faint" }, sub) : null);
+      const hrs = (min) => (min >= 60 ? (Math.round(min / 6) / 10) + " h" : min + " min");
+      const maxDay = Math.max(1, ...a.series.map((x) => x.minutes));
+      const maxHr = Math.max(1, ...a.hours);
+      const hr = (x) => (x % 12 || 12) + (x < 12 ? "a" : "p");
+      const peak = a.hours.some(Boolean) ? a.hours.indexOf(Math.max(...a.hours)) : -1;
+      const sec = (title, ...kids) => h("section", { class: "mb-sec" }, h("h3", {}, title), ...kids);
+      const did = d.did;
+      const counts = [["🔥 Reactions given", did.reactions], ["💖 Reactions received", did.reactionsGot], ["💌 Kind notes sent", did.notes], ["📬 Notes received", did.notesGot],
+        ["🤝 Vouches given", did.vouches], ["🙌 Vouched for", did.vouchesGot], ["📅 RSVPs", did.rsvps], ["✅ Events attended", did.attended], ["📷 Photos", did.photos],
+        ["❓ Question answers", did.answers], ["🏹 Hunts started", did.hunts], ["💞 Relationships", did.relationships]];
+      const yes = (v, on, off) => h("span", { class: "mb-flag " + (v ? "ok" : "no") }, v ? on : off);
+      const badgeRow = h("div", { class: "pills" }, BADGES.map(([bid, label]) => h("button", { type: "button", class: "pill", "aria-pressed": String(m.badges.includes(bid)),
+        disabled: bid === "owner" && !sum.owner, title: bid === "owner" && !sum.owner ? "Only an owner can change this" : "",
+        onclick: () => save({ badges: m.badges.includes(bid) ? m.badges.filter((b) => b !== bid) : [...m.badges, bid] }, "Badges updated") }, label)));
+      const pwHolder = h("div", {});
+      box.replaceChildren(
+        h("div", { class: "mb-card-head" },
+          h("span", { class: "mb-av big" }, miniAvatar(m, "mb-av-img"), a.online ? h("span", { class: "dot" }) : null),
+          h("div", { class: "mb-card-who" }, h("h2", { style: "margin:0" }, m.display_name, " ", m.badges.map((b) => BADGE_E[b] ? h("span", { title: b }, BADGE_E[b]) : null)),
+            h("small", { class: "faint" }, [`@${m.slug}`, m.pronouns, m.location, `joined ${dayY(m.created)}`].filter(Boolean).join(" · ")),
+            h("div", { class: "actions", style: "margin:6px 0 0" }, h("a", { class: "btn small", href: "/" + m.slug, "data-nav": "", onclick: close }, "View profile ›"),
+              m.tg ? h("a", { class: "btn small ghost", href: "https://t.me/" + encodeURIComponent(m.tg.replace(/^@/, "")), target: "_blank", rel: "noopener" }, "✈️ Telegram") : null)),
+          h("button", { type: "button", class: "btn small ghost", "aria-label": "Close", onclick: close }, "✕")),
+        h("div", { class: "mb-tiles" },
+          tile("Last active", a.online ? "🟢 Online now" : a.lastSeen ? agoM(a.lastSeen) : "Never", a.lastSeen ? when(a.lastSeen) : ""),
+          tile("Last login", m.lastLogin ? agoM(m.lastLogin) : "Not recorded yet", m.logins ? `${m.logins} login${m.logins === 1 ? "" : "s"} since tracking began` : ""),
+          tile("Days active", `${a.days7} / ${a.days30} / ${a.days90}`, "last 7 / 30 / 90 days"),
+          tile("Time on the site", hrs(a.minutes30), `this month · ${hrs(a.minutesTotal)} in all`)),
+        sec("📈 Last 30 days", h("div", { class: "mb-bars", role: "img", "aria-label": "Minutes on the site per day for the last 30 days" },
+          a.series.map((x) => h("i", { title: `${x.day}: ${x.minutes} min`, style: `height:${Math.max(x.minutes ? 6 : 2, Math.round(x.minutes / maxDay * 100))}%`, class: x.minutes ? "" : "zero" }))),
+          h("small", { class: "faint" }, a.firstSeen ? `First seen ${dayY(a.firstSeen)} (activity tracking started recently, so older visits aren't counted).` : "No visits recorded yet.")),
+        sec("⏰ Usually on", h("div", { class: "mb-hours" }, a.hours.map((v, i) => h("i", { title: `${hr(i)}: ${v * 5} min`, style: `opacity:${v ? 0.25 + 0.75 * v / maxHr : 0.06}` }))),
+          h("div", { class: "mb-hours-l faint" }, h("span", {}, "12a"), h("span", {}, "6a"), h("span", {}, "12p"), h("span", {}, "6p"), h("span", {}, "12a")),
+          h("small", { class: "faint" }, peak >= 0 ? `Busiest around ${hr(peak)}m (Pacific).` : "Not enough activity yet.")),
+        a.pages.length ? sec("🧭 Uses most", h("div", { class: "pills" }, a.pages.map((x) => h("span", { class: "att-tag" }, `${PAGE_LABEL[x.key] || x.key} · ${x.count}`)))) : "",
+        sec("🙌 What they've done", h("div", { class: "mb-counts" }, counts.map(([l, v]) => h("div", { class: v ? "" : "zero" }, h("b", {}, String(v)), h("small", {}, l))))),
+        sec("📅 Events",
+          h("p", { style: "margin:0" }, h("b", {}, "Going next: "), d.events.upcoming.length ? d.events.upcoming.map((ev) => `${ev.emoji || "📅"} ${ev.title} (${dayY(ev.starts)})`).join(" · ") : "Nothing yet."),
+          h("p", { style: "margin:6px 0 0" }, h("b", {}, `Came to (${did.attended}): `), d.events.attended.length ? d.events.attended.map((ev) => `${ev.emoji || "📅"} ${ev.title} (${dayY(ev.starts)})`).join(" · ") : "None recorded. Tick “Came” on an event's 👥 People list.")),
+        sec("✨ Profile", h("div", { class: "pills" }, d.profile.map((x) => h("span", { class: "mb-flag " + (x.ok ? "ok" : "no") }, (x.ok ? "✓ " : "✗ ") + x.label))),
+          h("small", { class: "faint" }, `${d.profile.filter((x) => x.ok).length} of ${d.profile.length} filled in.`)),
+        sec("⚙️ Account", h("div", { class: "pills" },
+          yes(m.age21_at, "🔞 21+ confirmed " + dayY(m.age21_at), "🔞 Hasn't confirmed 21+"),
+          yes(m.guidelines_at, "📜 Guidelines agreed " + dayY(m.guidelines_at), "📜 Hasn't agreed to the guidelines"),
+          yes(m.listed, "📋 On the member list", "👻 Not on the member list"),
+          yes(!m.hidden, "👀 Profile visible", "🙈 Profile hidden"),
+          h("span", { class: "mb-flag" }, m.hideOnline ? "🙈 Hides online status" : "🟢 Shows online status"),
+          h("span", { class: "mb-flag" }, m.networking ? "🤝 In Networking" : "🤝 Not in Networking"),
+          h("span", { class: "mb-flag" }, `🤫 Whispers ${m.whisper_opt ? "on" : "off"}`), h("span", { class: "mb-flag" }, `🏹 Hunt: ${m.hunt_opt}`))),
+        d.vetting ? sec("🔒 Vetting (owners only)",
+          h("p", { style: "margin:0" }, h("b", {}, VET_L[d.vetting.status] || "No status"), d.vetting.by ? h("span", { class: "faint" }, ` · ${d.vetting.by}${d.vetting.at ? " · " + dayY(d.vetting.at) : ""}`) : null),
+          d.vetting.note ? h("p", { class: "faint", style: "margin:4px 0 0" }, "📝 " + d.vetting.note) : null,
+          d.application ? h("p", { class: "faint", style: "margin:4px 0 0" }, `📜 Old application: sheet row ${d.application.row} · applied ${dayY(d.application.applied)} · sheet said “${d.application.status_raw || "no status"}”`) : null,
+          d.volunteering && d.volunteering.length ? h("p", { class: "faint", style: "margin:4px 0 0" }, "🙋 Volunteering: " + d.volunteering.map((v) => `${v.event} (${v.status}${v.role.length ? ", " + v.role.join("/") : ""})`).join(" · ")) : null,
+          h("a", { class: "btn small ghost", href: "/admin/vetting", "data-nav": "", onclick: close, style: "margin-top:6px" }, "Open Vetting ›")) : "",
+        sec("🛠️ Admin actions",
+          h("div", { class: "mb-row2" }, h("small", { class: "faint" }, "Badges"), badgeRow),
+          h("div", { class: "actions", style: "margin:8px 0 0" },
+            h("button", { type: "button", class: "btn small " + (m.hidden ? "gold" : "ghost"), onclick: () => { if (!m.hidden && !confirm(`Hide ${m.display_name}'s profile?`)) return; save({ hidden: !m.hidden }, m.hidden ? "Unhidden" : "Hidden"); } }, m.hidden ? "Unhide profile" : "🙈 Hide profile"),
+            h("button", { type: "button", class: "btn small ghost", onclick: async () => {
+              if (!confirm(`Give ${m.display_name} a new temporary password? Their old one stops working.`)) return;
+              try {
+                const r = await pb.send(`/api/vc/mod/members/${id}/password`, { method: "POST" });
+                const msg = `Hi! Your temporary Velvet Collar password is ${r.password} . Log in with your profile name (${r.slug}) at ${location.origin}/login and change it in Settings.`;
+                pwHolder.replaceChildren(h("div", { class: "mod-pw" }, h("p", {}, "New password: ", h("code", {}, r.password), " (shown once)"),
+                  h("button", { type: "button", class: "btn small", onclick: () => copyText(msg, "Copied a message to send them privately") }, "📋 Copy a message for them")));
+              } catch (err) { toast(errMsg(err), true); }
+            } }, "🔑 Reset password"),
+            m.whisper_opt ? h("button", { type: "button", class: "btn small ghost", onclick: () => save({ whisper_opt: false }, "Whispers off") }, "Turn off Whispers") : null,
+            m.hunt_opt !== "off" ? h("button", { type: "button", class: "btn small ghost", onclick: () => save({ hunt_opt: "off" }, "Hunt off") }, "Turn off Hunt") : null),
+          pwHolder));
+    };
+    draw();
   }
 
   // ---------- vetting: owners only. Sub-tabs: To review (forms and anyone waiting), On hold, Vetted, and a search ----------
